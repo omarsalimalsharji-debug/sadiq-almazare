@@ -1,0 +1,47 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
+}
+
+/* Custom smooth transitions and typography */
+html {
+  font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.4);
+}
+
+/* Watermark protection styling for reading preview */
+.secure-watermark {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(16, 185, 129, 0.035),
+    rgba(16, 185, 129, 0.035) 120px,
+    transparent 120px,
+    transparent 240px
+  );
+}
+
+/* Islamic pattern background for Ramadan mode */
+.ramadan-pattern {
+  background-image: radial-gradient(rgba(217, 119, 6, 0.08) 1.5px, transparent 1.5px),
+                    radial-gradient(rgba(16, 185, 129, 0.08) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
+}
