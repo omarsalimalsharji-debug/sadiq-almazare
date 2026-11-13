@@ -20,22 +20,31 @@ import {
   Wind,
   Droplets,
   Thermometer,
-  ArrowRight
+  ArrowRight,
+  Clapperboard
 } from 'lucide-react';
 import { ActivePage, UserProfile } from '../types/index.ts';
-import { QuranPlayer } from './QuranPlayer.tsx';
+import { SeasonalBanner } from './SeasonalBanner.tsx';
+import { HijriDateInfo, SeasonalConfig, DEFAULT_SEASONAL_CONFIG, computeOmaniHijriState } from '../utils/islamicCalendar.ts';
 
 interface HomeViewProps {
   onNavigate: (page: ActivePage) => void;
   isRamadanMode: boolean;
   user: UserProfile;
+  hijriState?: HijriDateInfo;
+  seasonalConfig?: SeasonalConfig;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
   onNavigate,
   isRamadanMode,
-  user
+  user,
+  hijriState,
+  seasonalConfig
 }) => {
+  const activeConfig = seasonalConfig || DEFAULT_SEASONAL_CONFIG;
+  const activeHijri = hijriState || computeOmaniHijriState(activeConfig);
+  const showRamadanTheme = activeHijri.occasion === 'ramadan';
   // Live weather alerts summary from backend Open-Meteo integration
   const [alerts, setAlerts] = useState<any[]>([]);
   const [currentWeather, setCurrentWeather] = useState<any>(null);
@@ -58,22 +67,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
       .finally(() => setLoadingWeather(false));
   }, []);
 
-  // Gregorian and Hijri Dates
-  const today = new Date();
-  const gregorianDate = today.toLocaleDateString('ar-OM', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-  const hijriDate = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  }).format(today);
+  const gregorianDate = activeHijri.gregorianAr;
+  const hijriDate = activeHijri.formattedAr;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
+      {/* 0. نظام المناسبات الإسلامية والهوية الموسمية التلقائية */}
+      <SeasonalBanner hijri={activeHijri} config={activeConfig} onNavigate={onNavigate} />
       
       {/* 1. شعار واسم التطبيق والهوية العمانية (App Logo & Name & Founder Omar Al-Sharji) */}
       <section className="relative rounded-3xl overflow-hidden bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-lg text-white">
@@ -130,6 +130,22 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </button>
 
             <button
+              onClick={() => onNavigate('virtual_farm')}
+              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs shadow-lg transition-transform hover:scale-102 flex items-center gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>مزرعتي الافتراضية (3D)</span>
+            </button>
+
+            <button
+              onClick={() => onNavigate('cartoon_videos')}
+              className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-lg transition-transform hover:scale-102 flex items-center gap-2"
+            >
+              <Clapperboard className="w-4 h-4" />
+              <span>فيديوهات فليجان الكرتونية</span>
+            </button>
+
+            <button
               onClick={() => onNavigate('games')}
               className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold text-xs backdrop-blur-sm transition-colors flex items-center gap-2"
             >
@@ -147,9 +163,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <CalendarDays className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[11px] text-stone-500 dark:text-stone-400">التاريخ اليوم في سلطنة عُمان</div>
+            <div className="text-[11px] text-stone-500 dark:text-stone-400">التاريخ اليوم وفق تقويم سلطنة عُمان</div>
             <div className="font-bold text-stone-900 dark:text-white flex items-center gap-2 mt-0.5">
-              <span>{hijriDate} هـ</span>
+              <span>{hijriDate}</span>
               <span className="text-stone-400">|</span>
               <span className="text-stone-700 dark:text-stone-300">{gregorianDate} م</span>
             </div>
@@ -175,12 +191,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         )}
       </section>
 
-      {/* 3. مشغل القرآن الكريم (Holy Quran Player) */}
-      <section aria-label="قسم القرآن الكريم">
-        <QuranPlayer />
-      </section>
-
-      {/* 4. التنبيهات الزراعية (Agricultural Alerts) */}
+      {/* 3. التنبيهات الزراعية (Agricultural Alerts) */}
       <section className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/60 rounded-2xl p-4 sm:p-5 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold text-sm">
@@ -471,7 +482,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </p>
         </div>
 
-        {isRamadanMode ? (
+        {showRamadanTheme ? (
           <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-950/80 to-stone-900 border border-amber-500/40 text-white shadow-sm space-y-3 ramadan-pattern">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">

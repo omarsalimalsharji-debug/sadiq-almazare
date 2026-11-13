@@ -22,9 +22,12 @@ import {
   LogOut, 
   LogIn, 
   ShieldCheck, 
-  Search 
+  Search,
+  Sprout,
+  Clapperboard
 } from 'lucide-react';
 import { ActivePage, UserProfile } from '../types/index.ts';
+import { PWAInstallButton } from './PWAInstallButton.tsx';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -58,22 +61,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'home', number: 1, label: 'الصفحة الرئيسية', icon: Home, category: 'رئيسي' },
     { id: 'plant_diagnosis', number: 2, label: 'تشخيص أمراض النباتات بالذكاء الاصطناعي', icon: Scan, badge: 'AI', category: 'الذكاء الاصطناعي' },
     { id: 'pest_diagnosis', number: 3, label: 'تشخيص الحشرات والآفات بالذكاء الاصطناعي', icon: Bug, badge: 'AI', category: 'الذكاء الاصطناعي' },
-    { id: 'encyclopedia', number: 4, label: 'الموسوعة الزراعية', icon: BookOpen, category: 'المعرفة والمكتبة' },
-    { id: 'calendar', number: 5, label: 'التقويم الزراعي ومواعيد الزراعة', icon: Calendar, category: 'المعرفة والمكتبة' },
-    { id: 'alerts', number: 6, label: 'التنبيهات والإرشادات الزراعية', icon: Bell, category: 'المعرفة والمكتبة' },
-    { id: 'weather', number: 7, label: 'الطقس والتنبيهات المناخية', icon: CloudSun, category: 'المعرفة والمكتبة' },
-    { id: 'community', number: 8, label: 'المجتمع الزراعي والدردشة', icon: Users, category: 'المعرفة والمكتبة' },
-    { id: 'games', number: 9, label: 'الألعاب الزراعية', icon: Gamepad2, badge: '6 ألعاب', category: 'المسابقات والترفيه' },
-    { id: 'cultural_quiz', number: 10, label: 'المسابقة الثقافية العامة', icon: Trophy, category: 'المسابقات والترفيه' },
-    { id: 'leaderboard', number: 11, label: 'لوحة المتصدرين والنقاط', icon: Award, category: 'المسابقات والترفيه' },
-    { id: 'library', number: 12, label: 'المكتبة الزراعية الإلكترونية', icon: Library, badge: '12 تصنيف', category: 'المعرفة والمكتبة' },
-    { id: 'quran', number: 13, label: 'القرآن الكريم (الشيخ هزاع البلوشي)', icon: BookMarked, category: 'الروحانيات والإعلام' },
-    { id: 'radio', number: 14, label: 'الإذاعات والبث المباشر (عُمان)', icon: Radio, category: 'الروحانيات والإعلام' },
-    { id: 'daily_tips', number: 15, label: 'النصائح اليومية والمعلومات الرمضانية', icon: Lightbulb, category: 'المعرفة والمكتبة' },
-    { id: 'profile', number: 16, label: 'الملف الشخصي', icon: UserCircle, category: 'المستخدم والنظام' },
-    { id: 'settings', number: 17, label: 'الإعدادات والمظهر', icon: Settings, category: 'المستخدم والنظام' },
-    { id: 'help_support', number: 18, label: 'المساعدة والدعم وتوثيق المنصة', icon: HelpCircle, category: 'المستخدم والنظام' },
-    { id: 'login', number: 19, label: user.isAdmin ? 'تسجيل الخروج / تبديل الحساب' : 'تسجيل الدخول / لوحة الإدارة', icon: user.isAdmin ? LogOut : LogIn, category: 'المستخدم والنظام' }
+    { id: 'cartoon_videos', number: 4, label: 'فيديوهات فليجان التوعوية (كرتون)', icon: Clapperboard, badge: 'جديد', category: 'المعرفة والمكتبة' },
+    { id: 'encyclopedia', number: 5, label: 'الموسوعة الزراعية', icon: BookOpen, category: 'المعرفة والمكتبة' },
+    { id: 'calendar', number: 6, label: 'التقويم الزراعي ومواعيد الزراعة', icon: Calendar, category: 'المعرفة والمكتبة' },
+    { id: 'alerts', number: 7, label: 'التنبيهات والإرشادات الزراعية', icon: Bell, category: 'المعرفة والمكتبة' },
+    { id: 'weather', number: 8, label: 'الطقس والتنبيهات المناخية', icon: CloudSun, category: 'المعرفة والمكتبة' },
+    { id: 'community', number: 9, label: 'المجتمع الزراعي والدردشة', icon: Users, category: 'المعرفة والمكتبة' },
+    { id: 'virtual_farm', number: 10, label: 'مزرعتي الافتراضية (3D)', icon: Sprout, badge: 'جديد 3D', category: 'المسابقات والترفيه' },
+    { id: 'games', number: 11, label: 'الألعاب الزراعية', icon: Gamepad2, badge: '6 ألعاب', category: 'المسابقات والترفيه' },
+    { id: 'cultural_quiz', number: 12, label: 'المسابقة الثقافية العامة', icon: Trophy, category: 'المسابقات والترفيه' },
+    { id: 'leaderboard', number: 13, label: 'لوحة المتصدرين والنقاط', icon: Award, category: 'المسابقات والترفيه' },
+    { id: 'library', number: 14, label: 'المكتبة الزراعية الإلكترونية', icon: Library, badge: '12 تصنيف', category: 'المعرفة والمكتبة' },
+    { id: 'quran', number: 15, label: 'القرآن الكريم (الشيخ هزاع البلوشي)', icon: BookMarked, category: 'الروحانيات والإعلام' },
+    { id: 'radio', number: 16, label: 'الإذاعات والبث المباشر (عُمان)', icon: Radio, category: 'الروحانيات والإعلام' },
+    { id: 'daily_tips', number: 17, label: 'النصائح اليومية والمعلومات الرمضانية', icon: Lightbulb, category: 'المعرفة والمكتبة' },
+    { id: 'profile', number: 18, label: 'الملف الشخصي', icon: UserCircle, category: 'المستخدم والنظام' },
+    { id: 'settings', number: 19, label: 'الإعدادات والمظهر', icon: Settings, category: 'المستخدم والنظام' },
+    { id: 'help_support', number: 20, label: 'المساعدة والدعم وتوثيق المنصة', icon: HelpCircle, category: 'المستخدم والنظام' },
+    { id: 'login', number: 21, label: user.isAdmin ? 'تسجيل الخروج / تبديل الحساب' : 'تسجيل الدخول / لوحة الإدارة', icon: user.isAdmin ? LogOut : LogIn, category: 'المستخدم والنظام' }
   ];
 
   const filteredItems = menuItems.filter(item => 
@@ -180,30 +185,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
             })
           )}
 
-          {/* Quick Admin Access Row if user is Admin */}
-          {user.isAdmin && (
+          {/* Quick Admin / Moderator Access Row */}
+          {(user.isAdmin || user.isModerator) && (
             <div className="pt-2">
               <button
                 onClick={() => {
                   onNavigate('admin');
                   onClose();
                 }}
-                className="w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-stone-900 text-white dark:bg-emerald-800 hover:bg-stone-800 text-xs font-semibold"
+                className="min-h-[44px] w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-stone-900 text-white dark:bg-emerald-800 hover:bg-stone-800 text-xs font-semibold"
               >
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>لوحة التحكم الإدارية الشاملة (عمر الشرجي)</span>
+                <span>
+                  {user.isAdmin
+                    ? 'لوحة التحكم الإدارية الشاملة (عمر الشرجي)'
+                    : 'لوحة الإشراف وسجل الإجراءات'}
+                </span>
               </button>
             </div>
           )}
         </div>
 
         {/* Footer of Drawer */}
-        <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 text-center">
-          <div className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">
-            تطبيق «صديق المزارع» · الإصدار الشامل 2026
-          </div>
-          <div className="text-[10px] text-stone-400 dark:text-stone-500 mt-0.5">
-            سلطنة عُمان · إشراف وإدارة: عمر الشرجي
+        <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 space-y-3 text-center">
+          <PWAInstallButton />
+          <div>
+            <div className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">
+              تطبيق «صديق المزارع» · الإصدار الشامل 2026
+            </div>
+            <div className="text-[10px] text-stone-400 dark:text-stone-500 mt-0.5">
+              سلطنة عُمان · إشراف وإدارة: عمر الشرجي
+            </div>
           </div>
         </div>
 

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="55%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#065f46" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde68a" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <circle cx="256" cy="256" r="196" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="6" />
+  <circle cx="344" cy="148" r="34" fill="url(#goldGrad)" />
+  <!-- Stylized Sprout & Palm Leaf Emblem -->
+  <path d="M256 392 C256 320, 256 260, 256 205" stroke="#ffffff" stroke-width="24" stroke-linecap="round" fill="none" />
+  <path d="M256 286 C194 282, 146 244, 142 184 C202 184, 248 220, 256 286 Z" fill="#ffffff" />
+  <path d="M256 254 C318 250, 366 212, 370 152 C310 152, 264 188, 256 254 Z" fill="#d1fae5" />
+  <path d="M188 394 Q256 364 324 394" stroke="url(#goldGrad)" stroke-width="18" stroke-linecap="round" fill="none" />
+</svg>

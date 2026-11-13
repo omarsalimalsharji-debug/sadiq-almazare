@@ -16,11 +16,13 @@ import { NotificationDrawer } from './components/NotificationDrawer.tsx';
 import { LoginModal } from './components/LoginModal.tsx';
 import { BottomNav } from './components/BottomNav.tsx';
 import { GlobalMiniPlayer } from './components/GlobalMiniPlayer.tsx';
+import { OfflineIndicator } from './components/OfflineIndicator.tsx';
 
 // Views
 import { HomeView } from './components/HomeView.tsx';
 import { PlantDiagnosisView } from './components/PlantDiagnosisView.tsx';
 import { PestDiagnosisView } from './components/PestDiagnosisView.tsx';
+import { CartoonVideosView } from './components/CartoonVideosView.tsx';
 import { GamesView } from './components/GamesView.tsx';
 import { LeaderboardView } from './components/LeaderboardView.tsx';
 import { LibraryView } from './components/LibraryView.tsx';
@@ -36,6 +38,14 @@ import { HelpSupportView } from './components/HelpSupportView.tsx';
 import { AdminView } from './components/AdminView.tsx';
 import { QuranPlayer } from './components/QuranPlayer.tsx';
 import { RadioPlayer } from './components/RadioPlayer.tsx';
+import { VirtualFarmView } from './components/VirtualFarm/VirtualFarmView.tsx';
+import {
+  SeasonalConfig,
+  DEFAULT_SEASONAL_CONFIG,
+  computeOmaniHijriState,
+} from './utils/islamicCalendar.ts';
+import { auth } from './firebase.ts';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>('home');
@@ -133,7 +143,122 @@ export default function App() {
     localStorage.setItem('farmer_theme_mode', themeMode);
   }, [isEffectiveDark, themeMode]);
 
-  // Ramadan Smart Mode
+  // Dynamic Automatic Omani Islamic Seasonal Theme Engine (Ramadan / Eid Fitr / Eid Adha / Normal)
+  const [seasonalConfig, setSeasonalConfig] = useState<SeasonalConfig>(DEFAULT_SEASONAL_CONFIG);
+  const [seasonalTick, setSeasonalTick] = useState<number>(Date.now());
+
+  useEffect(() => {
+    const fetchSeasonalConfig = () => {
+      fetch('/api/seasonal/config')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.config) {
+            setSeasonalConfig(data.config);
+          }
+        })
+        .catch(() => {});
+    };
+    fetchSeasonalConfig();
+    const timer = setInterval(() => {
+      setSeasonalTick(Date.now());
+      fetchSeasonalConfig();
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const hijriState = React.useMemo(
+    () => computeOmaniHijriState(seasonalConfig),
+    [seasonalConfig, seasonalTick]
+  );
+
+  // Anonymous Visitor Tracking + Active Heartbeat
+  useEffect(() => {
+    let anonId = localStorage.getItem('farmer_anon_device_id');
+    if (!anonId) {
+      anonId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem('farmer_anon_device_id', anonId);
+    }
+
+    const detectDevice = () => {
+      const ua = navigator.userAgent.toLowerCase();
+      if (/ipad|tablet|playbook|silk|(android(?!.*mobi))/i.test(ua)) return 'جهاز لوحي';
+      if (/mobile|iphone|ipod|android|blackberry|iemobile|opera mini/i.test(ua) || window.innerWidth < 640) {
+        return 'هاتف';
+      }
+      return 'كمبيوتر';
+    };
+
+    const sendVisitPing = () => {
+      fetch('/api/visitors/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          anonId,
+          deviceType: detectDevice(),
+          currentPage: activePage,
+        }),
+      }).catch(() => {});
+    };
+
+    sendVisitPing();
+    const hb = setInterval(sendVisitPing, 60000);
+    return () => clearInterval(hb);
+  }, [activePage]);
+
+  // Verify Staff Token (Admin / Moderator) on mount
+  useEffect(() => {
+    const token = localStorage.getItem('farmer_admin_token');
+    if (!token) return;
+    fetch('/api/auth/me', {
+      headers: { 'x-admin-token': token },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data?.success) {
+          localStorage.removeItem('farmer_admin_token');
+          localStorage.removeItem('farmer_staff_role');
+          localStorage.removeItem('farmer_force_pw_change');
+          setUser((prev) => ({
+            ...prev,
+            isAdmin: false,
+            isModerator: false,
+            role: prev.role === 'مدير التطبيق' || prev.role === 'مشرف' ? 'مزارع' : prev.role,
+          }));
+          return;
+        }
+        if (data.session?.mustChangePassword) {
+          localStorage.setItem('farmer_force_pw_change', '1');
+          setActivePage('admin');
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Firebase Auth Session Sync (keeps Google farmer session intact across reloads)
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser) {
+        const isBootstrapAdmin =
+          fbUser.email?.toLowerCase() === 'alsharji73@gmail.com' && fbUser.emailVerified;
+        setUser((prev) => {
+          if (prev.id === 'admin-omar' || prev.isModerator) return prev;
+          return {
+            ...prev,
+            id: fbUser.uid,
+            name: fbUser.displayName || prev.name,
+            role: isBootstrapAdmin ? 'مدير التطبيق' : prev.role,
+            isAdmin: isBootstrapAdmin || prev.isAdmin,
+          };
+        });
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Ramadan Smart Mode (follows automatic Hijri occasion unless overridden)
   const [isRamadanMode, setIsRamadanMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('farmer_ramadan_mode');
     return saved !== null ? saved === 'true' : true;
@@ -167,7 +292,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100 transition-colors duration-300 pb-20 sm:pb-12">
+    <div className="min-h-screen overflow-x-hidden flex flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100 transition-colors duration-300 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-12">
       
       {/* Comprehensive Header with Top Bar Contract & Hamburger */}
       <Header
@@ -179,7 +304,8 @@ export default function App() {
         themeMode={themeMode}
         isEffectiveDark={isEffectiveDark}
         onSetThemeMode={setThemeMode}
-        isRamadanMode={isRamadanMode}
+        isRamadanMode={hijriState.occasion === 'ramadan'}
+        hijriState={hijriState}
         user={user}
         lang={lang}
         onToggleLang={toggleLanguage}
@@ -207,9 +333,9 @@ export default function App() {
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         currentUser={user}
-        onSwitchUser={(newUser) => {
+        onSwitchUser={(newUser, options) => {
           setUser(newUser);
-          if (newUser.isAdmin) {
+          if (newUser.isAdmin || newUser.isModerator || options?.mustChangePassword) {
             setActivePage('admin');
           }
         }}
@@ -220,9 +346,15 @@ export default function App() {
         {activePage === 'home' && (
           <HomeView
             onNavigate={setActivePage}
-            isRamadanMode={isRamadanMode}
+            isRamadanMode={hijriState.occasion === 'ramadan'}
+            hijriState={hijriState}
+            seasonalConfig={seasonalConfig}
             user={user}
           />
+        )}
+
+        {activePage === 'virtual_farm' && (
+          <VirtualFarmView user={user} />
         )}
 
         {activePage === 'plant_diagnosis' && (
@@ -233,11 +365,16 @@ export default function App() {
           <PestDiagnosisView />
         )}
 
+        {activePage === 'cartoon_videos' && (
+          <CartoonVideosView />
+        )}
+
         {activePage === 'games' && (
           <GamesView
             user={user}
             onScoreUpdated={handleScoreUpdated}
             onNavigateToLeaderboard={() => setActivePage('leaderboard')}
+            onOpenVirtualFarm={() => setActivePage('virtual_farm')}
           />
         )}
 
@@ -246,6 +383,7 @@ export default function App() {
             user={user}
             onScoreUpdated={handleScoreUpdated}
             onNavigateToLeaderboard={() => setActivePage('leaderboard')}
+            onOpenVirtualFarm={() => setActivePage('virtual_farm')}
             initialGameType="cultural"
           />
         )}
@@ -293,7 +431,7 @@ export default function App() {
         )}
 
         {(activePage === 'daily_tips' || (activePage as string) === 'ramadan') && (
-          isRamadanMode ? (
+          hijriState.occasion === 'ramadan' ? (
             <RamadanView />
           ) : (
             <DailyTipsView />
@@ -349,12 +487,17 @@ export default function App() {
         {activePage === 'admin' && (
           <AdminView
             user={user}
+            seasonalConfig={seasonalConfig}
+            onSeasonalConfigUpdated={(cfg) => setSeasonalConfig(cfg)}
             onBroadcastSuccess={() => {
               setUnreadNotifsCount(prev => prev + 1);
             }}
           />
         )}
       </main>
+
+      {/* Offline Connectivity Banner */}
+      <OfflineIndicator />
 
       {/* Sticky Global Mini-Player for continuous audio playback across navigation */}
       <GlobalMiniPlayer onNavigate={setActivePage} />

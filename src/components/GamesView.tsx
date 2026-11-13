@@ -1,32 +1,65 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { 
-  Gamepad2, 
-  Trophy, 
-  Sparkles, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Flame, 
-  RotateCcw, 
-  Award,
+import {
+  Gamepad2,
+  Trophy,
+  Sparkles,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Flame,
+  RotateCcw,
   Stethoscope,
   HelpCircle,
   Zap,
   Landmark,
-  ChevronLeft
+  ChevronLeft,
+  Lightbulb,
+  Scissors,
+  Loader2,
+  LogIn,
+  CloudCheck,
 } from 'lucide-react';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import {
+  doc,
+  getDoc,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 import { GAME_QUESTIONS, Question } from '../data/agriculturalData.ts';
 import { UserProfile } from '../types/index.ts';
+import {
+  auth,
+  db,
+  handleFirestoreError,
+  OperationType,
+  signInWithGoogleFarmer,
+} from '../firebase.ts';
 
 interface GamesViewProps {
   user: UserProfile;
   onScoreUpdated: (newTotal: number) => void;
   onNavigateToLeaderboard: () => void;
+  onOpenVirtualFarm?: () => void;
   initialGameType?: string;
 }
 
-type GameKey = 'knowledge' | 'guess_crop' | 'plant_doctor' | 'true_false' | 'speed' | 'cultural';
+type GameKey =
+  | 'knowledge'
+  | 'guess_crop'
+  | 'plant_doctor'
+  | 'true_false'
+  | 'speed'
+  | 'cultural';
+
+type Difficulty = 'easy' | 'medium' | 'hard';
+
+interface ExtendedQuestion extends Question {
+  hint?: string;
+  difficulty?: Difficulty;
+}
 
 interface GameInfo {
   key: GameKey;
@@ -44,7 +77,7 @@ const GAMES_CATALOG: GameInfo[] = [
     subtitle: 'أسئلة علمية وميدانية عن النباتات والمحاصيل والآفات وتغذية النبات',
     icon: Gamepad2,
     badge: 'شامل',
-    gradient: 'from-emerald-600 to-teal-700'
+    gradient: 'from-emerald-600 to-teal-700',
   },
   {
     key: 'guess_crop',
@@ -52,7 +85,7 @@ const GAMES_CATALOG: GameInfo[] = [
     subtitle: 'تعرف على التمور والفواكه والمحاصيل العمانية من خلال التلميحات والأوصاف',
     icon: Sparkles,
     badge: 'ذكاء بصري',
-    gradient: 'from-amber-600 to-orange-700'
+    gradient: 'from-amber-600 to-orange-700',
   },
   {
     key: 'plant_doctor',
@@ -60,7 +93,7 @@ const GAMES_CATALOG: GameInfo[] = [
     subtitle: 'عليك تشخيص الحالات المرضية الحقلية ووصف العلاج الزراعي السليم',
     icon: Stethoscope,
     badge: 'مستوى متقدم',
-    gradient: 'from-cyan-600 to-blue-700'
+    gradient: 'from-cyan-600 to-blue-700',
   },
   {
     key: 'true_false',
@@ -68,7 +101,7 @@ const GAMES_CATALOG: GameInfo[] = [
     subtitle: 'اختبر سرعة بديهتك بمعلومات زراعية وبيئية وتراثية في ثوانٍ معدودة',
     icon: HelpCircle,
     badge: 'سريع',
-    gradient: 'from-violet-600 to-purple-700'
+    gradient: 'from-violet-600 to-purple-700',
   },
   {
     key: 'speed',
@@ -76,7 +109,7 @@ const GAMES_CATALOG: GameInfo[] = [
     subtitle: 'أجب قبل نفاد الوقت مع نقاط مضاعفة لمن يجيب في أقل من 8 ثوانٍ',
     icon: Zap,
     badge: 'عداد تنازلي',
-    gradient: 'from-rose-600 to-pink-700'
+    gradient: 'from-rose-600 to-pink-700',
   },
   {
     key: 'cultural',
@@ -84,64 +117,148 @@ const GAMES_CATALOG: GameInfo[] = [
     subtitle: 'أسئلة عن تاريخ سلطنة عُمان، الأفلاج، الجغرافيا، والمعالم الخالدة',
     icon: Landmark,
     badge: 'تراث عُمان',
-    gradient: 'from-emerald-700 to-amber-700'
-  }
+    gradient: 'from-emerald-700 to-amber-700',
+  },
 ];
 
 export const GamesView: React.FC<GamesViewProps> = ({
   user,
   onScoreUpdated,
   onNavigateToLeaderboard,
-  initialGameType
+  onOpenVirtualFarm,
+  initialGameType,
 }) => {
   const [selectedGame, setSelectedGame] = useState<GameKey | null>(
     (initialGameType as GameKey) || null
   );
-  const [currentQuestions, setCurrentQuestions] = useState<Question[]>([]);
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [useAiQuestions, setUseAiQuestions] = useState<boolean>(true);
+  const [topicFocus, setTopicFocus] = useState<string>('');
+  const [loadingQuestions, setLoadingQuestions] = useState<boolean>(false);
+  const [questionSource, setQuestionSource] = useState<'gemini' | 'bank'>('bank');
+
+  const [currentQuestions, setCurrentQuestions] = useState<ExtendedQuestion[]>([]);
   const [currentQIndex, setCurrentQIndex] = useState<number>(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState<boolean>(false);
-  
+
+  // Lifelines (1 per round each)
+  const [fiftyUsed, setFiftyUsed] = useState<boolean>(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
+  const [hintUsed, setHintUsed] = useState<boolean>(false);
+  const [showHintForCurrent, setShowHintForCurrent] = useState<boolean>(false);
+
   // Scoring state
-  const [answersLog, setAnswersLog] = useState<{ questionId: string; selectedIndex: number; timeTakenSec: number }[]>([]);
+  const [answersLog, setAnswersLog] = useState<
+    { questionId: string; selectedIndex: number; timeTakenSec: number }[]
+  >([]);
   const [streak, setStreak] = useState<number>(0);
+  const [bestStreak, setBestStreak] = useState<number>(0);
   const [gameFinished, setGameFinished] = useState<boolean>(false);
   const [submittingToServer, setSubmittingToServer] = useState<boolean>(false);
   const [verifiedResult, setVerifiedResult] = useState<any | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // Firebase sync state
+  const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
+  const [firebaseSyncStatus, setFirebaseSyncStatus] = useState<
+    'idle' | 'syncing' | 'synced' | 'needs_auth' | 'error'
+  >('idle');
+  const [firebaseSyncedRound, setFirebaseSyncedRound] = useState<boolean>(false);
+  const [authBusy, setAuthBusy] = useState<boolean>(false);
+
   // Speed timer
-  const [timeLeft, setTimeLeft] = useState<number>(15);
+  const [timeLeft, setTimeLeft] = useState<number>(30);
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
 
-  // Start selected game
-  const handleStartGame = (key: GameKey) => {
-    const list = GAME_QUESTIONS.filter(q => q.gameType === key);
-    // If not enough questions, fallback to all
-    const qList = list.length > 0 ? list : GAME_QUESTIONS.slice(0, 5);
-    
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setFbUser(u);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleStartGame = async (key: GameKey) => {
     setSelectedGame(key);
-    setCurrentQuestions(qList);
+    setCurrentQuestions([]);
     setCurrentQIndex(0);
     setSelectedOption(null);
     setIsAnswerSubmitted(false);
     setAnswersLog([]);
     setStreak(0);
+    setBestStreak(0);
     setGameFinished(false);
     setVerifiedResult(null);
     setServerError(null);
+    setFirebaseSyncStatus('idle');
+    setFirebaseSyncedRound(false);
+    setFiftyUsed(false);
+    setEliminatedOptions([]);
+    setHintUsed(false);
+    setShowHintForCurrent(false);
+
+    let qList: ExtendedQuestion[] = [];
+    let src: 'gemini' | 'bank' = 'bank';
+
+    if (useAiQuestions) {
+      setLoadingQuestions(true);
+      try {
+        const res = await fetch('/api/games/generate-questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameType: key,
+            difficulty,
+            topicFocus: topicFocus.trim(),
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.questions) && data.questions.length > 0) {
+          qList = data.questions;
+          src = data.source === 'gemini' ? 'gemini' : 'bank';
+        }
+      } catch {
+        // fallback below
+      } finally {
+        setLoadingQuestions(false);
+      }
+    }
+
+    if (qList.length === 0) {
+      const bankList = GAME_QUESTIONS.filter((q) => q.gameType === key);
+      qList = bankList.length > 0 ? bankList : GAME_QUESTIONS.slice(0, 5);
+      src = 'bank';
+    }
+
+    setQuestionSource(src);
+    setCurrentQuestions(qList);
     setTimeLeft(key === 'speed' ? 15 : 30);
     setQuestionStartTime(Date.now());
   };
 
-  // Timer loop for speed game
+  // Auto-start if initialGameType was provided
   useEffect(() => {
-    if (!selectedGame || gameFinished || isAnswerSubmitted) return;
+    if (initialGameType && currentQuestions.length === 0 && !loadingQuestions && !gameFinished) {
+      handleStartGame(initialGameType as GameKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Timer loop
+  useEffect(() => {
+    if (
+      !selectedGame ||
+      loadingQuestions ||
+      currentQuestions.length === 0 ||
+      gameFinished ||
+      isAnswerSubmitted
+    ) {
+      return;
+    }
 
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
-          // Time expired, auto submit wrong
           handleAnswerOption(-1);
           return 0;
         }
@@ -150,12 +267,13 @@ export const GamesView: React.FC<GamesViewProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [selectedGame, gameFinished, isAnswerSubmitted, currentQIndex]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGame, loadingQuestions, currentQuestions.length, gameFinished, isAnswerSubmitted, currentQIndex]);
 
   const handleAnswerOption = (index: number) => {
-    if (isAnswerSubmitted) return;
+    if (isAnswerSubmitted || !currentQuestions[currentQIndex]) return;
     const timeTaken = Math.max(1, Math.round((Date.now() - questionStartTime) / 1000));
-    
+
     setSelectedOption(index);
     setIsAnswerSubmitted(true);
 
@@ -164,27 +282,125 @@ export const GamesView: React.FC<GamesViewProps> = ({
 
     const newStreak = isCorrect ? streak + 1 : 0;
     setStreak(newStreak);
+    if (newStreak > bestStreak) {
+      setBestStreak(newStreak);
+    }
 
-    setAnswersLog(prev => [
+    setAnswersLog((prev) => [
       ...prev,
       {
         questionId: curQ.id,
         selectedIndex: index,
-        timeTakenSec: timeTaken
-      }
+        timeTakenSec: timeTaken,
+      },
     ]);
+  };
+
+  const handleUseFiftyFifty = () => {
+    const curQ = currentQuestions[currentQIndex];
+    if (fiftyUsed || isAnswerSubmitted || !curQ || curQ.options.length < 4) return;
+
+    const wrongIndices = curQ.options
+      .map((_, idx) => idx)
+      .filter((idx) => idx !== curQ.correctIndex);
+    const shuffled = [...wrongIndices].sort(() => Math.random() - 0.5);
+    setEliminatedOptions(shuffled.slice(0, 2));
+    setFiftyUsed(true);
+  };
+
+  const handleUseHint = () => {
+    if (hintUsed || isAnswerSubmitted) return;
+    setHintUsed(true);
+    setShowHintForCurrent(true);
   };
 
   const handleNextQuestion = () => {
     if (currentQIndex + 1 < currentQuestions.length) {
-      setCurrentQIndex(prev => prev + 1);
+      setCurrentQIndex((prev) => prev + 1);
       setSelectedOption(null);
       setIsAnswerSubmitted(false);
+      setEliminatedOptions([]);
+      setShowHintForCurrent(false);
       setTimeLeft(selectedGame === 'speed' ? 15 : 30);
       setQuestionStartTime(Date.now());
     } else {
-      // Game ended -> submit answers to server for anti-cheat verification!
       finishGameAndSubmitToServer();
+    }
+  };
+
+  const syncScoreToFirebase = async (
+    targetUser: FirebaseUser,
+    addedPoints: number,
+    roundBestStreak: number,
+    gameType: GameKey
+  ) => {
+    if (!targetUser.emailVerified || firebaseSyncedRound) return;
+
+    setFirebaseSyncStatus('syncing');
+    const safeAdded = Math.max(0, Math.min(1200, Math.round(addedPoints)));
+    const userPath = `users/${targetUser.uid}`;
+    const lbPath = `leaderboard_entries/${targetUser.uid}`;
+
+    try {
+      // Ensure parent /users/{uid} exists before writing leaderboard entry (required by firestore.rules)
+      const userRef = doc(db, 'users', targetUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        await setDoc(userRef, {
+          uid: targetUser.uid,
+          displayName: (targetUser.displayName || user.name || 'مزارع عُماني').slice(0, 80),
+          governorate: (user.governorate || 'محافظة الداخلية').slice(0, 60),
+          role: 'farmer',
+          level: 1,
+          totalPoints: 0,
+          isBanned: false,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      const lbRef = doc(db, 'leaderboard_entries', targetUser.uid);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(lbRef);
+        const displayName = (targetUser.displayName || user.name || 'مزارع عُماني').slice(0, 80);
+        const governorate = `${user.governorate} (${user.wilayat})`.slice(0, 80);
+
+        if (!snap.exists()) {
+          tx.set(lbRef, {
+            userId: targetUser.uid,
+            displayName,
+            governorate,
+            totalPoints: safeAdded,
+            roundsPlayed: 1,
+            bestStreak: Math.max(0, Math.min(100, roundBestStreak)),
+            lastGameType: gameType,
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          const prevData = snap.data();
+          const prevTotal = Number(prevData.totalPoints) || 0;
+          const prevRounds = Number(prevData.roundsPlayed) || 0;
+          const prevBestStreak = Number(prevData.bestStreak) || 0;
+          tx.update(lbRef, {
+            displayName,
+            governorate,
+            totalPoints: prevTotal + safeAdded,
+            roundsPlayed: prevRounds + 1,
+            bestStreak: Math.max(prevBestStreak, Math.min(100, roundBestStreak)),
+            lastGameType: gameType,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      });
+
+      setFirebaseSyncedRound(true);
+      setFirebaseSyncStatus('synced');
+    } catch (err) {
+      setFirebaseSyncStatus('error');
+      try {
+        handleFirestoreError(err, OperationType.WRITE, lbPath || userPath);
+      } catch {
+        // Logged by handleFirestoreError
+      }
     }
   };
 
@@ -193,7 +409,9 @@ export const GamesView: React.FC<GamesViewProps> = ({
     setSubmittingToServer(true);
     setServerError(null);
 
-    const clientNonce = `game_${selectedGame}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const clientNonce = `game_${selectedGame}_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(2, 7)}`;
 
     try {
       const response = await fetch('/api/scores/submit', {
@@ -205,8 +423,8 @@ export const GamesView: React.FC<GamesViewProps> = ({
           userGovernorate: `${user.governorate} (${user.wilayat})`,
           gameType: selectedGame,
           answers: answersLog,
-          clientNonce
-        })
+          clientNonce,
+        }),
       });
 
       const data = await response.json();
@@ -217,17 +435,27 @@ export const GamesView: React.FC<GamesViewProps> = ({
       setVerifiedResult(data);
       onScoreUpdated(data.verifiedScore);
 
-      // Trigger celebration confetti
       if (data.verifiedScore > 0) {
         try {
           confetti({
             particleCount: 80,
             spread: 60,
-            origin: { y: 0.6 }
+            origin: { y: 0.6 },
           });
-        } catch (e) {
-          // ignore confetti if unsupported
+        } catch {
+          // ignore confetti errors
         }
+      }
+
+      if (fbUser && selectedGame) {
+        await syncScoreToFirebase(
+          fbUser,
+          data.verifiedScore,
+          data.bestStreak ?? bestStreak,
+          selectedGame
+        );
+      } else {
+        setFirebaseSyncStatus('needs_auth');
       }
     } catch (err: any) {
       console.error(err);
@@ -237,21 +465,42 @@ export const GamesView: React.FC<GamesViewProps> = ({
     }
   };
 
+  const handleConnectGoogleAndSync = async () => {
+    if (!verifiedResult || !selectedGame) return;
+    setAuthBusy(true);
+    try {
+      const signedIn = await signInWithGoogleFarmer();
+      if (signedIn) {
+        await syncScoreToFirebase(
+          signedIn,
+          verifiedResult.verifiedScore,
+          verifiedResult.bestStreak ?? bestStreak,
+          selectedGame
+        );
+      }
+    } catch (err: any) {
+      setServerError(err?.message || 'تعذر تسجيل الدخول بحساب Google.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const curQuestion = currentQuestions[currentQIndex];
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      
-      {/* Header and Leaderboard teaser */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
             <Gamepad2 className="w-4 h-4" />
-            <span>نظام المسابقات والألعاب الزراعية المجانية</span>
+            <span>مسابقات الذكاء الاصطناعي · متزامنة مع Firebase</span>
           </div>
           <h1 className="text-2xl font-bold text-stone-900 dark:text-white mt-1">
             الألعاب الزراعية والمسابقات التفاعلية
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-0.5">
-            6 ألعاب أصلية متكاملة بنظام نقاط موثق ومحمي على الخادم لمنع التلاعب وتكريم المزارعين المتميزين.
+            أسئلة متجددة بالذكاء الاصطناعي حسب الصعوبة مع وسائل مساعدة ولوحة متصدرين مباشرة في Firebase.
           </p>
         </div>
 
@@ -260,13 +509,124 @@ export const GamesView: React.FC<GamesViewProps> = ({
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-300/50 hover:bg-amber-500/20 text-xs font-semibold transition-colors self-start sm:self-auto"
         >
           <Trophy className="w-4 h-4 text-amber-600" />
-          <span>لوحة المتصدرين والنقاط</span>
+          <span>لوحة المتصدرين (Firebase)</span>
         </button>
       </div>
 
-      {/* Main Game Interface */}
+      {/* Featured 3D Virtual Farm Card */}
+      {!selectedGame && onOpenVirtualFarm && (
+        <div className="rounded-3xl bg-gradient-to-r from-emerald-900 via-teal-900 to-stone-900 text-white p-6 border border-emerald-500/40 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4" />
+              <span>لعبة ثلاثية الأبعاد واقعية · مجانية 100%</span>
+            </div>
+            <h2 className="text-xl font-extrabold">🌴 مزرعتي الافتراضية (3D)</h2>
+            <p className="text-xs text-stone-200 max-w-xl">
+              ازرع النخيل العُماني والخضراوات، أدر البيت المحمي والفلج، وتنافس مع الأصدقاء ولاعبي سلطنة عُمان بنمو حقيقي مستمر!
+            </p>
+          </div>
+          <button
+            onClick={onOpenVirtualFarm}
+            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow-md shrink-0"
+          >
+            دخول مزرعتي الآن
+          </button>
+        </div>
+      )}
+
+      {/* AI Quiz Configuration Bar (when selecting a game) */}
+      {!selectedGame && (
+        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>إعدادات تحدي الذكاء الاصطناعي (Gemini Quiz)</span>
+              </h2>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                اختر مستوى الصعوبة والمحور لتوليد أسئلة جديدة في كل جولة، أو استخدم البنك المحلي.
+              </p>
+            </div>
+
+            {/* Source toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 self-start">
+              <button
+                type="button"
+                onClick={() => setUseAiQuestions(true)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  useAiQuestions
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-stone-600 dark:text-stone-300'
+                }`}
+              >
+                أسئلة متجددة (Gemini AI)
+              </button>
+              <button
+                type="button"
+                onClick={() => setUseAiQuestions(false)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  !useAiQuestions
+                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-sm'
+                    : 'text-stone-600 dark:text-stone-300'
+                }`}
+              >
+                البنك المحلي السريع
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Difficulty Selector */}
+            <div>
+              <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+                مستوى الصعوبة والنقاط:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    { id: 'easy', label: 'مبتدئ', pts: '40 نقطة' },
+                    { id: 'medium', label: 'متوسط', pts: '60 نقطة' },
+                    { id: 'hard', label: 'خبير', pts: '85 نقطة' },
+                  ] as const
+                ).map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDifficulty(d.id)}
+                    className={`p-2 rounded-xl border text-center transition-all ${
+                      difficulty === d.id
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-stone-50 dark:bg-stone-800/50 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300'
+                    }`}
+                  >
+                    <div className="text-xs font-bold">{d.label}</div>
+                    <div className="text-[10px] text-stone-500 dark:text-stone-400">{d.pts}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Optional Focus Topic */}
+            <div>
+              <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+                تركيز موضوعي اختياري (عند تفعيل Gemini AI):
+              </label>
+              <input
+                type="text"
+                value={topicFocus}
+                onChange={(e) => setTopicFocus(e.target.value)}
+                disabled={!useAiQuestions}
+                placeholder="مثال: النخيل العماني، الري بالأفلاج، البيوت المحمية، الجبل الأخضر..."
+                className="w-full px-3 py-2.5 text-xs rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-white focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
       {!selectedGame ? (
-        /* Games Catalog Selection Grid */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {GAMES_CATALOG.map((g) => {
             const Icon = g.icon;
@@ -277,10 +637,12 @@ export const GamesView: React.FC<GamesViewProps> = ({
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${g.gradient} text-white flex items-center justify-center shadow-sm`}>
+                    <div
+                      className={`w-11 h-11 rounded-xl bg-gradient-to-br ${g.gradient} text-white flex items-center justify-center shadow-sm`}
+                    >
                       <Icon className="w-5 h-5" />
                     </div>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300">
+                    <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
                       {g.badge}
                     </span>
                   </div>
@@ -295,7 +657,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
 
                 <div className="mt-5 pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between">
                   <div className="text-[11px] text-stone-400 font-medium">
-                    مجانية · نقاط حقيقية
+                    {useAiQuestions ? 'توليد AI · 5 أسئلة' : 'البنك المحلي'}
                   </div>
                   <button
                     onClick={() => handleStartGame(g.key)}
@@ -309,8 +671,17 @@ export const GamesView: React.FC<GamesViewProps> = ({
             );
           })}
         </div>
+      ) : loadingQuestions ? (
+        <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 p-12 text-center space-y-3">
+          <Loader2 className="w-10 h-10 animate-spin text-emerald-600 mx-auto" />
+          <h2 className="text-base font-bold text-stone-900 dark:text-white">
+            جاري إعداد 5 أسئلة متجددة عبر Gemini...
+          </h2>
+          <p className="text-xs text-stone-500 dark:text-stone-400">
+            يتم الآن صياغة أسئلة علمية وعُمانية بمستوى الصعوبة المختار وتسجيلها على الخادم لمنع الغش.
+          </p>
+        </div>
       ) : gameFinished ? (
-        /* Game Finished / Score Verification Screen */
         <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 p-6 sm:p-8 text-center max-w-xl mx-auto shadow-sm space-y-6">
           <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-500/10 border border-amber-300/40 text-amber-600 flex items-center justify-center shadow-inner">
             <Trophy className="w-10 h-10" />
@@ -321,14 +692,14 @@ export const GamesView: React.FC<GamesViewProps> = ({
               اكتملت الجولة بنجاح!
             </h2>
             <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-              تم إرسال نتائجك إلى الخادم للتحقق المالي والحسابي ومكافحة التلاعب
+              تم التحقق من جميع الإجابات على الخادم واعتماد النقاط بدقة
             </p>
           </div>
 
           {submittingToServer ? (
             <div className="p-4 rounded-xl bg-stone-50 dark:bg-stone-800 text-xs text-stone-600 dark:text-stone-300 flex items-center justify-center gap-2">
               <Clock className="w-4 h-4 animate-spin text-emerald-600" />
-              <span>جاري التحقق من إجاباتك واعتماد النقاط في لوحة المتصدرين...</span>
+              <span>جاري التحقق من إجاباتك واعتماد النقاط...</span>
             </div>
           ) : verifiedResult ? (
             <div className="space-y-4">
@@ -351,7 +722,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
                 </div>
                 <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
                   <span className="text-[11px] text-amber-700 dark:text-amber-400 block font-semibold">
-                    مكافأة التتابع (Streak)
+                    مكافأة التتابع
                   </span>
                   <span className="text-2xl font-black text-amber-800 dark:text-amber-300 font-mono">
                     +{verifiedResult.streakBonus}
@@ -359,9 +730,34 @@ export const GamesView: React.FC<GamesViewProps> = ({
                 </div>
               </div>
 
-              <div className="text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200/50">
-                ✓ تم تسجيل درجاتك رسمياً باسم: <strong className="font-bold">{user.name}</strong> وتم تحديث ترتيبك العام!
-              </div>
+              {/* Firebase Leaderboard Sync Status */}
+              {firebaseSyncStatus === 'synced' ? (
+                <div className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 flex items-center justify-center gap-2">
+                  <CloudCheck className="w-4 h-4 shrink-0" />
+                  <span>
+                    تم تسجيل نقاطك مباشرة في لوحة المتصدرين على <strong>Firebase</strong> باسم {fbUser?.displayName || user.name}!
+                  </span>
+                </div>
+              ) : firebaseSyncStatus === 'syncing' ? (
+                <div className="text-xs text-stone-500 p-2">
+                  جاري مزامنة النقاط مع لوحة Firebase...
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2.5">
+                  <div className="text-xs text-amber-900 dark:text-amber-200">
+                    سجّل الدخول بحساب Google لإدراج هذه الجولة في لوحة المتصدرين الدائمة على Firebase.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleConnectGoogleAndSync}
+                    disabled={authBusy}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>{authBusy ? 'جاري الربط...' : 'ربط حساب Google وحفظ النقاط'}</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : serverError ? (
             <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 text-xs">
@@ -369,7 +765,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
             </div>
           ) : null}
 
-          <div className="flex items-center justify-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               onClick={() => handleStartGame(selectedGame)}
               className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-md"
@@ -391,125 +787,172 @@ export const GamesView: React.FC<GamesViewProps> = ({
             </button>
           </div>
         </div>
-      ) : (
-        /* Active Quiz Question Screen */
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 sm:p-7 shadow-sm space-y-6">
-          
-          {/* Top Bar of Active Quiz */}
-          <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-3">
-            <div className="flex items-center gap-2">
+      ) : curQuestion ? (
+        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 sm:p-7 shadow-sm space-y-5">
+          {/* Top Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-800 pb-3">
+            <div className="flex items-center gap-2 text-xs">
               <button
                 onClick={() => setSelectedGame(null)}
-                className="text-xs text-stone-500 hover:text-stone-900 dark:hover:text-white flex items-center gap-1"
+                className="text-stone-500 hover:text-stone-900 dark:hover:text-white"
               >
-                <span>خروج للقائمة</span>
+                خروج للقائمة
               </button>
               <span className="text-stone-300">·</span>
-              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                {GAMES_CATALOG.find(g => g.key === selectedGame)?.title}
+              <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                {GAMES_CATALOG.find((g) => g.key === selectedGame)?.title}
+              </span>
+              <span className="text-stone-300">·</span>
+              <span className="text-[11px] text-stone-500">
+                {questionSource === 'gemini' ? 'أسئلة Gemini AI' : 'بنك الأسئلة'}
               </span>
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-semibold">
-              {/* Streak */}
+            <div className="flex items-center gap-3 text-xs font-semibold">
               {streak > 1 && (
-                <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 animate-bounce">
+                <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
                   <Flame className="w-4 h-4 fill-current" />
-                  <span>متتالي x{streak}</span>
+                  <span>تتابع x{streak}</span>
                 </div>
               )}
 
-              {/* Timer for speed challenge */}
-              <div className={`flex items-center gap-1 font-mono px-2.5 py-1 rounded-lg ${
-                timeLeft <= 5 ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 animate-pulse' : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300'
-              }`}>
+              <div
+                className={`flex items-center gap-1 font-mono px-2.5 py-1 rounded-lg ${
+                  timeLeft <= 5
+                    ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300'
+                }`}
+              >
                 <Clock className="w-3.5 h-3.5" />
                 <span>{timeLeft} ث</span>
               </div>
 
-              {/* Progress counter */}
-              <span className="text-stone-400 font-mono">
+              <span className="text-stone-500 font-mono">
                 {currentQIndex + 1} / {currentQuestions.length}
               </span>
             </div>
           </div>
 
-          {/* Question Text */}
-          {currentQuestions[currentQIndex] && (
-            <div className="space-y-4">
-              <div className="text-base sm:text-lg font-bold text-stone-900 dark:text-white leading-relaxed">
-                {currentQuestions[currentQIndex].question}
-              </div>
+          {/* Progress bar */}
+          <div className="w-full h-1.5 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-600 transition-all duration-300"
+              style={{
+                width: `${((currentQIndex + (isAnswerSubmitted ? 1 : 0)) / currentQuestions.length) * 100}%`,
+              }}
+            />
+          </div>
 
-              {/* Options */}
-              <div className="space-y-2.5">
-                {currentQuestions[currentQIndex].options.map((option, optIdx) => {
-                  const isSelected = selectedOption === optIdx;
-                  const isCorrect = optIdx === currentQuestions[currentQIndex].correctIndex;
-                  
-                  let optionClass = 'bg-stone-50 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 hover:border-emerald-500 text-stone-800 dark:text-stone-200';
-                  
-                  if (isAnswerSubmitted) {
-                    if (isCorrect) {
-                      optionClass = 'bg-emerald-100 dark:bg-emerald-950/80 border-emerald-500 text-emerald-950 dark:text-emerald-200 font-bold';
-                    } else if (isSelected && !isCorrect) {
-                      optionClass = 'bg-red-100 dark:bg-red-950/80 border-red-500 text-red-950 dark:text-red-200';
-                    } else {
-                      optionClass = 'opacity-50 border-stone-200 dark:border-stone-800';
-                    }
-                  } else if (isSelected) {
-                    optionClass = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40';
-                  }
+          {/* Lifelines */}
+          <div className="flex flex-wrap items-center gap-2">
+            {curQuestion.options.length >= 4 && (
+              <button
+                type="button"
+                disabled={fiftyUsed || isAnswerSubmitted}
+                onClick={handleUseFiftyFifty}
+                className="px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:border-emerald-500 disabled:opacity-40 flex items-center gap-1.5"
+              >
+                <Scissors className="w-3.5 h-3.5 text-emerald-600" />
+                <span>حذف إجابتين (50/50)</span>
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={hintUsed || isAnswerSubmitted}
+              onClick={handleUseHint}
+              className="px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:border-amber-500 disabled:opacity-40 flex items-center gap-1.5"
+            >
+              <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+              <span>تلميح فليجان</span>
+            </button>
+          </div>
 
-                  return (
-                    <button
-                      key={optIdx}
-                      disabled={isAnswerSubmitted}
-                      onClick={() => handleAnswerOption(optIdx)}
-                      className={`w-full p-3.5 rounded-xl border text-right text-xs sm:text-sm transition-all flex items-center justify-between ${optionClass}`}
-                    >
-                      <span>{option}</span>
-                      {isAnswerSubmitted && isCorrect && (
-                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                      )}
-                      {isAnswerSubmitted && isSelected && !isCorrect && (
-                        <XCircle className="w-4 h-4 text-red-600 shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Explanation note after submitting */}
-              {isAnswerSubmitted && (
-                <div className="p-3.5 rounded-xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 text-xs text-stone-700 dark:text-stone-300 animate-in fade-in">
-                  <span className="font-bold text-emerald-700 dark:text-emerald-400 block mb-0.5">
-                    الشرح والتوضيح الزراعي:
-                  </span>
-                  {currentQuestions[currentQIndex].explanation}
-                </div>
-              )}
-
-              {/* Next button */}
-              {isAnswerSubmitted && (
-                <div className="pt-2 flex justify-end">
-                  <button
-                    onClick={handleNextQuestion}
-                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all"
-                  >
-                    <span>
-                      {currentQIndex + 1 < currentQuestions.length ? 'السؤال التالي' : 'اعتماد وإنهاء التحدي'}
-                    </span>
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+          {/* Hint Box if activated */}
+          {showHintForCurrent && (
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
+              <Lightbulb className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                {curQuestion.hint || 'فكّر في طبيعة المناخ والزراعة في سلطنة عُمان.'}
+              </span>
             </div>
           )}
 
-        </div>
-      )}
+          {/* Question */}
+          <div className="space-y-4">
+            <div className="text-base sm:text-lg font-bold text-stone-900 dark:text-white leading-relaxed">
+              {curQuestion.question}
+            </div>
 
+            <div className="space-y-2.5">
+              {curQuestion.options.map((option, optIdx) => {
+                const isEliminated = eliminatedOptions.includes(optIdx);
+                const isSelected = selectedOption === optIdx;
+                const isCorrect = optIdx === curQuestion.correctIndex;
+
+                let optionClass =
+                  'bg-stone-50 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 hover:border-emerald-500 text-stone-800 dark:text-stone-200';
+
+                if (isEliminated && !isAnswerSubmitted) {
+                  optionClass =
+                    'opacity-30 line-through bg-stone-100 dark:bg-stone-900 border-stone-200 dark:border-stone-800 cursor-not-allowed';
+                } else if (isAnswerSubmitted) {
+                  if (isCorrect) {
+                    optionClass =
+                      'bg-emerald-100 dark:bg-emerald-950/80 border-emerald-500 text-emerald-950 dark:text-emerald-200 font-bold';
+                  } else if (isSelected && !isCorrect) {
+                    optionClass =
+                      'bg-red-100 dark:bg-red-950/80 border-red-500 text-red-950 dark:text-red-200';
+                  } else {
+                    optionClass = 'opacity-50 border-stone-200 dark:border-stone-800';
+                  }
+                }
+
+                return (
+                  <button
+                    key={optIdx}
+                    disabled={isAnswerSubmitted || isEliminated}
+                    onClick={() => handleAnswerOption(optIdx)}
+                    className={`w-full p-3.5 rounded-xl border text-right text-xs sm:text-sm transition-all flex items-center justify-between ${optionClass}`}
+                  >
+                    <span>{option}</span>
+                    {isAnswerSubmitted && isCorrect && (
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    )}
+                    {isAnswerSubmitted && isSelected && !isCorrect && (
+                      <XCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {isAnswerSubmitted && (
+              <div className="p-3.5 rounded-xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 text-xs text-stone-700 dark:text-stone-300">
+                <span className="font-bold text-emerald-700 dark:text-emerald-400 block mb-0.5">
+                  الشرح والتوضيح الزراعي:
+                </span>
+                {curQuestion.explanation}
+              </div>
+            )}
+
+            {isAnswerSubmitted && (
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={handleNextQuestion}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all"
+                >
+                  <span>
+                    {currentQIndex + 1 < currentQuestions.length
+                      ? 'السؤال التالي'
+                      : 'اعتماد وإنهاء التحدي'}
+                  </span>
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

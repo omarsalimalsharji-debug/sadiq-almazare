@@ -2,6 +2,7 @@
  * Agricultural, Media and Cultural Data for "صديق المزارع" (Sultanate of Oman)
  * Founder & Director: Omar Al-Sharji (عمر الشرجي) - Sultanate of Oman
  */
+import { SAMAIL_BOOK_META, SAMAIL_BOOK_PAGES } from './samailBookData.ts';
 
 export interface QuranSurah {
   id: number;
@@ -38,8 +39,13 @@ export interface Book {
   readCount: number;
   publishedYear: string;
   pagesCount: number;
+  coverUrl?: string;
+  pdfUrl?: string;
+  downloadFileName?: string;
+  hasCitationBadges?: boolean;
   pages: {
     pageNumber: number;
+    chapter?: string;
     title: string;
     content: string;
   }[];
@@ -264,6 +270,14 @@ export const LIBRARY_CATEGORIES = [
 ];
 
 export const INITIAL_BOOKS: Book[] = [
+  {
+    ...SAMAIL_BOOK_META,
+    readCount: 2450,
+    pagesCount: SAMAIL_BOOK_PAGES.length,
+    isPublished: true,
+    featured: true,
+    pages: SAMAIL_BOOK_PAGES,
+  },
   {
     id: "book-1",
     title: "الدليل الشامل لزراعة ورعاية نخيل التمر في عُمان",

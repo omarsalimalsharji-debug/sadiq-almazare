@@ -6,12 +6,14 @@ export type ActivePage =
   | 'home'
   | 'plant_diagnosis'
   | 'pest_diagnosis'
+  | 'cartoon_videos'
   | 'encyclopedia'
   | 'calendar'
   | 'alerts'
   | 'weather'
   | 'community'
   | 'games'
+  | 'virtual_farm'
   | 'cultural_quiz'
   | 'leaderboard'
   | 'library'
@@ -29,7 +31,7 @@ export type ThemeMode = 'auto' | 'light' | 'dark';
 export interface UserProfile {
   id: string;
   name: string;
-  role: 'مزارع' | 'مهندس زراعي' | 'مرشد زراعي' | 'مدير التطبيق';
+  role: 'مزارع' | 'مهندس زراعي' | 'مرشد زراعي' | 'مشرف' | 'مدير التطبيق';
   governorate: string;
   wilayat: string;
   avatarSeed: string;
@@ -37,6 +39,7 @@ export interface UserProfile {
   participations: number;
   rank: number;
   isAdmin: boolean;
+  isModerator?: boolean;
   bookmarkedBookIds: string[];
   lastReadPages: Record<string, number>;
   notificationPreferences: {

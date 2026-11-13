@@ -6,9 +6,12 @@
 }
 
 /* Custom smooth transitions and typography */
-html {
+html, body {
   font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Custom scrollbars */

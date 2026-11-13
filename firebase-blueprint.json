@@ -1,0 +1,207 @@
+{
+  "entities": {
+    "UserPublic": {
+      "title": "UserPublic",
+      "description": "Public farmer profile for leaderboards and community without PII",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "governorate": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "role": { "type": "string", "enum": ["farmer", "engineer", "admin"] },
+        "level": { "type": "number" },
+        "totalPoints": { "type": "number" },
+        "isBanned": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "governorate", "role", "level", "totalPoints", "isBanned", "updatedAt"]
+    },
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Private user PII isolated under users/{userId}/private/info",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 120 },
+        "notificationsEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "notificationsEnabled", "createdAt", "updatedAt"]
+    },
+    "VirtualFarm": {
+      "title": "VirtualFarm",
+      "description": "Player virtual farm state and resources",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "farmName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "coins": { "type": "number" },
+        "waterLiters": { "type": "number" },
+        "maxWaterLiters": { "type": "number" },
+        "sizeLevel": { "type": "number" },
+        "greenhouseLevel": { "type": "number" },
+        "greenhouseTemp": { "type": "number" },
+        "greenhouseHumidity": { "type": "number" },
+        "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "farmName", "coins", "waterLiters", "maxWaterLiters", "sizeLevel", "greenhouseLevel", "xp", "level", "updatedAt"]
+    },
+    "FarmPlot": {
+      "title": "FarmPlot",
+      "description": "Individual plot inside a virtual farm",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "plotIndex": { "type": "number" },
+        "isGreenhouse": { "type": "boolean" },
+        "cropId": { "type": "string", "maxLength": 64 },
+        "stageIndex": { "type": "number" },
+        "moisture": { "type": "number" },
+        "nutrients": { "type": "number" },
+        "health": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "plotIndex", "isGreenhouse", "stageIndex", "moisture", "nutrients", "health", "updatedAt"]
+    },
+    "SeasonalConfig": {
+      "title": "SeasonalConfig",
+      "description": "Official Islamic calendar and seasonal theme configuration managed by Admin",
+      "type": "object",
+      "properties": {
+        "referenceCalendar": { "type": "string", "enum": ["islamic-umalqura", "islamic-civil", "oman-official"] },
+        "hijriOffsetDays": { "type": "number" },
+        "overrideOccasion": { "type": "string", "enum": ["auto", "ramadan", "eid_fitr", "eid_adha", "normal"] },
+        "ramadanGreeting": { "type": "string", "maxLength": 200 },
+        "eidFitrGreeting": { "type": "string", "maxLength": 200 },
+        "eidAdhaGreeting": { "type": "string", "maxLength": 200 },
+        "enableLanterns": { "type": "boolean" },
+        "enablePatterns": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["referenceCalendar", "hijriOffsetDays", "overrideOccasion", "enableLanterns", "enablePatterns", "updatedAt"]
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "Friend link and farm competition invite between two farmers",
+      "type": "object",
+      "properties": {
+        "requesterId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recipientId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requesterId", "recipientId", "status", "createdAt", "updatedAt"]
+    },
+    "PlantDiagnosis": {
+      "title": "PlantDiagnosis",
+      "description": "Saved plant disease/pest diagnosis record without raw base64 images",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "cropName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "wilayat": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "observations": { "type": "string", "maxLength": 1000 },
+        "photoParts": { "type": "array", "items": { "type": "string" }, "maxItems": 3 },
+        "problemName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "problemType": { "type": "string", "enum": ["مرض", "حشرة", "نقص عناصر", "سليم"] },
+        "confidenceScore": { "type": "number" },
+        "severity": { "type": "string", "enum": ["منخفضة", "متوسطة", "عالية", "حرجة"] },
+        "needsClearerPhoto": { "type": "boolean" },
+        "visibleSymptoms": { "type": "string", "maxLength": 1500 },
+        "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
+        "organicRemedy": { "type": "string", "maxLength": 2000 },
+        "chemicalRemedy": { "type": "string", "maxLength": 2000 },
+        "preventionTips": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
+        "possibleConditions": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
+        "advisoryNote": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "cropName",
+        "wilayat",
+        "observations",
+        "photoParts",
+        "problemName",
+        "problemType",
+        "confidenceScore",
+        "severity",
+        "needsClearerPhoto",
+        "visibleSymptoms",
+        "causes",
+        "organicRemedy",
+        "chemicalRemedy",
+        "preventionTips",
+        "possibleConditions",
+        "advisoryNote",
+        "createdAt"
+      ]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Public verified quiz leaderboard record without PII",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "governorate": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "totalPoints": { "type": "number" },
+        "roundsPlayed": { "type": "number" },
+        "bestStreak": { "type": "number" },
+        "lastGameType": {
+          "type": "string",
+          "enum": ["knowledge", "guess_crop", "plant_doctor", "true_false", "speed", "cultural"]
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "governorate",
+        "totalPoints",
+        "roundsPlayed",
+        "bestStreak",
+        "lastGameType",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserPublic" },
+      "description": "Public farmer leaderboard and farm profile"
+    },
+    "/users/{userId}/private/info": {
+      "schema": { "$ref": "#/entities/UserPrivate" },
+      "description": "Private user PII strictly isolated to owner and admin"
+    },
+    "/users/{userId}/diagnoses/{diagnosisId}": {
+      "schema": { "$ref": "#/entities/PlantDiagnosis" },
+      "description": "User plant pathology and pest diagnosis log"
+    },
+    "/farms/{farmId}": {
+      "schema": { "$ref": "#/entities/VirtualFarm" },
+      "description": "Virtual farm owned by userId == farmId"
+    },
+    "/farms/{farmId}/plots/{plotId}": {
+      "schema": { "$ref": "#/entities/FarmPlot" },
+      "description": "Subcollection of plots belonging to a farm"
+    },
+    "/friendships/{friendshipId}": {
+      "schema": { "$ref": "#/entities/Friendship" },
+      "description": "Friend connections and competition invitations"
+    },
+    "/system/seasonal_config": {
+      "schema": { "$ref": "#/entities/SeasonalConfig" },
+      "description": "Global Islamic calendar & seasonal identity configuration"
+    },
+    "/leaderboard_entries/{userId}": {
+      "schema": { "$ref": "#/entities/LeaderboardEntry" },
+      "description": "Verified quiz game leaderboard entries in Firebase"
+    }
+  }
+}

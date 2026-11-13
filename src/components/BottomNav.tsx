@@ -29,11 +29,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   return (
-    <nav 
-      className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 transition-colors"
+    <nav
+      className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 transition-colors pb-[env(safe-area-inset-bottom)]"
       aria-label="شريط التنقل السفلي للهواتف"
     >
-      <div className="grid grid-cols-6 h-16 items-center px-1">
+      <div className="grid grid-cols-6 min-h-[64px] items-center px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activePage === tab.id;

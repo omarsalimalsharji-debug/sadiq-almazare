@@ -1,0 +1,355 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'Alsharji73@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- Validation Helpers ---
+    function isValidUserPublic(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'governorate', 'role', 'level', 'totalPoints', 'isBanned', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'governorate', 'role', 'level', 'totalPoints', 'isBanned', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.governorate is string && data.governorate.size() >= 1 && data.governorate.size() <= 60
+        && data.role in ['farmer', 'engineer', 'admin']
+        && data.level is number && data.level >= 1 && data.level <= 200
+        && data.totalPoints is number && data.totalPoints >= 0 && data.totalPoints <= 10000000
+        && data.isBanned is bool
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivate(data) {
+      return data.keys().hasAll(['uid', 'email', 'notificationsEnabled', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'notificationsEnabled', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 120
+        && data.notificationsEnabled is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFarm(data) {
+      return data.keys().hasAll(['ownerId', 'farmName', 'coins', 'waterLiters', 'maxWaterLiters', 'sizeLevel', 'greenhouseLevel', 'xp', 'level', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'farmName', 'coins', 'waterLiters', 'maxWaterLiters', 'sizeLevel', 'greenhouseLevel', 'greenhouseTemp', 'greenhouseHumidity', 'xp', 'level', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.farmName is string && data.farmName.size() >= 1 && data.farmName.size() <= 80
+        && data.coins is number && data.coins >= 0 && data.coins <= 100000000
+        && data.waterLiters is number && data.waterLiters >= 0 && data.waterLiters <= 100000
+        && data.maxWaterLiters is number && data.maxWaterLiters >= 100 && data.maxWaterLiters <= 100000
+        && data.sizeLevel is number && data.sizeLevel >= 1 && data.sizeLevel <= 10
+        && data.greenhouseLevel is number && data.greenhouseLevel >= 0 && data.greenhouseLevel <= 5
+        && data.xp is number && data.xp >= 0 && data.xp <= 10000000
+        && data.level is number && data.level >= 1 && data.level <= 200
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPlot(data) {
+      return data.keys().hasAll(['ownerId', 'plotIndex', 'isGreenhouse', 'stageIndex', 'moisture', 'nutrients', 'health', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'plotIndex', 'isGreenhouse', 'cropId', 'stageIndex', 'moisture', 'nutrients', 'health', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.plotIndex is number && data.plotIndex >= 0 && data.plotIndex <= 50
+        && data.isGreenhouse is bool
+        && (!('cropId' in data) || (data.cropId is string && data.cropId.size() <= 64))
+        && data.stageIndex is number && data.stageIndex >= 0 && data.stageIndex <= 10
+        && data.moisture is number && data.moisture >= 0 && data.moisture <= 100
+        && data.nutrients is number && data.nutrients >= 0 && data.nutrients <= 100
+        && data.health is number && data.health >= 0 && data.health <= 100
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFriendship(data) {
+      return data.keys().hasAll(['requesterId', 'recipientId', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['requesterId', 'recipientId', 'status', 'createdAt', 'updatedAt'])
+        && isValidId(data.requesterId)
+        && isValidId(data.recipientId)
+        && data.requesterId != data.recipientId
+        && data.status in ['pending', 'accepted', 'declined']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSeasonalConfig(data) {
+      return data.keys().hasAll(['referenceCalendar', 'hijriOffsetDays', 'overrideOccasion', 'enableLanterns', 'enablePatterns', 'updatedAt'])
+        && data.keys().hasOnly(['referenceCalendar', 'hijriOffsetDays', 'overrideOccasion', 'ramadanGreeting', 'eidFitrGreeting', 'eidAdhaGreeting', 'enableLanterns', 'enablePatterns', 'updatedAt'])
+        && data.referenceCalendar in ['islamic-umalqura', 'islamic-civil', 'oman-official']
+        && data.hijriOffsetDays is number && data.hijriOffsetDays >= -3 && data.hijriOffsetDays <= 3
+        && data.overrideOccasion in ['auto', 'ramadan', 'eid_fitr', 'eid_adha', 'normal']
+        && (!('ramadanGreeting' in data) || (data.ramadanGreeting is string && data.ramadanGreeting.size() <= 200))
+        && (!('eidFitrGreeting' in data) || (data.eidFitrGreeting is string && data.eidFitrGreeting.size() <= 200))
+        && (!('eidAdhaGreeting' in data) || (data.eidAdhaGreeting is string && data.eidAdhaGreeting.size() <= 200))
+        && data.enableLanterns is bool
+        && data.enablePatterns is bool
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPlantDiagnosis(data) {
+      return data.keys().hasAll([
+          'userId', 'cropName', 'wilayat', 'observations', 'photoParts',
+          'problemName', 'problemType', 'confidenceScore', 'severity',
+          'needsClearerPhoto', 'visibleSymptoms', 'causes', 'organicRemedy',
+          'chemicalRemedy', 'preventionTips', 'possibleConditions',
+          'advisoryNote', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'cropName', 'wilayat', 'observations', 'photoParts',
+          'problemName', 'problemType', 'confidenceScore', 'severity',
+          'needsClearerPhoto', 'visibleSymptoms', 'causes', 'organicRemedy',
+          'chemicalRemedy', 'preventionTips', 'possibleConditions',
+          'advisoryNote', 'createdAt'
+        ])
+        && isValidId(data.userId)
+        && data.cropName is string && data.cropName.size() >= 1 && data.cropName.size() <= 80
+        && data.wilayat is string && data.wilayat.size() >= 1 && data.wilayat.size() <= 100
+        && data.observations is string && data.observations.size() <= 1000
+        && data.photoParts is list && data.photoParts.size() <= 3
+        && data.problemName is string && data.problemName.size() >= 1 && data.problemName.size() <= 160
+        && data.problemType in ['مرض', 'حشرة', 'نقص عناصر', 'سليم']
+        && data.confidenceScore is number && data.confidenceScore >= 0 && data.confidenceScore <= 100
+        && data.severity in ['منخفضة', 'متوسطة', 'عالية', 'حرجة']
+        && data.needsClearerPhoto is bool
+        && data.visibleSymptoms is string && data.visibleSymptoms.size() <= 1500
+        && data.causes is list && data.causes.size() <= 8
+        && data.organicRemedy is string && data.organicRemedy.size() <= 2000
+        && data.chemicalRemedy is string && data.chemicalRemedy.size() <= 2000
+        && data.preventionTips is list && data.preventionTips.size() <= 8
+        && data.possibleConditions is list && data.possibleConditions.size() <= 4
+        && data.advisoryNote is string && data.advisoryNote.size() <= 500
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLeaderboardEntry(data) {
+      return data.keys().hasAll([
+          'userId', 'displayName', 'governorate', 'totalPoints',
+          'roundsPlayed', 'bestStreak', 'lastGameType', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'displayName', 'governorate', 'totalPoints',
+          'roundsPlayed', 'bestStreak', 'lastGameType', 'updatedAt'
+        ])
+        && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.governorate is string && data.governorate.size() >= 1 && data.governorate.size() <= 80
+        && data.totalPoints is number && data.totalPoints >= 0 && data.totalPoints <= 10000000
+        && data.roundsPlayed is number && data.roundsPlayed >= 1 && data.roundsPlayed <= 100000
+        && data.bestStreak is number && data.bestStreak >= 0 && data.bestStreak <= 100
+        && data.lastGameType in ['knowledge', 'guess_crop', 'plant_doctor', 'true_false', 'speed', 'cultural']
+        && data.updatedAt is timestamp;
+    }
+
+    // --- 0. Connection Test Doc ---
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // --- 1. Admin Registry ---
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && (isOwner(adminId) || isAdmin());
+      allow write: if false;
+    }
+
+    // --- 2. Public User Profiles & Private PII Isolation ---
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.isBanned == false;
+
+      allow create: if isVerified() && isValidId(userId) && isOwner(userId)
+        && isValidUserPublic(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().role == 'farmer'
+        && incoming().isBanned == false
+        && incoming().totalPoints == 0
+        && incoming().level == 1
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerified() && isValidId(userId) && isValidUserPublic(incoming()) && (
+        isAdmin() || (
+          isOwner(userId)
+          && incoming().uid == existing().uid
+          && incoming().role == existing().role
+          && incoming().isBanned == existing().isBanned
+          && incoming().totalPoints == existing().totalPoints
+          && incoming().level == existing().level
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'governorate', 'updatedAt'])
+        )
+      );
+
+      allow delete: if isAdmin() && isValidId(userId);
+
+      // Strictly isolated PII subcollection
+      match /private/info {
+        allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+        allow create: if isVerified() && isValidId(userId) && isOwner(userId)
+          && isValidUserPrivate(incoming())
+          && incoming().uid == request.auth.uid
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isVerified() && isValidId(userId) && isValidUserPrivate(incoming()) && (
+          isAdmin() || (
+            isOwner(userId)
+            && incoming().uid == existing().uid
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == request.time
+            && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'notificationsEnabled', 'updatedAt'])
+          )
+        );
+      }
+
+      // Plant diagnosis history log per user
+      match /diagnoses/{diagnosisId} {
+        allow get: if isValidId(userId) && isValidId(diagnosisId)
+          && (isOwner(userId) || isAdmin())
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow list: if isValidId(userId) && isSignedIn()
+          && (isOwner(userId) || isAdmin());
+        allow create: if isVerified() && isValidId(userId) && isValidId(diagnosisId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && isValidPlantDiagnosis(incoming())
+          && incoming().userId == request.auth.uid
+          && incoming().createdAt == request.time;
+        allow delete: if isVerified() && isValidId(userId) && isValidId(diagnosisId)
+          && (isOwner(userId) || isAdmin());
+      }
+    }
+
+    // --- 3. Virtual Farms & Plots ---
+    match /farms/{farmId} {
+      allow get: if isValidId(farmId) && (isOwner(farmId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+
+      allow create: if isVerified() && isValidId(farmId) && isOwner(farmId)
+        && isValidFarm(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerified() && isValidId(farmId) && isValidFarm(incoming()) && (
+        isAdmin() || (
+          isOwner(farmId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'farmName', 'coins', 'waterLiters', 'maxWaterLiters', 'sizeLevel',
+            'greenhouseLevel', 'greenhouseTemp', 'greenhouseHumidity', 'xp', 'level', 'updatedAt'
+          ])
+        )
+      );
+
+      allow delete: if isAdmin() && isValidId(farmId);
+
+      match /plots/{plotId} {
+        allow get: if isValidId(farmId) && isValidId(plotId)
+          && (isOwner(farmId) || isAdmin())
+          && exists(/databases/$(database)/documents/farms/$(farmId));
+        allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+
+        allow create: if isVerified() && isValidId(farmId) && isValidId(plotId) && isOwner(farmId)
+          && exists(/databases/$(database)/documents/farms/$(farmId))
+          && get(/databases/$(database)/documents/farms/$(farmId)).data.ownerId == request.auth.uid
+          && isValidPlot(incoming())
+          && incoming().ownerId == request.auth.uid
+          && incoming().updatedAt == request.time;
+
+        allow update: if isVerified() && isValidId(farmId) && isValidId(plotId) && isValidPlot(incoming()) && (
+          isAdmin() || (
+            isOwner(farmId)
+            && incoming().ownerId == existing().ownerId
+            && incoming().updatedAt == request.time
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'cropId', 'stageIndex', 'moisture', 'nutrients', 'health', 'updatedAt'
+            ])
+          )
+        );
+      }
+    }
+
+    // --- 4. Friendships & Competition Invites ---
+    match /friendships/{friendshipId} {
+      allow get: if isValidId(friendshipId) && isSignedIn()
+        && (existing().requesterId == request.auth.uid || existing().recipientId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn()
+        && (resource.data.requesterId == request.auth.uid || resource.data.recipientId == request.auth.uid);
+
+      allow create: if isVerified() && isValidId(friendshipId)
+        && isValidFriendship(incoming())
+        && incoming().requesterId == request.auth.uid
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerified() && isValidId(friendshipId) && isValidFriendship(incoming()) && (
+        isAdmin() || (
+          existing().status == 'pending'
+          && existing().recipientId == request.auth.uid
+          && incoming().requesterId == existing().requesterId
+          && incoming().recipientId == existing().recipientId
+          && incoming().createdAt == existing().createdAt
+          && incoming().status in ['accepted', 'declined']
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        )
+      );
+
+      allow delete: if isVerified() && isValidId(friendshipId)
+        && (existing().requesterId == request.auth.uid || existing().recipientId == request.auth.uid || isAdmin());
+    }
+
+    // --- 5. Global Seasonal Config ---
+    match /system/seasonal_config {
+      allow get: if true;
+      allow create, update: if isAdmin()
+        && isValidSeasonalConfig(incoming())
+        && incoming().updatedAt == request.time;
+    }
+
+    // --- 6. Quiz Leaderboard Entries ---
+    match /leaderboard_entries/{userId} {
+      allow get: if isValidId(userId);
+      allow list: if true;
+      allow create: if isVerified() && isValidId(userId) && isOwner(userId)
+        && exists(/databases/$(database)/documents/users/$(userId))
+        && isValidLeaderboardEntry(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().totalPoints <= 1200
+        && incoming().roundsPlayed == 1
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(userId) && isOwner(userId)
+        && isValidLeaderboardEntry(incoming())
+        && incoming().userId == existing().userId
+        && incoming().totalPoints >= existing().totalPoints
+        && (incoming().totalPoints - existing().totalPoints) <= 1200
+        && incoming().roundsPlayed == existing().roundsPlayed + 1
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+  }
+}
