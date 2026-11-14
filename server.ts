@@ -4,9 +4,11 @@
  */
 
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -28,6 +30,9 @@ import {
   VirtualCropDef
 } from './src/data/virtualFarmData.ts';
 import { DEFAULT_SEASONAL_CONFIG, SeasonalConfig } from './src/utils/islamicCalendar.ts';
+import { prepareArabicTextForTts } from './src/utils/arabicPronunciation.ts';
+import { INITIAL_CARTOON_EPISODES } from './src/data/cartoonEpisodesData.ts';
+import type { EpisodeQaReviewState } from './src/data/voiceEvaluationData.ts';
 
 dotenv.config();
 
@@ -37,9 +42,52 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+app.disable('x-powered-by');
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)');
+  next();
+});
+
 // Body parser
 app.use(express.json({ limit: '30mb' }));
 app.use(express.urlencoded({ extended: true, limit: '30mb' }));
+
+// Lightweight Sliding-Window Rate Limiter (Zero paid external dependencies)
+const apiRateBuckets = new Map<string, number[]>();
+function createRateLimiter(scope: string, maxRequests: number, windowMs: number, messageAr: string) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const forwarded = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim();
+    const ip = forwarded || req.ip || 'local';
+    const key = `${scope}:${ip}`;
+    const now = Date.now();
+    const history = (apiRateBuckets.get(key) || []).filter((ts) => now - ts < windowMs);
+    if (history.length >= maxRequests) {
+      return res.status(429).json({
+        error: messageAr,
+        retryAfterSec: Math.ceil((windowMs - (now - history[0])) / 1000),
+      });
+    }
+    history.push(now);
+    apiRateBuckets.set(key, history);
+    next();
+  };
+}
+
+const aiRateLimit = createRateLimiter(
+  'ai',
+  15,
+  60 * 1000,
+  'تم تجاوز الحد المسموح لطلبات الذكاء الاصطناعي حالياً؛ يرجى الانتظار دقيقة ثم المحاولة.'
+);
+const writeRateLimit = createRateLimiter(
+  'write',
+  20,
+  60 * 1000,
+  'تم إرسال طلبات كثيرة خلال وقت قصير؛ يرجى التمهل قليلاً.'
+);
 
 // Initialize Gemini on server-side
 const ai = new GoogleGenAI({
@@ -127,6 +175,18 @@ export interface ModerationLog {
   timestamp: number;
 }
 
+export interface SupportTicket {
+  id: string;
+  senderName: string;
+  contact: string;
+  message: string;
+  governorate?: string;
+  status: 'open' | 'in_progress' | 'resolved';
+  adminNote?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 // Default Seed State
 interface StorageSchema {
   books: Book[];
@@ -147,6 +207,7 @@ interface StorageSchema {
   moderators: ModeratorRecord[];
   bannedWords: string[];
   moderationLogs: ModerationLog[];
+  supportTickets: SupportTicket[];
   visitors: Record<string, VisitorRecord>;
   dailyVisitIds: Record<string, string[]>;
   seasonalConfig: SeasonalConfig;
@@ -166,6 +227,7 @@ interface StorageSchema {
     dailyChallenge: number;
     dailyCap: number;
   };
+  cartoonQaReviews: Record<string, EpisodeQaReviewState>;
 }
 
 const defaultStorage: StorageSchema = {
@@ -294,6 +356,7 @@ const defaultStorage: StorageSchema = {
   moderators: [],
   bannedWords: ['نصب', 'احتيال', 'سبام'],
   moderationLogs: [],
+  supportTickets: [],
   visitors: {},
   dailyVisitIds: {},
   seasonalConfig: { ...DEFAULT_SEASONAL_CONFIG },
@@ -322,7 +385,8 @@ const defaultStorage: StorageSchema = {
     harvest: 30,
     dailyChallenge: 40,
     dailyCap: 350
-  }
+  },
+  cartoonQaReviews: {}
 };
 
 // Load or initialize storage
@@ -343,6 +407,7 @@ if (fs.existsSync(STORAGE_FILE)) {
       moderators: Array.isArray(parsed.moderators) ? parsed.moderators : [],
       bannedWords: Array.isArray(parsed.bannedWords) ? parsed.bannedWords : [...defaultStorage.bannedWords],
       moderationLogs: Array.isArray(parsed.moderationLogs) ? parsed.moderationLogs : [],
+      supportTickets: Array.isArray(parsed.supportTickets) ? parsed.supportTickets : [],
       visitors: parsed.visitors && typeof parsed.visitors === 'object' ? parsed.visitors : {},
       dailyVisitIds: parsed.dailyVisitIds && typeof parsed.dailyVisitIds === 'object' ? parsed.dailyVisitIds : {},
       seasonalConfig: { ...DEFAULT_SEASONAL_CONFIG, ...(parsed.seasonalConfig || {}) },
@@ -352,7 +417,8 @@ if (fs.existsSync(STORAGE_FILE)) {
       farmFriendships: parsed.farmFriendships || [],
       farmCompetitions: parsed.farmCompetitions || defaultStorage.farmCompetitions,
       farmReports: parsed.farmReports || [],
-      bannedUserIds: parsed.bannedUserIds || []
+      bannedUserIds: parsed.bannedUserIds || [],
+      cartoonQaReviews: parsed.cartoonQaReviews && typeof parsed.cartoonQaReviews === 'object' ? parsed.cartoonQaReviews : {}
     };
     // Ensure built-in books (especially the new Samail book) and book crops stay synced
     for (const baseBook of [...INITIAL_BOOKS].reverse()) {
@@ -1214,7 +1280,7 @@ app.get('/api/staff/moderation-logs', requireStaff, (_req, res) => {
 });
 
 // --- 3. AI Plant Disease & Pest Diagnosis API ---
-app.post('/api/diagnose/plant', async (req, res) => {
+app.post('/api/diagnose/plant', aiRateLimit, async (req, res) => {
   try {
     const { images, imageBase64, cropName, symptoms, wilayat } = req.body;
 
@@ -1433,7 +1499,7 @@ app.post('/api/diagnose/plant', async (req, res) => {
 });
 
 // --- 4. AI Pest Diagnosis API ---
-app.post('/api/diagnose/pest', async (req, res) => {
+app.post('/api/diagnose/pest', aiRateLimit, async (req, res) => {
   try {
     const { imageBase64, hostCrop, pestDescription, wilayat } = req.body;
 
@@ -1493,7 +1559,7 @@ app.post('/api/diagnose/pest', async (req, res) => {
 // --- 5. AI Quiz Generator & Server-side Verified Score Submission (Anti-Cheat) ---
 const aiQuizBank = new Map<string, Question>();
 
-app.post('/api/games/generate-questions', async (req, res) => {
+app.post('/api/games/generate-questions', aiRateLimit, async (req, res) => {
   try {
     const { gameType, difficulty, topicFocus } = req.body;
     const validType = [
@@ -1853,7 +1919,7 @@ app.get('/api/community/posts', (_req, res) => {
   return res.json({ success: true, posts: storage.communityPosts });
 });
 
-app.post('/api/community/posts', (req, res) => {
+app.post('/api/community/posts', writeRateLimit, (req, res) => {
   const { authorName, authorRole, authorGovernorate, cropCategory, content } = req.body;
   if (!content || !authorName) {
     return res.status(400).json({ error: 'يرجى كتابة محتوى المنشور واسم الكاتب' });
@@ -1995,6 +2061,78 @@ app.delete('/api/community/posts/:postId/comments/:commentId', requireStaff, (re
 // --- 9. Notifications APIs ---
 app.get('/api/notifications', (_req, res) => {
   return res.json({ success: true, notifications: storage.notifications });
+});
+
+app.post('/api/notifications/read-all', (_req, res) => {
+  storage.notifications = storage.notifications.map((n: any) => ({ ...n, read: true }));
+  saveStorage();
+  return res.json({ success: true, notifications: storage.notifications });
+});
+
+// --- 9B. Farmer Support Tickets & Feedback APIs ---
+app.post('/api/support/tickets', writeRateLimit, (req, res) => {
+  const senderName = String(req.body?.senderName || '').trim().slice(0, 80);
+  const contact = String(req.body?.contact || '').trim().slice(0, 100);
+  const rawMessage = String(req.body?.message || '').trim().slice(0, 1200);
+  const governorate = String(req.body?.governorate || '').trim().slice(0, 80);
+
+  if (senderName.length < 2 || contact.length < 3 || rawMessage.length < 5) {
+    return res.status(400).json({
+      error: 'يرجى كتابة الاسم ووسيلة التواصل ونص الاستفسار بشكل واضح (5 أحرف على الأقل).'
+    });
+  }
+
+  const sanitizedMessage = censorText(rawMessage, storage.bannedWords);
+  const now = Date.now();
+  const ticket: SupportTicket = {
+    id: `tkt-${now}-${Math.random().toString(36).slice(2, 6)}`,
+    senderName: censorText(senderName, storage.bannedWords),
+    contact,
+    message: sanitizedMessage,
+    governorate: governorate || undefined,
+    status: 'open',
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  storage.supportTickets.unshift(ticket);
+  storage.supportTickets = storage.supportTickets.slice(0, 200);
+  saveStorage();
+
+  return res.status(201).json({
+    success: true,
+    ticket: { id: ticket.id, status: ticket.status, createdAt: ticket.createdAt },
+  });
+});
+
+app.get('/api/staff/support-tickets', requireStaff, (_req, res) => {
+  return res.json({ success: true, tickets: storage.supportTickets });
+});
+
+app.patch('/api/staff/support-tickets/:id', requireStaff, (req: AuthenticatedRequest, res) => {
+  const ticket = storage.supportTickets.find((t) => t.id === req.params.id);
+  if (!ticket) {
+    return res.status(404).json({ error: 'التذكرة غير موجودة.' });
+  }
+  const status = req.body?.status;
+  if (status && ['open', 'in_progress', 'resolved'].includes(status)) {
+    ticket.status = status;
+  }
+  if (typeof req.body?.adminNote === 'string') {
+    ticket.adminNote = req.body.adminNote.trim().slice(0, 500);
+  }
+  ticket.updatedAt = Date.now();
+
+  storage.auditLogs.unshift({
+    id: `aud-${Date.now()}`,
+    action: 'تحديث تذكرة دعم مزارع',
+    performedBy: req.staffSession?.actorName || 'الطاقم الإداري',
+    details: `تحديث حالة الطلب (${ticket.id}) إلى ${ticket.status}`,
+    timestamp: Date.now(),
+  });
+  saveStorage();
+
+  return res.json({ success: true, ticket });
 });
 
 app.post('/api/admin/broadcast-alert', requireAdmin, (req, res) => {
@@ -2767,7 +2905,7 @@ app.post('/api/virtual-farm/action', (req, res) => {
   });
 });
 
-app.post('/api/virtual-farm/advisor', async (req, res) => {
+app.post('/api/virtual-farm/advisor', aiRateLimit, async (req, res) => {
   try {
     const { cropName, stageName, moisture, nutrients, health, pestType, greenhouseTemp, userQuestion } = req.body;
     const systemInstruction = `أنت المستشار الزراعي الذكي داخل لعبة «مزرعتي الافتراضية» في تطبيق «صديق المزارع» بسلطنة عُمان (بإشراف عمر الشرجي).
@@ -3031,10 +3169,89 @@ app.post('/api/admin/virtual-farm/ban', requireAdmin, (req, res) => {
 // --- Stage 2: Educational Cartoon Videos ("فليجان" - Flijan) ---
 const cartoonTtsCache = new Map<string, string>();
 
+const MEDIA_STORE_DIR = path.join(__dirname, 'media_store');
+app.use('/media', express.static(MEDIA_STORE_DIR, { maxAge: '7d' }));
+
+function createDefaultQaReview(episodeId: string): EpisodeQaReviewState {
+  return {
+    episodeId,
+    checklist: {
+      luftsAndDucking: false,
+      pronunciationAndTashkeel: false,
+      noSceneNumbers: false,
+      syncAndTransitions: false,
+      phoneSpeakerClarity: false,
+      mobileBitrateAnd480p: false,
+    },
+    reviewers: [
+      { slot: 1, roleTitleAr: 'المراجع الأول · مدير البرنامج (عمر الشرجي)', reviewerName: 'عمر الشرجي', approved: false, notes: '' },
+      { slot: 2, roleTitleAr: 'المراجع الثاني · مرشد ووقاية النبات', reviewerName: '', approved: false, notes: '' },
+      { slot: 3, roleTitleAr: 'المراجع الثالث · جودة الصوت والصورة على الجوال', reviewerName: '', approved: false, notes: '' },
+    ],
+    updatedAt: Date.now(),
+  };
+}
+
+app.get('/api/cartoon/reviews', (_req, res) => {
+  const manifestPath = path.join(MEDIA_STORE_DIR, 'videos', 'manifest.json');
+  const voiceReportPath = path.join(MEDIA_STORE_DIR, 'voice-comparison', 'comparison-report.json');
+  let mediaManifest: any = null;
+  let voiceReport: any = null;
+
+  try {
+    if (fs.existsSync(manifestPath)) mediaManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+  } catch { /* ignore */ }
+  try {
+    if (fs.existsSync(voiceReportPath)) voiceReport = JSON.parse(fs.readFileSync(voiceReportPath, 'utf-8'));
+  } catch { /* ignore */ }
+
+  const reviews: Record<string, EpisodeQaReviewState> = {};
+  for (const ep of INITIAL_CARTOON_EPISODES) {
+    reviews[ep.id] = storage.cartoonQaReviews[ep.id] || createDefaultQaReview(ep.id);
+  }
+  return res.json({ success: true, reviews, mediaManifest, voiceReport });
+});
+
+app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, (req, res) => {
+  const { episodeId } = req.params;
+  if (!INITIAL_CARTOON_EPISODES.some((ep) => ep.id === episodeId)) {
+    return res.status(404).json({ error: 'الحلقة غير موجودة في قائمة المراجعة.' });
+  }
+  const current = storage.cartoonQaReviews[episodeId] || createDefaultQaReview(episodeId);
+  const { checklist, reviewers } = req.body || {};
+
+  if (checklist && typeof checklist === 'object') {
+    for (const k of Object.keys(current.checklist) as Array<keyof typeof current.checklist>) {
+      if (typeof checklist[k] === 'boolean') {
+        current.checklist[k] = checklist[k];
+      }
+    }
+  }
+  if (Array.isArray(reviewers)) {
+    current.reviewers = current.reviewers.map((slotItem) => {
+      const incoming = reviewers.find((r: any) => Number(r?.slot) === slotItem.slot);
+      if (!incoming) return slotItem;
+      const nextApproved = typeof incoming.approved === 'boolean' ? incoming.approved : slotItem.approved;
+      return {
+        ...slotItem,
+        reviewerName: typeof incoming.reviewerName === 'string' ? incoming.reviewerName.trim().slice(0, 60) : slotItem.reviewerName,
+        approved: nextApproved,
+        notes: typeof incoming.notes === 'string' ? incoming.notes.trim().slice(0, 300) : slotItem.notes,
+        reviewedAt: nextApproved ? (slotItem.reviewedAt || Date.now()) : undefined,
+      };
+    });
+  }
+  current.updatedAt = Date.now();
+  storage.cartoonQaReviews[episodeId] = current;
+  saveStorage();
+  return res.json({ success: true, review: current });
+});
+
 app.post('/api/cartoon/tts', async (req, res) => {
   try {
     const { text, mood } = req.body;
-    const cleanText = typeof text === 'string' ? text.trim().slice(0, 800) : '';
+    const rawClean = typeof text === 'string' ? text.trim().slice(0, 800) : '';
+    const cleanText = prepareArabicTextForTts(rawClean);
     if (!cleanText) {
       return res.status(400).json({ error: 'النص المطلوب تحويله إلى صوت غير موجود.' });
     }
@@ -3045,15 +3262,27 @@ app.post('/api/cartoon/tts', async (req, res) => {
       .update(`${voiceMood}:${cleanText}`)
       .digest('hex');
 
+    const ttsDiskCacheDir = path.join(DATA_DIR, 'tts-cache');
+    if (!fs.existsSync(ttsDiskCacheDir)) fs.mkdirSync(ttsDiskCacheDir, { recursive: true });
+    const diskFile = path.join(ttsDiskCacheDir, `${cacheKey}.wav`);
+
     const cached = cartoonTtsCache.get(cacheKey);
     if (cached) {
       return res.json({ success: true, audioBase64: cached, mimeType: 'audio/wav', cached: true });
     }
+    if (fs.existsSync(diskFile)) {
+      const diskBase64 = fs.readFileSync(diskFile).toString('base64');
+      cartoonTtsCache.set(cacheKey, diskBase64);
+      return res.json({ success: true, audioBase64: diskBase64, mimeType: 'audio/wav', cached: true });
+    }
 
     const styleMap: Record<string, string> = {
-      cheerful: 'Warm, cheerful, friendly Arabic cartoon agricultural mascot speaking clearly for Omani farmers',
-      curious: 'Expressive, engaging, educational Arabic narrator voice with warm curiosity',
-      warning: 'Caring, attentive, clear Arabic guide voice emphasizing gentle agricultural caution',
+      cheerful:
+        'Warm, authentic, cheerful Omani Arabic agricultural mascot speaking smoothly, clearly, and expressively like a real human guide at a comfortable moderate pace',
+      curious:
+        'Expressive, natural, crystal-clear Arabic educational narrator with warm curiosity and clear pronunciation for Omani farmers',
+      warning:
+        'Warm, caring, steady Arabic agricultural advisor speaking clearly with gentle, reassuring emphasis',
     };
 
     const response = await ai.models.generateContent({
@@ -3081,12 +3310,41 @@ app.post('/api/cartoon/tts', async (req, res) => {
       },
     });
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    let base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) {
       return res.status(502).json({ error: 'لم يرجع محرك الصوت بيانات صوتية صالحة.' });
     }
 
-    if (cartoonTtsCache.size >= 60) {
+    // Master dynamic TTS audio cleanly to -16 LUFS with studio clarity EQ
+    try {
+      const rawTmp = path.join(ttsDiskCacheDir, `${cacheKey}.raw.wav`);
+      fs.writeFileSync(rawTmp, Buffer.from(base64Audio, 'base64'));
+      const normRes = spawnSync(
+        'ffmpeg',
+        [
+          '-hide_banner',
+          '-y',
+          '-i',
+          rawTmp,
+          '-af',
+          'highpass=f=75,equalizer=f=2800:width_type=h:width=1400:g=1.4,loudnorm=I=-16:TP=-1.5:LRA=11',
+          '-ar',
+          '44100',
+          diskFile,
+        ],
+        { encoding: 'utf-8', timeout: 15000 }
+      );
+      if (normRes.status === 0 && fs.existsSync(diskFile)) {
+        base64Audio = fs.readFileSync(diskFile).toString('base64');
+      } else {
+        fs.writeFileSync(diskFile, Buffer.from(base64Audio, 'base64'));
+      }
+      if (fs.existsSync(rawTmp)) fs.unlinkSync(rawTmp);
+    } catch {
+      try { fs.writeFileSync(diskFile, Buffer.from(base64Audio, 'base64')); } catch { /* ignore */ }
+    }
+
+    if (cartoonTtsCache.size >= 40) {
       const oldestKey = cartoonTtsCache.keys().next().value;
       if (oldestKey) cartoonTtsCache.delete(oldestKey);
     }
@@ -3107,7 +3365,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
   }
 });
 
-app.post('/api/cartoon/generate-episode', async (req, res) => {
+app.post('/api/cartoon/generate-episode', aiRateLimit, async (req, res) => {
   try {
     const { topic } = req.body;
     const cleanTopic = typeof topic === 'string' ? topic.trim().slice(0, 200) : '';
@@ -3205,6 +3463,7 @@ app.post('/api/cartoon/generate-episode', async (req, res) => {
       return res.status(502).json({ error: 'تعذر توليد مشاهد الحلقة. حاول صياغة الموضوع بشكل أوضح.' });
     }
 
+    const beatDefaultTitles = ['مدخل القصة', 'تشخيص المشكلة', 'الخطوات العملية', 'الخلاصة والتطبيق'];
     const episode = {
       id: `ep-custom-${Date.now()}`,
       title: parsed.title || cleanTopic,
@@ -3214,7 +3473,7 @@ app.post('/api/cartoon/generate-episode', async (req, res) => {
       isCustom: true,
       scenes: scenes.map((sc: any, idx: number) => ({
         id: `cs-${idx + 1}`,
-        sceneHeading: sc.sceneHeading || `المشهد ${idx + 1}`,
+        sceneHeading: (sc.sceneHeading || beatDefaultTitles[idx] || 'نقطة إرشادية').replace(/^المشهد\s+\S+[:\-]?\s*/, ''),
         narration: sc.narration || cleanTopic,
         subtitle: sc.subtitle || sc.narration || cleanTopic,
         backdrop: sc.backdrop || 'oasis_falaj',
@@ -3237,11 +3496,16 @@ app.post('/api/cartoon/generate-episode', async (req, res) => {
 // Vite Middleware Integration
 async function setupVite() {
   const isProd = process.env.NODE_ENV === 'production';
+  const httpServer = http.createServer(app);
 
   if (!isProd) {
     const { createServer } = await import('vite');
     const vite = await createServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+        ws: { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -3253,7 +3517,7 @@ async function setupVite() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`صديق المزارع (الإصدار الاحترافي 2026) يعمل على المنفذ: http://localhost:${PORT}`);
   });
 }

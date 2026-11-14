@@ -40,13 +40,40 @@ export const HelpSupportView: React.FC = () => {
   const [message, setMessage] = useState<string>('');
   const [senderName, setSenderName] = useState<string>('');
   const [senderPhone, setSenderPhone] = useState<string>('');
-  const [submitted, setSubmitted] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submittedTicketId, setSubmittedTicketId] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setMessage('');
-    setTimeout(() => setSubmitted(false), 4000);
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmittedTicketId(null);
+
+    try {
+      const res = await fetch('/api/support/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderName: senderName.trim(),
+          contact: senderPhone.trim(),
+          message: message.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setSubmitError(data.error || 'تعذر إرسال الطلب حالياً؛ يرجى التحقق من البيانات والمحاولة مجدداً.');
+        return;
+      }
+      setSubmittedTicketId(data.ticket?.id || 'تم التسجيل');
+      setMessage('');
+      setSenderName('');
+      setSenderPhone('');
+    } catch {
+      setSubmitError('تعذر الاتصال بالخادم حالياً؛ يرجى التأكد من اتصال الشبكة وإعادة المحاولة.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -125,62 +152,77 @@ export const HelpSupportView: React.FC = () => {
           إرسال مقترح أو استفسار لإدارة المنصة
         </h3>
 
-        {submitted ? (
-          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-3">
-            <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>شكراً لتواصلك! تم استلام رسالتك وسيتم مراجعتها من قبل الإدارة والمشرفين.</span>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-3 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block font-semibold mb-1">الاسم الكريم:</label>
-                <input
-                  type="text"
-                  required
-                  value={senderName}
-                  onChange={e => setSenderName(e.target.value)}
-                  placeholder="اسمك الكامل"
-                  className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">رقم الهاتف أو البريد:</label>
-                <input
-                  type="text"
-                  required
-                  value={senderPhone}
-                  onChange={e => setSenderPhone(e.target.value)}
-                  placeholder="للتواصل والمتابعة"
-                  className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white"
-                />
-              </div>
+        {submittedTicketId && (
+          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <Check className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>تم استلام رسالتك وحفظها في سجل إدارة المنصة للمتابعة.</span>
             </div>
+            <span className="font-mono text-[11px] px-2.5 py-1 rounded-lg bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-800 shrink-0">
+              رقم الطلب: {submittedTicketId}
+            </span>
+          </div>
+        )}
 
+        {submitError && (
+          <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-xs">
+            {submitError}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold mb-1">المقترح أو الاستفسار:</label>
-              <textarea
-                rows={3}
+              <label className="block font-semibold mb-1">الاسم الكريم:</label>
+              <input
+                type="text"
                 required
-                value={message}
-                onChange={e => setMessage(e.target.value)}
-                placeholder="اكتب ملاحظاتك، احتياجاتك في المزرعة، أو مقترحاتك لتطوير الخدمات..."
-                className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white"
+                minLength={2}
+                value={senderName}
+                onChange={e => setSenderName(e.target.value)}
+                placeholder="اسمك الكامل"
+                className="w-full min-h-[44px] p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white"
               />
             </div>
 
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md flex items-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                <span>إرسال للإدارة</span>
-              </button>
+            <div>
+              <label className="block font-semibold mb-1">رقم الهاتف أو البريد:</label>
+              <input
+                type="text"
+                required
+                minLength={3}
+                value={senderPhone}
+                onChange={e => setSenderPhone(e.target.value)}
+                placeholder="للتواصل والمتابعة"
+                className="w-full min-h-[44px] p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white"
+              />
             </div>
-          </form>
-        )}
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1">المقترح أو الاستفسار:</label>
+            <textarea
+              rows={3}
+              required
+              minLength={5}
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="اكتب ملاحظاتك، احتياجاتك في المزرعة، أو مقترحاتك لتطوير الخدمات..."
+              className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white"
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="min-h-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs shadow-md flex items-center gap-2"
+            >
+              <Send className="w-4 h-4" />
+              <span>{submitting ? 'جاري الإرسال...' : 'إرسال للإدارة'}</span>
+            </button>
+          </div>
+        </form>
       </div>
 
     </div>

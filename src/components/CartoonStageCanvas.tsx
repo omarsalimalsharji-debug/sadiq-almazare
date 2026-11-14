@@ -671,15 +671,11 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
       ctx.textAlign = 'right';
       ctx.fillStyle = '#34d399';
       ctx.font = 'bold 18px Tahoma, Arial, sans-serif';
-      ctx.fillText(
-        `فليجان · المشهد ${sceneIndex + 1} من ${totalScenes}`,
-        564,
-        62
-      );
+      ctx.fillText('فليجان · إرشاد المزارع العُماني', 564, 62);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 23px Tahoma, Arial, sans-serif';
-      ctx.fillText(scene.sceneHeading, 564, 96);
+      ctx.fillText(scene.sceneHeading.replace(/^المشهد\s+\S+[:\-]?\s*/, ''), 564, 96);
       ctx.restore();
 
       // Episode title subtle watermark top-left

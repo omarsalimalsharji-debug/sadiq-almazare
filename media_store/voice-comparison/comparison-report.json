@@ -1,0 +1,41 @@
+{
+  "text": "أَهْلاً بِكُمْ فِي صَدِيقِ الْمُزَارِعِ بِسَلْطَنَةِ عُمَانَ؛ احْمُوا النَّخِيلَ مِنْ حَشَرَةِ الدُّوبَاسِ وَسُوسَةِ النَّخِيلِ الْحَمْرَاءِ بِالْفَحْصِ الْمُبَكِّرِ وَالرَّيِّ الْمُنْتَظِمِ مِنَ الْأَفْلَاجِ.",
+  "voices": [
+    {
+      "voiceId": "piper-kareem-medium",
+      "mp3Url": "/media/voice-comparison/piper-kareem-medium.mp3",
+      "durationSec": 15.8,
+      "measuredLufs": "-16.45",
+      "measuredTruePeakDb": "-3.33",
+      "cacheHit": false,
+      "sha256Key": "f5f7e9240a5661cddc5fd214"
+    },
+    {
+      "voiceId": "piper-kareem-low",
+      "mp3Url": "/media/voice-comparison/piper-kareem-low.mp3",
+      "durationSec": 15.44,
+      "measuredLufs": "-16.44",
+      "measuredTruePeakDb": "-3.55",
+      "cacheHit": false,
+      "sha256Key": "51a2a4b05ad2d9b667ed135d"
+    },
+    {
+      "voiceId": "mms-tts-ara",
+      "mp3Url": "/media/voice-comparison/mms-tts-ara.mp3",
+      "durationSec": 13.45,
+      "measuredLufs": "-16.44",
+      "measuredTruePeakDb": "-5.11",
+      "cacheHit": false,
+      "sha256Key": "7588701592f813d2c9e7b675"
+    },
+    {
+      "voiceId": "espeak-ng-ar",
+      "mp3Url": "/media/voice-comparison/espeak-ng-ar.mp3",
+      "durationSec": 15.91,
+      "measuredLufs": "-16.43",
+      "measuredTruePeakDb": "-3.10",
+      "cacheHit": false,
+      "sha256Key": "c81cecb5b47743e4a1fee9e2"
+    }
+  ]
+}

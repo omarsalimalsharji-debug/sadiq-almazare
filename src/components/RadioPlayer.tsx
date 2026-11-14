@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Radio as RadioIcon, 
   Play, 
@@ -28,7 +28,26 @@ export const RadioPlayer: React.FC = () => {
     errorMessage
   } = useAudio();
 
-  const [stations] = useState<RadioStation[]>(RADIO_STATIONS);
+  const [stations, setStations] = useState<RadioStation[]>(RADIO_STATIONS);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/radio/stations')
+      .then((res) => res.json())
+      .then((data) => {
+        if (active && data.success && Array.isArray(data.stations) && data.stations.length > 0) {
+          setStations(data.stations);
+          setSyncNotice(null);
+        }
+      })
+      .catch(() => {
+        if (active) setSyncNotice('تعذر مزامنة المحطات من الخادم؛ يتم استخدام القائمة المحفوظة.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   
   // Selected station
   const activeStation = currentRadio || stations[0];
@@ -40,6 +59,11 @@ export const RadioPlayer: React.FC = () => {
 
   return (
     <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-5 sm:p-6 shadow-sm">
+      {syncNotice && (
+        <div className="mb-3 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-800 dark:text-amber-300">
+          {syncNotice}
+        </div>
+      )}
       <div className="flex flex-col md:flex-row items-center justify-between gap-5 border-b border-stone-100 dark:border-stone-800 pb-5">
         
         {/* Station Logo & Information */}

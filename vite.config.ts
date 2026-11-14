@@ -49,8 +49,9 @@ export default defineConfig(() => {
         workbox: {
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,jpg,svg,woff,woff2}'],
+          globIgnores: ['media/videos/**', 'media/audio/cache/**'],
           navigateFallback: 'index.html',
-          navigateFallbackDenylist: [/^\/api\//],
+          navigateFallbackDenylist: [/^\/api\//, /^\/media\//],
           runtimeCaching: [
             {
               urlPattern: /\/assets\/.*\.(pdf|jpg|png|svg)$/i,

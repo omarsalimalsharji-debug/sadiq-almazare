@@ -17,6 +17,7 @@ import { LoginModal } from './components/LoginModal.tsx';
 import { BottomNav } from './components/BottomNav.tsx';
 import { GlobalMiniPlayer } from './components/GlobalMiniPlayer.tsx';
 import { OfflineIndicator } from './components/OfflineIndicator.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 
 // Views
 import { HomeView } from './components/HomeView.tsx';
@@ -52,7 +53,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isNotifDrawerOpen, setIsNotifDrawerOpen] = useState<boolean>(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
-  const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(2);
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(0);
 
   // Language state (ar / en)
   const [lang, setLang] = useState<'ar' | 'en'>(() => {
@@ -158,7 +159,18 @@ export default function App() {
         })
         .catch(() => {});
     };
+    const fetchNotificationsCount = () => {
+      fetch('/api/notifications')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.notifications)) {
+            setUnreadNotifsCount(data.notifications.filter((n: any) => !n.read).length);
+          }
+        })
+        .catch(() => {});
+    };
     fetchSeasonalConfig();
+    fetchNotificationsCount();
     const timer = setInterval(() => {
       setSeasonalTick(Date.now());
       fetchSeasonalConfig();
@@ -343,6 +355,7 @@ export default function App() {
 
       {/* Main Content View Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <ErrorBoundary onGoHome={() => setActivePage('home')}>
         {activePage === 'home' && (
           <HomeView
             onNavigate={setActivePage}
@@ -494,6 +507,7 @@ export default function App() {
             }}
           />
         )}
+        </ErrorBoundary>
       </main>
 
       {/* Offline Connectivity Banner */}

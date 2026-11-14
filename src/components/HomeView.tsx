@@ -79,7 +79,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <section className="relative rounded-3xl overflow-hidden bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-lg text-white">
         <div className="absolute inset-0">
           <img
-            src="/src/assets/images/hero_oman_farm_1794476730497.jpg"
+            src="/assets/images/hero_oman_farm.jpg"
             alt="واحة النخيل والأفلاج العمانية"
             className="w-full h-full object-cover opacity-35"
             referrerPolicy="no-referrer"
@@ -267,7 +267,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         {/* Diagnostic Laboratory Visual Showcase */}
         <div className="relative rounded-2xl overflow-hidden h-40 border border-stone-200 dark:border-stone-800">
           <img
-            src="/src/assets/images/plant_diagnosis_lab_1794476731329.jpg"
+            src="/assets/images/plant_diagnosis_lab.jpg"
             alt="مختبر الفحص الزراعي الذكي"
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"

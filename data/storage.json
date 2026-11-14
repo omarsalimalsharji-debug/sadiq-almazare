@@ -924,19 +924,23 @@
     "سبام"
   ],
   "moderationLogs": [],
+  "supportTickets": [],
   "visitors": {
     "v_e76150ef976d2df9": {
       "anonId": "v_e76150ef976d2df9",
       "deviceType": "هاتف",
       "browserLabel": "Android · Chrome",
       "firstVisitAt": 1794570398345,
-      "lastSeenAt": 1794570703227,
-      "visitCount": 1,
-      "lastPage": "pest_diagnosis"
+      "lastSeenAt": 1794653631274,
+      "visitCount": 3,
+      "lastPage": "home"
     }
   },
   "dailyVisitIds": {
     "2026-11-13": [
+      "v_e76150ef976d2df9"
+    ],
+    "2026-11-14": [
       "v_e76150ef976d2df9"
     ]
   },
@@ -1966,5 +1970,6 @@
     "harvest": 30,
     "dailyChallenge": 40,
     "dailyCap": 350
-  }
+  },
+  "cartoonQaReviews": {}
 }

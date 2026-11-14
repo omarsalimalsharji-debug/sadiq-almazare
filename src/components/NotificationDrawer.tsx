@@ -33,19 +33,26 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   onNotificationsCountChange
 }) => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [testSent, setTestSent] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchNotifs = async () => {
+    setLoading(true);
+    setFetchError(null);
     try {
       const res = await fetch('/api/notifications');
       const data = await res.json();
-      if (data.success && Array.isArray(data.notifications)) {
+      if (res.ok && data.success && Array.isArray(data.notifications)) {
         setNotifications(data.notifications);
         const unread = data.notifications.filter((n: any) => !n.read).length;
         onNotificationsCountChange(unread);
+      } else {
+        setFetchError('تعذر تحديث قائمة التنبيهات حالياً.');
       }
-    } catch (e) {
-      console.warn('Failed to load notifications:', e);
+    } catch {
+      setFetchError('تعذر الاتصال بالخادم لجلب التنبيهات.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,25 +60,14 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     fetchNotifs();
   }, [isOpen]);
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     onNotificationsCountChange(0);
-  };
-
-  const handleTestImmediateNotification = () => {
-    const testNotif: AppNotification = {
-      id: `notif-test-${Date.now()}`,
-      title: "تنبيه ميداني تجريبي: فحص رطوبة التربة",
-      message: "توصي منظومة صديق المزارع الذكية بفحص شبكة التنقيط والتأكد من عدم انسداد النقاطات بعد هبوب الرياح الصباحية.",
-      type: "crop_advice",
-      targetGovernorate: "سلطنة عُمان",
-      timestamp: Date.now(),
-      read: false
-    };
-    setNotifications(prev => [testNotif, ...prev]);
-    onNotificationsCountChange(notifications.filter(n => !n.read).length + 1);
-    setTestSent(true);
-    setTimeout(() => setTestSent(false), 3000);
+    try {
+      await fetch('/api/notifications/read-all', { method: 'POST' });
+    } catch {
+      // keep local state optimistic without noisy error
+    }
   };
 
   if (!isOpen) return null;
@@ -98,7 +94,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                 مركز التنبيهات والإشعارات
               </h3>
               <span className="text-[11px] text-stone-400">
-                إشعارات حقيقية للمحاصيل والطقس
+                تنبيهات الطقس والإرشاد الزراعي المعتمدة
               </span>
             </div>
           </div>
@@ -119,16 +115,17 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           </div>
         </div>
 
-        {/* Test Notification Trigger */}
+        {/* Live Refresh Bar */}
         <div className="p-3 bg-stone-100 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-700 flex items-center justify-between text-xs">
           <span className="text-stone-600 dark:text-stone-300">
-            {testSent ? 'تم إرسال الإشعار الفوري بنجاح!' : 'تريد تجربة استقبال تنبيه حقيقي؟'}
+            {fetchError ? fetchError : loading ? 'جاري المزامنة...' : `إجمالي التنبيهات: ${notifications.length}`}
           </span>
           <button
-            onClick={handleTestImmediateNotification}
-            className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]"
+            onClick={fetchNotifs}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-[11px]"
           >
-            إرسال إشعار تجريبي
+            تحديث الآن
           </button>
         </div>
 

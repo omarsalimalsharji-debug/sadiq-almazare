@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   CloudSun, 
   Wind, 
@@ -29,59 +29,76 @@ export const WeatherView: React.FC = () => {
     }>;
   } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const selectedGov = OMANI_GOVERNORATES.find(g => g.id === selectedGovId) || OMANI_GOVERNORATES[0];
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadWeather = useCallback(async (govId: string) => {
     setLoading(true);
+    setFetchError(null);
+    try {
+      const res = await fetch(`/api/weather/live?govId=${encodeURIComponent(govId)}`);
+      const data = await res.json();
+      if (res.ok && data.success && data.live) {
+        setLiveWeatherData({
+          temperature: Math.round(data.live.temperature),
+          humidity: Math.round(data.live.humidity),
+          windSpeed: Math.round(data.live.windSpeed),
+          weatherCode: 0,
+          alerts: (data.live.alerts || []).map((msg: string, idx: number) => ({
+            id: `alt-${idx}`,
+            title: "تنبيه مناخي ميداني",
+            message: msg,
+            severity: "high",
+            recommendation: msg
+          }))
+        });
+      } else {
+        setLiveWeatherData(null);
+        setFetchError(data.error || 'تعذر الحصول على قراءة الطقس الحية من المحطة حالياً.');
+      }
+    } catch {
+      setLiveWeatherData(null);
+      setFetchError('تعذر الاتصال بخدمة الأرصاد الحية (Open-Meteo)؛ تأكد من اتصال الإنترنت ثم أعد المحاولة.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    fetch(`/api/weather/live?govId=${selectedGov.id}`)
-      .then(res => res.json())
-      .then(data => {
-        if (isMounted && data.success && data.live) {
-          setLiveWeatherData({
-            temperature: Math.round(data.live.temperature),
-            humidity: Math.round(data.live.humidity),
-            windSpeed: Math.round(data.live.windSpeed),
-            weatherCode: 0,
-            alerts: (data.live.alerts || []).map((msg: string, idx: number) => ({
-              id: `alt-${idx}`,
-              title: "تنبيه مناخي ميداني",
-              message: msg,
-              severity: "high",
-              recommendation: msg
-            }))
-          });
-        }
-      })
-      .catch(err => console.warn('Weather fetch warning:', err))
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
+  useEffect(() => {
+    loadWeather(selectedGov.id);
+  }, [selectedGov.id, loadWeather]);
 
-    return () => { isMounted = false; };
-  }, [selectedGov.name]);
-
-  const temperature = liveWeatherData?.temperature ?? 28;
-  const humidity = liveWeatherData?.humidity ?? 52;
-  const windSpeed = liveWeatherData?.windSpeed ?? 14;
+  const temperature = liveWeatherData ? liveWeatherData.temperature : null;
+  const humidity = liveWeatherData ? liveWeatherData.humidity : null;
+  const windSpeed = liveWeatherData ? liveWeatherData.windSpeed : null;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       
       {/* Header */}
-      <div className="border-b border-stone-200 dark:border-stone-800 pb-4">
-        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-          <CloudSun className="w-4 h-4" />
-          <span>الأرصاد والمناخ الزراعي في سلطنة عُمان</span>
+      <div className="border-b border-stone-200 dark:border-stone-800 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+            <CloudSun className="w-4 h-4" />
+            <span>الأرصاد والمناخ الزراعي في سلطنة عُمان</span>
+          </div>
+          <h1 className="text-2xl font-bold text-stone-900 dark:text-white mt-1">
+            الطقس والتنبيهات المناخية الزراعية
+          </h1>
+          <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-0.5">
+            بيانات طقس حية مباشرة عبر محطات الأرصاد (Open-Meteo) مع تأثير درجات الحرارة والرطوبة والرياح على ري النخيل والمحاصيل.
+          </p>
         </div>
-        <h1 className="text-2xl font-bold text-stone-900 dark:text-white mt-1">
-          الطقس والتنبيهات المناخية الزراعية
-        </h1>
-        <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-0.5">
-          بيانات طقس حية مباشرة عبر محطات الأرصاد (Open-Meteo) مع تأثير درجات الحرارة والرطوبة والرياح على ري النخيل والمحاصيل.
-        </p>
+
+        <button
+          onClick={() => loadWeather(selectedGov.id)}
+          disabled={loading}
+          className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-bold flex items-center gap-2 self-start sm:self-auto"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <span>{loading ? 'جاري التحديث...' : 'تحديث القراءة'}</span>
+        </button>
       </div>
 
       {/* Governorate Selector Horizontal Buttons */}
@@ -92,7 +109,7 @@ export const WeatherView: React.FC = () => {
             <button
               key={gov.id}
               onClick={() => setSelectedGovId(gov.id)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
+              className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
                 isSelected
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                   : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-800 hover:border-emerald-300'
@@ -103,6 +120,21 @@ export const WeatherView: React.FC = () => {
           );
         })}
       </div>
+
+      {fetchError && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>{fetchError}</span>
+          </div>
+          <button
+            onClick={() => loadWeather(selectedGov.id)}
+            className="min-h-[38px] px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold shrink-0"
+          >
+            إعادة المحاولة
+          </button>
+        </div>
+      )}
 
       {/* Main Weather Card */}
       <div className="rounded-3xl bg-gradient-to-br from-emerald-800 via-stone-900 to-emerald-950 text-white p-6 sm:p-8 shadow-md border border-emerald-700/40 space-y-6">
@@ -123,7 +155,7 @@ export const WeatherView: React.FC = () => {
 
           <div className="flex items-baseline gap-2 self-start sm:self-auto font-mono">
             <span className="text-5xl sm:text-6xl font-black text-amber-300">
-              {temperature}°
+              {temperature !== null ? `${temperature}°` : '--'}
             </span>
             <span className="text-sm text-stone-300">مئوية (سليزيوس)</span>
           </div>
@@ -135,9 +167,9 @@ export const WeatherView: React.FC = () => {
             <Droplets className="w-6 h-6 text-cyan-300 shrink-0" />
             <div>
               <div className="text-[11px] text-stone-300 font-medium">الرطوبة النسبية الحالية</div>
-              <div className="text-xl font-bold font-mono">{humidity}%</div>
+              <div className="text-xl font-bold font-mono">{humidity !== null ? `${humidity}%` : '--'}</div>
               <div className="text-[10px] text-stone-400">
-                {humidity > 60 ? 'رطوبة عالية تتطلب تهوية البيوت المحمية' : 'رطوبة معتدلة مناسبة'}
+                {humidity === null ? 'بانتظار القراءة الحية' : humidity > 60 ? 'رطوبة عالية تتطلب تهوية البيوت المحمية' : 'رطوبة معتدلة مناسبة'}
               </div>
             </div>
           </div>
@@ -146,9 +178,9 @@ export const WeatherView: React.FC = () => {
             <Wind className="w-6 h-6 text-emerald-300 shrink-0" />
             <div>
               <div className="text-[11px] text-stone-300 font-medium">سرعة الرياح</div>
-              <div className="text-xl font-bold font-mono">{windSpeed} كم/ساعة</div>
+              <div className="text-xl font-bold font-mono">{windSpeed !== null ? `${windSpeed} كم/ساعة` : '--'}</div>
               <div className="text-[10px] text-stone-400">
-                {windSpeed > 20 ? 'رياح نشطة: يمنع رش المبيدات' : 'رياح هادئة: مناسبة للرش الميداني'}
+                {windSpeed === null ? 'بانتظار القراءة الحية' : windSpeed > 20 ? 'رياح نشطة: يمنع رش المبيدات' : 'رياح هادئة: مناسبة للرش الميداني'}
               </div>
             </div>
           </div>
@@ -157,7 +189,9 @@ export const WeatherView: React.FC = () => {
             <Thermometer className="w-6 h-6 text-amber-300 shrink-0" />
             <div>
               <div className="text-[11px] text-stone-300 font-medium">معدل التبخر اليومي المقدر</div>
-              <div className="text-xl font-bold font-mono">{temperature > 32 ? '7.5' : '5.2'} ملم/يوم</div>
+              <div className="text-xl font-bold font-mono">
+                {temperature !== null ? `${temperature > 32 ? '7.5' : '5.2'} ملم/يوم` : '--'}
+              </div>
               <div className="text-[10px] text-stone-400">ينصح بجدولة الري صباحاً ومساءً</div>
             </div>
           </div>

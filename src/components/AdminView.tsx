@@ -46,6 +46,7 @@ type AdminTab =
   | 'overview'
   | 'visitors'
   | 'moderation'
+  | 'support'
   | 'security'
   | 'seasonal'
   | 'virtual_farm'
@@ -80,6 +81,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [stats, setStats] = useState<any>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [moderationLogs, setModerationLogs] = useState<any[]>([]);
+  const [supportTickets, setSupportTickets] = useState<any[]>([]);
   const [statusMsg, setStatusMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Visitor Analytics state
@@ -205,10 +207,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
       localStorage.removeItem('farmer_force_pw_change');
 
-      const [statsRes, logsRes, modLogsRes] = await Promise.all([
+      const [statsRes, logsRes, modLogsRes, ticketsRes] = await Promise.all([
         fetch('/api/admin/stats', { headers: { 'x-admin-token': adminToken } }),
         fetch('/api/admin/audit-logs', { headers: { 'x-admin-token': adminToken } }),
         fetch('/api/staff/moderation-logs', { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/staff/support-tickets', { headers: { 'x-admin-token': adminToken } }),
       ]);
 
       if (statsRes.ok) {
@@ -222,6 +225,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
       if (modLogsRes.ok) {
         const modLogsData = await modLogsRes.json();
         if (modLogsData.success) setModerationLogs(modLogsData.moderationLogs || []);
+      }
+      if (ticketsRes.ok) {
+        const ticketsData = await ticketsRes.json();
+        if (ticketsData.success) setSupportTickets(ticketsData.tickets || []);
       }
 
       if (role === 'admin') {
@@ -671,10 +678,30 @@ export const AdminView: React.FC<AdminViewProps> = ({
     ...(visitorAnalytics?.last7Days || []).map((d) => d.count)
   );
 
+  const handleUpdateTicketStatus = async (ticketId: string, status: 'open' | 'in_progress' | 'resolved') => {
+    try {
+      const res = await fetch(`/api/staff/support-tickets/${ticketId}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatusMsg({ ok: false, text: data.error || 'تعذر تحديث حالة الطلب.' });
+        return;
+      }
+      setSupportTickets((prev) => prev.map((t) => (t.id === ticketId ? data.ticket : t)));
+      setStatusMsg({ ok: true, text: 'تم تحديث حالة تذكرة المزارع بنجاح.' });
+    } catch {
+      setStatusMsg({ ok: false, text: 'تعذر الاتصال بالخادم.' });
+    }
+  };
+
   const allTabs: Array<{ id: AdminTab; label: string; adminOnly?: boolean }> = [
     { id: 'overview', label: 'نظرة عامة', adminOnly: true },
     { id: 'visitors', label: 'معرفة الزوار', adminOnly: true },
     { id: 'moderation', label: 'المشرفون والكلمات الممنوعة' },
+    { id: 'support', label: `بلاغات ومقترحات المزارعين (${supportTickets.filter((t) => t.status !== 'resolved').length})` },
     { id: 'security', label: 'تغيير كلمة السر', adminOnly: true },
     { id: 'seasonal', label: 'المناسبات والتقويم', adminOnly: true },
     { id: 'virtual_farm', label: 'مزرعتي الافتراضية', adminOnly: true },
@@ -1842,6 +1869,73 @@ export const AdminView: React.FC<AdminViewProps> = ({
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Tab: Farmer Support Tickets */}
+      {activeTab === 'support' && !mustChangePassword && (
+        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-base font-bold text-stone-900 dark:text-white flex items-center gap-2">
+              <ClipboardList className="w-4 h-4 text-emerald-600" />
+              <span>مقترحات واستفسارات المزارعين ({supportTickets.length})</span>
+            </h2>
+          </div>
+
+          {supportTickets.length === 0 ? (
+            <div className="p-8 text-center text-xs text-stone-500">
+              لا توجد رسائل أو مقترحات واردة من المزارعين حتى الآن.
+            </div>
+          ) : (
+            <div className="space-y-3 text-xs">
+              {supportTickets.map((t) => (
+                <div
+                  key={t.id}
+                  className="p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/40 space-y-2"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                      <span>{t.senderName}</span>
+                      <span className="text-[11px] font-normal text-stone-500">({t.contact})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] text-stone-400">
+                        {new Date(t.createdAt).toLocaleString('ar-OM')}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          t.status === 'resolved'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
+                            : t.status === 'in_progress'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300'
+                              : 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300'
+                        }`}
+                      >
+                        {t.status === 'resolved' ? 'تم الحل' : t.status === 'in_progress' ? 'قيد المتابعة' : 'جديد'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-stone-700 dark:text-stone-300 leading-relaxed">{t.message}</p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateTicketStatus(t.id, 'in_progress')}
+                      className="min-h-[36px] px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px]"
+                    >
+                      قيد المتابعة
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateTicketStatus(t.id, 'resolved')}
+                      className="min-h-[36px] px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]"
+                    >
+                      تم الحل
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
