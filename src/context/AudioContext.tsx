@@ -9,10 +9,11 @@ import {
 
 export type TrackType = 'quran' | 'radio' | null;
 
-interface AudioContextType {
+export interface AudioContextType {
   trackType: TrackType;
   currentSurah: QuranSurah | null;
   currentRadio: RadioStation | null;
+  radioStations: RadioStation[];
   isPlaying: boolean;
   playbackStatus: 'idle' | 'buffering' | 'playing' | 'error';
   currentTime: number;
@@ -23,7 +24,7 @@ interface AudioContextType {
   
   // Actions
   playQuran: (surahId?: number) => void;
-  playRadio: (stationId: string) => void;
+  playRadio: (stationId: string, stationOverride?: RadioStation) => void;
   togglePlay: () => void;
   nextSurah: () => void;
   prevSurah: () => void;
@@ -49,6 +50,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return localStorage.getItem('farmer_last_radio_id') || 'oman-quran';
   });
 
+  const [radioStations, setRadioStations] = useState<RadioStation[]>(RADIO_STATIONS);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackStatus, setPlaybackStatus] = useState<'idle' | 'buffering' | 'playing' | 'error'>('idle');
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -59,11 +61,53 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const trackTypeRef = useRef<TrackType>(trackType);
+  const currentSurahIdRef = useRef<number>(currentSurahId);
+  const pendingResumeTimeRef = useRef<number>(0);
+  const stationsRef = useRef<RadioStation[]>(RADIO_STATIONS);
+  const playQuranRef = useRef<(surahId?: number) => void>(() => {});
+
+  useEffect(() => {
+    trackTypeRef.current = trackType;
+  }, [trackType]);
+
+  useEffect(() => {
+    currentSurahIdRef.current = currentSurahId;
+  }, [currentSurahId]);
+
+  useEffect(() => {
+    stationsRef.current = radioStations;
+  }, [radioStations]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/radio/stations')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (active && data?.success && Array.isArray(data.stations) && data.stations.length > 0) {
+          setRadioStations(data.stations);
+        }
+      })
+      .catch(() => {
+        // Keep built-in RADIO_STATIONS offline
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const currentSurah = HAZZA_AL_BALUSHI_SURAHS.find(s => s.id === currentSurahId) || HAZZA_AL_BALUSHI_SURAHS[0];
-  const currentRadio = RADIO_STATIONS.find(r => r.id === currentRadioId) || RADIO_STATIONS[0];
+  const currentRadio = radioStations.find(r => r.id === currentRadioId) || radioStations[0];
 
-  // Initialize single persistent audio element
+  // Clean HLS controller
+  const destroyHls = () => {
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+  };
+
+  // Initialize a SINGLE persistent Audio instance across the provider lifetime
   useEffect(() => {
     const audio = new Audio();
     audio.preload = 'metadata';
@@ -72,14 +116,24 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const onTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
-      if (trackType === 'quran') {
-        localStorage.setItem(`surah_pos_${currentSurahId}`, audio.currentTime.toString());
+      if (trackTypeRef.current === 'quran' && audio.currentTime > 0) {
+        localStorage.setItem(`surah_pos_${currentSurahIdRef.current}`, audio.currentTime.toString());
       }
     };
 
     const onLoadedMetadata = () => {
-      setDuration(audio.duration || 0);
-      setPlaybackStatus('playing');
+      const dur = audio.duration || 0;
+      setDuration(dur);
+      const resume = pendingResumeTimeRef.current;
+      if (resume > 0 && trackTypeRef.current === 'quran' && (dur === 0 || resume < dur - 2)) {
+        try {
+          audio.currentTime = resume;
+          setCurrentTime(resume);
+        } catch {
+          // ignore if stream is non-seekable
+        }
+      }
+      pendingResumeTimeRef.current = 0;
     };
 
     const onWaiting = () => {
@@ -101,13 +155,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.warn('Audio playback error on source:', audio.src);
       setIsPlaying(false);
       setPlaybackStatus('error');
-      setErrorMessage('تعذر الاتصال بمصدر البث الصوتي حالياً. جاري إعادة المحاولة...');
+      setErrorMessage('تعذر الاتصال بمصدر البث الصوتي حالياً. يرجى المحاولة مجدداً.');
     };
 
     const onEnded = () => {
-      if (trackType === 'quran') {
-        // Auto play next surah
-        nextSurah();
+      if (trackTypeRef.current === 'quran') {
+        localStorage.removeItem(`surah_pos_${currentSurahIdRef.current}`);
+        const idx = HAZZA_AL_BALUSHI_SURAHS.findIndex(s => s.id === currentSurahIdRef.current);
+        const nextIdx = (idx + 1) % HAZZA_AL_BALUSHI_SURAHS.length;
+        playQuranRef.current(HAZZA_AL_BALUSHI_SURAHS[nextIdx].id);
       } else {
         setIsPlaying(false);
         setPlaybackStatus('idle');
@@ -131,19 +187,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener('error', onError);
       audio.removeEventListener('ended', onEnded);
       audio.pause();
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-      }
+      destroyHls();
     };
-  }, [trackType, currentSurahId]);
-
-  // Clean HLS controller
-  const destroyHls = () => {
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Play audio source (Supports MP3 & HLS .m3u8)
   const playSource = async (url: string, isHlsStream: boolean, startTime?: number) => {
@@ -151,8 +198,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!audio) return;
 
     destroyHls();
+    audio.pause();
     setErrorMessage(null);
     setPlaybackStatus('buffering');
+    setCurrentTime(0);
+    setDuration(0);
+    pendingResumeTimeRef.current = typeof startTime === 'number' && startTime > 0 ? startTime : 0;
 
     try {
       if (isHlsStream) {
@@ -167,6 +218,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             audio.play().catch(e => {
               console.warn('HLS play caught:', e);
+              setIsPlaying(false);
+              setPlaybackStatus('idle');
               setErrorMessage('انقر على زر التشغيل لبدء الاستماع للبث');
             });
           });
@@ -178,18 +231,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
           });
         } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
-          // Safari native HLS
           audio.src = url;
           await audio.play();
         } else {
+          setPlaybackStatus('error');
           setErrorMessage('متصفحك لا يدعم بث HLS مباشرة');
         }
       } else {
-        // Standard MP3 Stream
         audio.src = url;
-        if (typeof startTime === 'number' && startTime > 0) {
-          audio.currentTime = startTime;
-        }
         await audio.play();
       }
       setIsPlaying(true);
@@ -203,7 +252,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Play Quran Surah
   const playQuran = (surahId?: number) => {
-    const targetId = surahId !== undefined ? surahId : currentSurahId;
+    const targetId = surahId !== undefined ? surahId : currentSurahIdRef.current;
+    currentSurahIdRef.current = targetId;
+    trackTypeRef.current = 'quran';
     setCurrentSurahId(targetId);
     setTrackType('quran');
     localStorage.setItem('farmer_track_type', 'quran');
@@ -216,9 +267,19 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     playSource(targetSurah.audioUrl, false, resumeTime);
   };
 
+  useEffect(() => {
+    playQuranRef.current = playQuran;
+  });
+
   // Play Live Radio Station
-  const playRadio = (stationId: string) => {
-    const targetStation = RADIO_STATIONS.find(r => r.id === stationId) || RADIO_STATIONS[0];
+  const playRadio = (stationId: string, stationOverride?: RadioStation) => {
+    const targetStation =
+      stationOverride ||
+      stationsRef.current.find(r => r.id === stationId) ||
+      RADIO_STATIONS.find(r => r.id === stationId) ||
+      stationsRef.current[0];
+
+    trackTypeRef.current = 'radio';
     setCurrentRadioId(targetStation.id);
     setTrackType('radio');
     localStorage.setItem('farmer_track_type', 'radio');
@@ -236,31 +297,30 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsPlaying(false);
       setPlaybackStatus('idle');
     } else {
-      if (trackType === 'quran') {
-        playQuran(currentSurahId);
-      } else if (trackType === 'radio') {
+      if (trackTypeRef.current === 'quran') {
+        playQuran(currentSurahIdRef.current);
+      } else if (trackTypeRef.current === 'radio') {
         playRadio(currentRadioId);
       } else {
-        // Default to Quran Al-Fatihah
         playQuran(1);
       }
     }
   };
 
   const nextSurah = () => {
-    const idx = HAZZA_AL_BALUSHI_SURAHS.findIndex(s => s.id === currentSurahId);
+    const idx = HAZZA_AL_BALUSHI_SURAHS.findIndex(s => s.id === currentSurahIdRef.current);
     const nextIdx = (idx + 1) % HAZZA_AL_BALUSHI_SURAHS.length;
     playQuran(HAZZA_AL_BALUSHI_SURAHS[nextIdx].id);
   };
 
   const prevSurah = () => {
-    const idx = HAZZA_AL_BALUSHI_SURAHS.findIndex(s => s.id === currentSurahId);
+    const idx = HAZZA_AL_BALUSHI_SURAHS.findIndex(s => s.id === currentSurahIdRef.current);
     const prevIdx = (idx - 1 + HAZZA_AL_BALUSHI_SURAHS.length) % HAZZA_AL_BALUSHI_SURAHS.length;
     playQuran(HAZZA_AL_BALUSHI_SURAHS[prevIdx].id);
   };
 
   const seek = (seconds: number) => {
-    if (audioRef.current && trackType === 'quran') {
+    if (audioRef.current && trackTypeRef.current === 'quran') {
       audioRef.current.currentTime = seconds;
       setCurrentTime(seconds);
     }
@@ -288,6 +348,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audioRef.current.pause();
     }
     destroyHls();
+    trackTypeRef.current = null;
     setIsPlaying(false);
     setTrackType(null);
     setPlaybackStatus('idle');
@@ -299,6 +360,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         trackType,
         currentSurah,
         currentRadio,
+        radioStations,
         isPlaying,
         playbackStatus,
         currentTime,

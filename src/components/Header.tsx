@@ -1,11 +1,11 @@
 import React from 'react';
-import { 
-  Menu, 
-  Sun, 
-  Moon, 
-  Sparkles, 
-  Bell, 
-  User, 
+import {
+  Menu,
+  Sun,
+  Moon,
+  Sparkles,
+  Bell,
+  User,
   ShieldCheck,
   MoonStar,
   BookMarked
@@ -14,6 +14,7 @@ import { ActivePage, ThemeMode, UserProfile } from '../types/index.ts';
 import { HijriDateInfo } from '../utils/islamicCalendar.ts';
 import { PWAInstallButton } from './PWAInstallButton.tsx';
 import { useAudio } from '../context/AudioContext.tsx';
+import { TRANSLATIONS } from '../utils/i18n.ts';
 
 interface HeaderProps {
   activePage: ActivePage;
@@ -48,122 +49,95 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { isPlaying, trackType } = useAudio();
   const isQuranActive = activePage === 'quran' || (isPlaying && trackType === 'quran');
+  const t = TRANSLATIONS[lang];
+
+  const navLinks: Array<{ id: ActivePage; label: string }> = [
+    { id: 'home', label: t.home },
+    { id: 'plant_diagnosis', label: t.diagnosis },
+    { id: 'virtual_farm', label: t.virtualFarm },
+    { id: 'cartoon_videos', label: t.flijan },
+    { id: 'library', label: t.library },
+    { id: 'community', label: t.community },
+  ];
+
+  const firstName = user.name.split(' ')[0];
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/90 dark:bg-stone-900/90 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 w-full bg-white/90 dark:bg-[#132247]/85 backdrop-blur-xl border-b border-slate-200/80 dark:border-sky-300/15 transition-colors">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         
-        {/* Right side in RTL: Hamburger & Brand */}
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Hamburger button (3 horizontal lines) */}
+        {/* Brand & Drawer Trigger */}
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           <button
             onClick={onToggleSidebar}
-            className="p-2.5 rounded-lg text-stone-700 dark:text-stone-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors border border-stone-200/80 dark:border-stone-700/80 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            title="القائمة الشاملة للخدمات"
-            aria-label="فتح القائمة الشاملة"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors border border-slate-200/80 dark:border-sky-300/15 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            title={t.menu}
+            aria-label={t.menu}
           >
             <Menu className="w-5 h-5 stroke-[2.2]" />
           </button>
 
-          {/* Single wordmark Brand */}
-          <button 
+          <button
             onClick={() => onNavigate('home')}
-            className="flex items-center gap-2.5 text-right focus:outline-none group"
+            className="flex items-center gap-2.5 text-start focus:outline-none group shrink-0"
           >
-            <div className="w-9 h-9 rounded-lg bg-emerald-600 dark:bg-emerald-700 text-white flex items-center justify-center font-bold text-lg shadow-sm group-hover:bg-emerald-700 transition-colors">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-bold text-lg shadow-sm shadow-emerald-950/30 group-hover:brightness-110 transition">
               🌱
             </div>
-            <div>
-              <div className="font-bold text-base sm:text-lg text-emerald-900 dark:text-emerald-100 tracking-tight whitespace-nowrap leading-tight">
-                صديق المزارع
-              </div>
-              <div className="text-[11px] text-stone-500 dark:text-stone-400 whitespace-nowrap">
-                منصة المزارع العماني الذكية
-              </div>
-            </div>
+            <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
+              {t.appShortName}
+            </span>
           </button>
         </div>
 
-        {/* Center: Clean single-line nav links for desktop */}
-        <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-stone-600 dark:text-stone-300">
-          <button 
-            onClick={() => onNavigate('home')} 
-            className={`whitespace-nowrap transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 ${activePage === 'home' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}`}
-          >
-            الرئيسية
-          </button>
-          <button 
-            onClick={() => onNavigate('plant_diagnosis')} 
-            className={`whitespace-nowrap transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 ${activePage === 'plant_diagnosis' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}`}
-          >
-            تشخيص النبات الذكي
-          </button>
-          <button 
-            onClick={() => onNavigate('cartoon_videos')} 
-            className={`whitespace-nowrap transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 ${activePage === 'cartoon_videos' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}`}
-          >
-            فيديوهات فليجان
-          </button>
-          <button 
-            onClick={() => onNavigate('library')} 
-            className={`whitespace-nowrap transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 ${activePage === 'library' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}`}
-          >
-            المكتبة الزراعية
-          </button>
-          <button 
-            onClick={() => onNavigate('virtual_farm')} 
-            className={`whitespace-nowrap transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 ${activePage === 'virtual_farm' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}`}
-          >
-            مزرعتي 3D
-          </button>
-          <button 
-            onClick={() => onNavigate('games')} 
-            className={`whitespace-nowrap transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 ${activePage === 'games' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}`}
-          >
-            الألعاب والمسابقات
-          </button>
-          <button 
-            onClick={() => onNavigate('weather')} 
-            className={`whitespace-nowrap transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 ${activePage === 'weather' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}`}
-          >
-            طقس عُمان
-          </button>
-          <button 
-            onClick={() => onNavigate('community')} 
-            className={`whitespace-nowrap transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 ${activePage === 'community' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}`}
-          >
-            المجتمع الزراعي
-          </button>
+        {/* Clean Single-line Desktop Navigation Links */}
+        <nav className="hidden lg:flex items-center gap-5 xl:gap-6 text-xs xl:text-sm font-semibold text-slate-600 dark:text-slate-300">
+          {navLinks.map((item) => {
+            const active = activePage === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className={`whitespace-nowrap shrink-0 py-1.5 transition-colors border-b-2 ${
+                  active
+                    ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500 font-bold'
+                    : 'border-transparent hover:text-emerald-600 dark:hover:text-emerald-300'
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Left side: Dynamic Seasonal Indicator, Day/Night switcher, Notifications, Profile/Admin */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Actions Zone */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
-          {/* Dynamic Islamic Seasonal Indicator Badge */}
+          {/* Dynamic Seasonal Highlight (Only rendered during Ramadan or Eid) */}
           {(hijriState ? hijriState.occasion !== 'normal' : isRamadanMode) && (
             <button
-              onClick={() => onNavigate('home')}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-300/40 hover:bg-amber-500/20 transition-colors whitespace-nowrap"
-              title={hijriState?.occasionTitleAr || 'الهوية الموسمية الذكية'}
+              onClick={() => onNavigate('daily_tips')}
+              className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-400/30 hover:bg-amber-500/25 transition-colors whitespace-nowrap shrink-0"
+              title={lang === 'ar' ? hijriState?.occasionTitleAr : hijriState?.occasionTitleEn}
             >
               {hijriState?.occasion === 'eid_fitr' || hijriState?.occasion === 'eid_adha' ? (
-                <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 dark:text-amber-300" />
               ) : (
-                <MoonStar className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <MoonStar className="w-3.5 h-3.5 text-amber-500 dark:text-amber-300" />
               )}
               <span>
                 {hijriState?.occasion === 'eid_fitr'
-                  ? 'عيد الفطر'
+                  ? t.eidFitr
                   : hijriState?.occasion === 'eid_adha'
-                    ? 'عيد الأضحى'
+                    ? t.eidAdha
                     : hijriState?.ramadanDay
-                      ? `رمضان · يوم ${hijriState.ramadanDay}`
-                      : 'شهر رمضان'}
+                      ? (lang === 'ar' ? `رمضان · ${hijriState.ramadanDay}` : `Ramadan · ${hijriState.ramadanDay}`)
+                      : t.ramadanActive}
               </span>
             </button>
           )}
 
-          {/* In-app PWA Install Button (hidden automatically if already installed) */}
+          {/* PWA Install Prompt */}
           <div className="hidden sm:block">
             <PWAInstallButton compact />
           </div>
@@ -171,24 +145,34 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Language Switcher AR / EN */}
           <button
             onClick={onToggleLang}
-            className="min-h-[44px] px-2.5 py-1.5 rounded-lg text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors border border-stone-200 dark:border-stone-700 flex items-center gap-1.5"
+            className="min-h-[44px] min-w-[44px] px-2.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors border border-slate-200/80 dark:border-sky-300/15 flex items-center justify-center whitespace-nowrap shrink-0"
             title={lang === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'}
           >
-            <span className="font-mono text-emerald-600 dark:text-emerald-400">{lang === 'ar' ? 'EN' : 'عربي'}</span>
+            <span className="font-mono text-emerald-600 dark:text-emerald-400">
+              {lang === 'ar' ? 'EN' : 'عربي'}
+            </span>
           </button>
+
+          {/* Theme Switcher: Dark Navy -> Light -> Auto Oman Time */}
           <button
             onClick={() => {
-              if (themeMode === 'auto') onSetThemeMode('light');
-              else if (themeMode === 'light') onSetThemeMode('dark');
-              else onSetThemeMode('auto');
+              if (themeMode === 'dark') onSetThemeMode('light');
+              else if (themeMode === 'light') onSetThemeMode('auto');
+              else onSetThemeMode('dark');
             }}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors border border-stone-200 dark:border-stone-700"
-            title={`نمط العرض الحالي: ${themeMode === 'auto' ? 'تلقائي حسب توقيت عُمان' : themeMode === 'light' ? 'الوضع النهاري' : 'الوضع الليلي'} (انقر للتغيير)`}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center px-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors border border-slate-200/80 dark:border-sky-300/15 shrink-0"
+            title={
+              themeMode === 'auto'
+                ? t.autoOmanTime
+                : isEffectiveDark
+                  ? t.nightMode
+                  : t.dayMode
+            }
           >
             {themeMode === 'auto' ? (
-              <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
                 {isEffectiveDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-                <span className="hidden md:inline">عُمان</span>
+                <span className="hidden md:inline">{lang === 'ar' ? 'تلقائي' : 'Auto'}</span>
               </div>
             ) : isEffectiveDark ? (
               <Moon className="w-4 h-4 text-emerald-400" />
@@ -197,48 +181,49 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
-          {/* Compact 40px Quran Icon Button */}
+          {/* Compact 40px Quran Shortcut */}
           <button
             onClick={() => onNavigate('quran')}
-            className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${
+            className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-colors shrink-0 ${
               isQuranActive
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                : 'bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
+                ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-400/25 hover:bg-emerald-100 dark:hover:bg-emerald-500/25'
             }`}
-            title="القرآن الكريم · الشيخ هزاع البلوشي"
-            aria-label="القرآن الكريم"
+            title={`${t.quranTitle} · ${t.reciterHazza}`}
+            aria-label={t.quranTitle}
           >
             <BookMarked className="w-[18px] h-[18px]" />
           </button>
 
-          {/* Notification Button */}
+          {/* Notifications Trigger (clean tabular count badge, no pulsing animation) */}
           <button
             onClick={onToggleNotifications}
-            className="relative min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors border border-stone-200 dark:border-stone-700"
-            title="التنبيهات والإشعارات الزراعية"
+            className="relative min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors border border-slate-200/80 dark:border-sky-300/15 shrink-0"
+            title={t.notifications}
+            aria-label={t.notifications}
           >
             <Bell className="w-4 h-4" />
             {unreadNotificationsCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold tabular-nums flex items-center justify-center">
                 {unreadNotificationsCount}
               </span>
             )}
           </button>
 
-          {/* User Profile / Admin / Moderator trigger */}
+          {/* User Profile / Admin Console */}
           <button
             onClick={() => onNavigate(user.isAdmin || user.isModerator ? 'admin' : 'profile')}
-            className="min-h-[44px] flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 text-xs font-medium transition-colors"
+            className="min-h-[44px] flex items-center gap-2 px-2.5 sm:px-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 border border-emerald-200 dark:border-emerald-400/25 text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
           >
             {user.isAdmin || user.isModerator ? (
               <>
-                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span className="hidden sm:inline">{user.isAdmin ? 'لوحة الإدارة' : 'لوحة الإشراف'}</span>
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="hidden sm:inline">{user.isAdmin ? t.admin : t.mod}</span>
               </>
             ) : (
               <>
-                <User className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span className="hidden sm:inline truncate max-w-[100px]">{user.name.split(' ')[0]}</span>
+                <User className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="hidden sm:inline truncate max-w-[90px]">{firstName}</span>
               </>
             )}
           </button>

@@ -33,6 +33,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   onNotificationsCountChange
 }) => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [filterType, setFilterType] = useState<'all' | 'unread' | 'weather' | 'crop_advice' | 'ramadan'>('all');
   const [loading, setLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -72,19 +73,25 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
 
   if (!isOpen) return null;
 
+  const filteredNotifications = notifications.filter((n) => {
+    if (filterType === 'all') return true;
+    if (filterType === 'unread') return !n.read;
+    return n.type === filterType;
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-stone-950/65 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <div className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-stone-900 h-full shadow-2xl flex flex-col z-10 border-r border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100">
+      <div className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-[#0b1329] h-full shadow-2xl flex flex-col z-10 border-r border-stone-200 dark:border-sky-300/15 text-stone-900 dark:text-slate-100">
         
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/70 dark:bg-stone-900/90">
+        <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-sky-300/15 flex items-center justify-between bg-stone-50/70 dark:bg-[#0e1936]">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold">
               <Bell className="w-5 h-5" />
@@ -115,28 +122,55 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           </div>
         </div>
 
-        {/* Live Refresh Bar */}
-        <div className="p-3 bg-stone-100 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-700 flex items-center justify-between text-xs">
-          <span className="text-stone-600 dark:text-stone-300">
-            {fetchError ? fetchError : loading ? 'جاري المزامنة...' : `إجمالي التنبيهات: ${notifications.length}`}
-          </span>
-          <button
-            onClick={fetchNotifs}
-            disabled={loading}
-            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-[11px]"
-          >
-            تحديث الآن
-          </button>
+        {/* Live Refresh Bar + Filter Chips */}
+        <div className="p-3 bg-stone-100 dark:bg-[#132247] border-b border-stone-200 dark:border-sky-300/15 space-y-2.5 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-stone-600 dark:text-slate-300">
+              {fetchError ? fetchError : loading ? 'جاري المزامنة...' : `إجمالي التنبيهات: ${notifications.length}`}
+            </span>
+            <button
+              onClick={fetchNotifs}
+              disabled={loading}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-[11px]"
+            >
+              تحديث الآن
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+            {(
+              [
+                { id: 'all', label: 'الكل' },
+                { id: 'unread', label: 'غير مقروء' },
+                { id: 'weather', label: 'الطقس' },
+                { id: 'crop_advice', label: 'إرشاد زراعي' },
+                { id: 'ramadan', label: 'موسمي' },
+              ] as const
+            ).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFilterType(f.id)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
+                  filterType === f.id
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-white dark:bg-[#0e1936] text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-sky-300/15'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Notifications List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {notifications.length === 0 ? (
+          {filteredNotifications.length === 0 ? (
             <div className="text-center py-12 text-stone-400 text-xs">
-              لا توجد تنبيهات جديدة في الوقت الحالي
+              لا توجد تنبيهات مطابقة في الوقت الحالي
             </div>
           ) : (
-            notifications.map((notif) => {
+            filteredNotifications.map((notif) => {
               let Icon = Bell;
               let iconColor = 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950';
 
@@ -156,8 +190,8 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                   key={notif.id}
                   className={`p-3.5 rounded-2xl border transition-all space-y-2 ${
                     notif.read
-                      ? 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 opacity-80'
-                      : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                      ? 'bg-white dark:bg-[#132247]/70 border-stone-200 dark:border-sky-300/10 opacity-85'
+                      : 'bg-emerald-50/40 dark:bg-[#132247] border-emerald-300 dark:border-emerald-500/40'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -175,7 +209,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                     </span>
                   </div>
 
-                  <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed text-justify">
+                  <p className="text-xs text-stone-600 dark:text-slate-300 leading-relaxed text-justify">
                     {notif.message}
                   </p>
 

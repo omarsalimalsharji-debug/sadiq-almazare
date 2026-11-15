@@ -109,10 +109,10 @@ export default function App() {
     localStorage.setItem('farmer_user_profile', JSON.stringify(user));
   }, [user]);
 
-  // Theme state: auto | light | dark
+  // Theme state: defaults to signature dark navy (#0b1329) while allowing light | auto toggle
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
-    const saved = localStorage.getItem('farmer_theme_mode');
-    return (saved as ThemeMode) || 'auto';
+    const saved = localStorage.getItem('farmer_theme_mode_v2');
+    return (saved as ThemeMode) || 'dark';
   });
 
   // Calculate Muscat local time to determine if it is night in Oman
@@ -141,7 +141,7 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('farmer_theme_mode', themeMode);
+    localStorage.setItem('farmer_theme_mode_v2', themeMode);
   }, [isEffectiveDark, themeMode]);
 
   // Dynamic Automatic Omani Islamic Seasonal Theme Engine (Ramadan / Eid Fitr / Eid Adha / Normal)
@@ -304,7 +304,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden flex flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100 transition-colors duration-300 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-12">
+    <div className="min-h-screen overflow-x-hidden flex flex-col bg-slate-50 text-slate-900 dark:bg-[#0b1329] dark:text-slate-100 navy-ambient-bg transition-colors duration-300 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-12">
       
       {/* Comprehensive Header with Top Bar Contract & Hamburger */}
       <Header
@@ -323,7 +323,7 @@ export default function App() {
         onToggleLang={toggleLanguage}
       />
 
-      {/* Comprehensive Sliding Sidebar (All 19 Services) */}
+      {/* Comprehensive Sliding Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -331,6 +331,7 @@ export default function App() {
         onNavigate={setActivePage}
         user={user}
         onToggleLogin={() => setIsLoginModalOpen(true)}
+        lang={lang}
       />
 
       {/* Slide-over Notification Center */}
@@ -363,6 +364,7 @@ export default function App() {
             hijriState={hijriState}
             seasonalConfig={seasonalConfig}
             user={user}
+            lang={lang}
           />
         )}
 
@@ -417,7 +419,7 @@ export default function App() {
 
         {activePage === 'quran' && (
           <div className="max-w-4xl mx-auto space-y-6">
-            <div className="border-b border-stone-200 dark:border-stone-800 pb-4">
+            <div className="border-b border-slate-200 dark:border-sky-300/15 pb-4">
               <h1 className="text-2xl font-bold text-stone-900 dark:text-white">
                 القرآن الكريم · تلاوات عطرة
               </h1>
@@ -431,7 +433,7 @@ export default function App() {
 
         {activePage === 'radio' && (
           <div className="max-w-4xl mx-auto space-y-6">
-            <div className="border-b border-stone-200 dark:border-stone-800 pb-4">
+            <div className="border-b border-slate-200 dark:border-sky-300/15 pb-4">
               <h1 className="text-2xl font-bold text-stone-900 dark:text-white">
                 الإذاعات العمانية والبث المباشر
               </h1>
@@ -452,12 +454,12 @@ export default function App() {
         )}
 
         {activePage === 'weather' && (
-          <WeatherView />
+          <WeatherView defaultGovernorateName={user.governorate} />
         )}
 
         {activePage === 'alerts' && (
           <div className="space-y-6">
-            <WeatherView />
+            <WeatherView defaultGovernorateName={user.governorate} />
           </div>
         )}
 
@@ -490,6 +492,8 @@ export default function App() {
             onToggleRamadanMode={handleToggleRamadanMode}
             user={user}
             onUpdateUser={handleUpdateUser}
+            lang={lang}
+            onToggleLang={toggleLanguage}
           />
         )}
 
@@ -521,19 +525,35 @@ export default function App() {
         activePage={activePage}
         onNavigate={setActivePage}
         onOpenSidebar={() => setIsSidebarOpen(true)}
+        lang={lang}
       />
 
-      {/* Footer honoring Founder & Director Omar Al-Sharji */}
-      <footer className="w-full border-t border-stone-200 dark:border-stone-800 bg-white/50 dark:bg-stone-900/50 py-8 px-4 text-center text-xs text-stone-500 dark:text-stone-400 mt-auto">
+      {/* Footer honoring Founder & Director Omar bin Salem Al-Sharji */}
+      <footer className="w-full border-t border-slate-200 dark:border-sky-300/15 bg-white/70 dark:bg-[#132247]/50 backdrop-blur-md py-8 px-4 text-center text-xs text-slate-500 dark:text-slate-300/80 mt-auto">
         <div className="max-w-7xl mx-auto space-y-2">
-          <div className="font-bold text-stone-900 dark:text-stone-200 text-sm">
-            تطبيق «صديق المزارع» · سلطنة عُمان
+          <div className="font-bold text-slate-900 dark:text-white text-sm">
+            {lang === 'ar'
+              ? 'تطبيق «صديق المزارع الذكي» · سلطنة عُمان'
+              : "Smart Farmer's Friend · Sultanate of Oman"}
           </div>
           <div className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
-            صاحب فكرة التطبيق ومديره: عمر الشرجي – سلطنة عمان
+            {lang === 'ar'
+              ? 'صاحب فكرة المشروع ومديره: عمر بن سالم الشرجي – سلطنة عُمان'
+              : 'Founder & Program Director: Omar bin Salem Al-Sharji – Oman'}
           </div>
-          <div className="text-[11px] text-stone-400 dark:text-stone-500 pt-1">
-            جميع الحقوق محفوظة للمبادرة الزراعية العمانية © {new Date().getFullYear()} · تقنيات الذكاء الاصطناعي والإرشاد الزراعي الميداني
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+            <span>
+              {lang === 'ar'
+                ? `جميع الحقوق محفوظة © ${new Date().getFullYear()}`
+                : `All rights reserved © ${new Date().getFullYear()}`}
+            </span>
+            <span>·</span>
+            <a
+              href="tel:94896333"
+              className="text-emerald-700 dark:text-emerald-400 font-semibold tabular-nums hover:underline"
+            >
+              {lang === 'ar' ? 'للتواصل والدعم: 94896333' : 'Direct Support: 94896333'}
+            </a>
           </div>
         </div>
       </footer>

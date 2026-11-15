@@ -1,72 +1,82 @@
 import React from 'react';
-import { 
-  Home, 
-  Scan, 
-  Library, 
-  Gamepad2, 
-  Radio, 
-  Menu 
+import {
+  Home,
+  Sprout,
+  Scan,
+  Clapperboard,
+  Radio,
+  Menu
 } from 'lucide-react';
 import { ActivePage } from '../types/index.ts';
+import { TRANSLATIONS } from '../utils/i18n.ts';
 
 interface BottomNavProps {
   activePage: ActivePage;
   onNavigate: (page: ActivePage) => void;
   onOpenSidebar: () => void;
+  lang?: 'ar' | 'en';
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activePage,
   onNavigate,
-  onOpenSidebar
+  onOpenSidebar,
+  lang = 'ar'
 }) => {
+  const t = TRANSLATIONS[lang];
+
   const tabs = [
-    { id: 'home' as ActivePage, label: 'الرئيسية', icon: Home },
-    { id: 'plant_diagnosis' as ActivePage, label: 'الفحص الذكي', icon: Scan },
-    { id: 'library' as ActivePage, label: 'المكتبة', icon: Library },
-    { id: 'games' as ActivePage, label: 'الألعاب', icon: Gamepad2 },
-    { id: 'quran' as ActivePage, label: 'القرآن والإذاعة', icon: Radio },
+    { id: 'home' as ActivePage, label: t.home, icon: Home },
+    { id: 'virtual_farm' as ActivePage, label: lang === 'ar' ? 'المزرعة' : 'Farm 3D', icon: Sprout },
+    { id: 'plant_diagnosis' as ActivePage, label: lang === 'ar' ? 'الفحص' : 'Diagnose', icon: Scan },
+    { id: 'cartoon_videos' as ActivePage, label: lang === 'ar' ? 'فليجان' : 'Flijan', icon: Clapperboard },
+    { id: 'quran' as ActivePage, label: lang === 'ar' ? 'الإعلام' : 'Media', icon: Radio },
   ];
 
   return (
     <nav
-      className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 transition-colors pb-[env(safe-area-inset-bottom)]"
-      aria-label="شريط التنقل السفلي للهواتف"
+      className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#132247]/95 backdrop-blur-xl border-t border-slate-200 dark:border-sky-300/15 transition-colors pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_-8px_rgba(3,7,18,0.45)]"
+      aria-label={t.menu}
     >
       <div className="grid grid-cols-6 min-h-[64px] items-center px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = activePage === tab.id;
+          const isActive =
+            activePage === tab.id ||
+            (tab.id === 'quran' && activePage === 'radio') ||
+            (tab.id === 'plant_diagnosis' && activePage === 'pest_diagnosis');
 
           return (
             <button
               key={tab.id}
               onClick={() => onNavigate(tab.id)}
-              className={`flex flex-col items-center justify-center h-full transition-all text-[10px] font-medium ${
-                isActive 
-                  ? 'text-emerald-600 dark:text-emerald-400 font-bold' 
-                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              className={`min-h-[48px] flex flex-col items-center justify-center transition-colors text-[10px] whitespace-nowrap px-0.5 ${
+                isActive
+                  ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                  : 'text-slate-500 dark:text-slate-300/75 hover:text-slate-900 dark:hover:text-white font-medium'
               }`}
             >
-              <div className={`p-1 rounded-xl transition-all ${
-                isActive ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''
-              }`}>
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+              <div
+                className={`p-1.5 rounded-xl transition-colors ${
+                  isActive ? 'bg-emerald-500/15 dark:bg-emerald-400/20' : ''
+                }`}
+              >
+                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.8]'}`} />
               </div>
-              <span className="truncate mt-0.5 tracking-tighter">{tab.label}</span>
+              <span className="truncate max-w-full mt-0.5 tracking-tight">{tab.label}</span>
             </button>
           );
         })}
 
-        {/* 6th Tab: Open All 19 Services Sidebar */}
+        {/* Menu Drawer Trigger */}
         <button
           onClick={onOpenSidebar}
-          className="flex flex-col items-center justify-center h-full text-stone-500 dark:text-stone-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-[10px] font-medium"
+          className="min-h-[48px] flex flex-col items-center justify-center text-slate-500 dark:text-slate-300/75 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-[10px] font-medium whitespace-nowrap px-0.5"
         >
-          <div className="p-1 rounded-xl">
+          <div className="p-1.5 rounded-xl">
             <Menu className="w-5 h-5 stroke-[1.8]" />
           </div>
-          <span className="truncate mt-0.5 tracking-tighter">القائمة</span>
+          <span className="truncate max-w-full mt-0.5 tracking-tight">{t.menu}</span>
         </button>
       </div>
     </nav>

@@ -124,7 +124,11 @@ service cloud.firestore {
           'problemName', 'problemType', 'confidenceScore', 'severity',
           'needsClearerPhoto', 'visibleSymptoms', 'causes', 'organicRemedy',
           'chemicalRemedy', 'preventionTips', 'possibleConditions',
-          'advisoryNote', 'createdAt'
+          'advisoryNote', 'createdAt',
+          'problemNameEn', 'scientificName', 'diagnosisCategory',
+          'detectedSubject', 'insectNature', 'conditionSummary',
+          'whenToContactEngineer', 'insectLifeCycle', 'insectTargetCrops',
+          'insectDamage', 'pesticideProduct', 'pesticideDosage'
         ])
         && isValidId(data.userId)
         && data.cropName is string && data.cropName.size() >= 1 && data.cropName.size() <= 80
@@ -143,6 +147,18 @@ service cloud.firestore {
         && data.preventionTips is list && data.preventionTips.size() <= 8
         && data.possibleConditions is list && data.possibleConditions.size() <= 4
         && data.advisoryNote is string && data.advisoryNote.size() <= 500
+        && (!('problemNameEn' in data) || (data.problemNameEn is string && data.problemNameEn.size() <= 160))
+        && (!('scientificName' in data) || (data.scientificName is string && data.scientificName.size() <= 160))
+        && (!('diagnosisCategory' in data) || (data.diagnosisCategory is string && data.diagnosisCategory.size() <= 60))
+        && (!('detectedSubject' in data) || data.detectedSubject in ['plant', 'insect', 'unclear'])
+        && (!('insectNature' in data) || data.insectNature in ['beneficial', 'harmful', 'neutral', 'none'])
+        && (!('conditionSummary' in data) || (data.conditionSummary is string && data.conditionSummary.size() <= 1000))
+        && (!('whenToContactEngineer' in data) || (data.whenToContactEngineer is string && data.whenToContactEngineer.size() <= 800))
+        && (!('insectLifeCycle' in data) || (data.insectLifeCycle is string && data.insectLifeCycle.size() <= 800))
+        && (!('insectTargetCrops' in data) || (data.insectTargetCrops is list && data.insectTargetCrops.size() <= 8))
+        && (!('insectDamage' in data) || (data.insectDamage is string && data.insectDamage.size() <= 800))
+        && (!('pesticideProduct' in data) || (data.pesticideProduct is string && data.pesticideProduct.size() <= 300))
+        && (!('pesticideDosage' in data) || (data.pesticideDosage is string && data.pesticideDosage.size() <= 400))
         && data.createdAt is timestamp;
     }
 

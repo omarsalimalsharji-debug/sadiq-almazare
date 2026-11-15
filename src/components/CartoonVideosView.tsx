@@ -22,6 +22,7 @@ import {
   ClipboardCheck,
   MonitorPlay,
   Search,
+  AudioWaveform,
 } from 'lucide-react';
 import {
   CartoonEpisode,
@@ -57,6 +58,7 @@ const SUGGESTED_TOPICS = [
 ];
 
 type StudioTab = 'videos' | 'voices' | 'qa';
+type VoiceStudioProfile = 'studio' | 'warm' | 'natural';
 
 interface MediaVideoMeta {
   id: string;
@@ -108,6 +110,7 @@ export const CartoonVideosView: React.FC = () => {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
+  const [voiceProfile, setVoiceProfile] = useState<VoiceStudioProfile>('studio');
   const [audioStatusNote, setAudioStatusNote] = useState<string | null>(null);
 
   // Custom AI Episode Generator state
@@ -159,12 +162,18 @@ export const CartoonVideosView: React.FC = () => {
     );
   }, [dictSearch]);
 
-  // Video & Audio refs
+  // Video & Audio refs + Web Audio API Studio Mastering Chain
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceAttachedRef = useRef<boolean>(false);
+  const connectedMediaElementsRef = useRef<WeakSet<HTMLMediaElement>>(new WeakSet());
+  const masterInputRef = useRef<GainNode | null>(null);
+  const highpassFilterRef = useRef<BiquadFilterNode | null>(null);
+  const presenceFilterRef = useRef<BiquadFilterNode | null>(null);
+  const deEsserFilterRef = useRef<BiquadFilterNode | null>(null);
+  const compressorRef = useRef<DynamicsCompressorNode | null>(null);
+  const makeupGainRef = useRef<GainNode | null>(null);
   const audioLevelRef = useRef<number>(0);
   const ttsCacheRef = useRef<Map<string, string>>(new Map());
   const playSessionRef = useRef<number>(0);
@@ -288,35 +297,135 @@ export const CartoonVideosView: React.FC = () => {
     return () => cancelAnimationFrame(rafId);
   }, [isPlaying, isLoadingAudio]);
 
-  const ensureAudioAnalyser = useCallback(() => {
-    const audioEl = audioRef.current;
-    if (!audioEl) return;
+  const applyVoiceMasteringParams = useCallback((profile: VoiceStudioProfile) => {
+    const ctx = audioCtxRef.current;
+    const hp = highpassFilterRef.current;
+    const eq = presenceFilterRef.current;
+    const deEss = deEsserFilterRef.current;
+    const comp = compressorRef.current;
+    const gain = makeupGainRef.current;
+    if (!ctx || !hp || !eq || !deEss || !comp || !gain) return;
 
-    try {
-      if (!audioCtxRef.current) {
-        const Ctx =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext })
-            .webkitAudioContext;
-        if (!Ctx) return;
-        audioCtxRef.current = new Ctx();
-      }
-      if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-      if (!sourceAttachedRef.current && audioCtxRef.current) {
-        const src = audioCtxRef.current.createMediaElementSource(audioEl);
-        const analyser = audioCtxRef.current.createAnalyser();
-        analyser.fftSize = 128;
-        src.connect(analyser);
-        analyser.connect(audioCtxRef.current.destination);
-        analyserRef.current = analyser;
-        sourceAttachedRef.current = true;
-      }
-    } catch {
-      // Fallback gracefully
+    const now = ctx.currentTime;
+    if (profile === 'studio') {
+      hp.frequency.setTargetAtTime(85, now, 0.04);
+      eq.frequency.setTargetAtTime(2800, now, 0.04);
+      eq.Q.setTargetAtTime(1.15, now, 0.04);
+      eq.gain.setTargetAtTime(3.0, now, 0.04);
+      deEss.frequency.setTargetAtTime(6400, now, 0.04);
+      deEss.Q.setTargetAtTime(2.2, now, 0.04);
+      deEss.gain.setTargetAtTime(-2.5, now, 0.04);
+      comp.threshold.setTargetAtTime(-20, now, 0.04);
+      comp.ratio.setTargetAtTime(3.6, now, 0.04);
+      gain.gain.setTargetAtTime(1.12, now, 0.04);
+    } else if (profile === 'warm') {
+      hp.frequency.setTargetAtTime(70, now, 0.04);
+      eq.frequency.setTargetAtTime(1450, now, 0.04);
+      eq.Q.setTargetAtTime(0.95, now, 0.04);
+      eq.gain.setTargetAtTime(2.2, now, 0.04);
+      deEss.frequency.setTargetAtTime(5800, now, 0.04);
+      deEss.Q.setTargetAtTime(1.8, now, 0.04);
+      deEss.gain.setTargetAtTime(-3.2, now, 0.04);
+      comp.threshold.setTargetAtTime(-18, now, 0.04);
+      comp.ratio.setTargetAtTime(2.8, now, 0.04);
+      gain.gain.setTargetAtTime(1.08, now, 0.04);
+    } else {
+      hp.frequency.setTargetAtTime(55, now, 0.04);
+      eq.gain.setTargetAtTime(0, now, 0.04);
+      deEss.gain.setTargetAtTime(0, now, 0.04);
+      comp.threshold.setTargetAtTime(-12, now, 0.04);
+      comp.ratio.setTargetAtTime(1.5, now, 0.04);
+      gain.gain.setTargetAtTime(1.0, now, 0.04);
     }
   }, []);
+
+  useEffect(() => {
+    applyVoiceMasteringParams(voiceProfile);
+  }, [voiceProfile, applyVoiceMasteringParams]);
+
+  const attachElementToStudioChain = useCallback(
+    (mediaEl: HTMLMediaElement | null) => {
+      if (!mediaEl) return;
+      try {
+        if (!audioCtxRef.current) {
+          const Ctx =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext: typeof AudioContext })
+              .webkitAudioContext;
+          if (!Ctx) return;
+          audioCtxRef.current = new Ctx();
+        }
+        const ctx = audioCtxRef.current;
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+
+        if (!masterInputRef.current) {
+          const inputGain = ctx.createGain();
+          const highpass = ctx.createBiquadFilter();
+          highpass.type = 'highpass';
+          highpass.frequency.value = 85;
+          highpass.Q.value = 0.7;
+
+          const presence = ctx.createBiquadFilter();
+          presence.type = 'peaking';
+          presence.frequency.value = 2800;
+          presence.Q.value = 1.15;
+          presence.gain.value = 3.0;
+
+          const deEsser = ctx.createBiquadFilter();
+          deEsser.type = 'peaking';
+          deEsser.frequency.value = 6400;
+          deEsser.Q.value = 2.2;
+          deEsser.gain.value = -2.5;
+
+          const compressor = ctx.createDynamicsCompressor();
+          compressor.threshold.value = -20;
+          compressor.knee.value = 12;
+          compressor.ratio.value = 3.6;
+          compressor.attack.value = 0.008;
+          compressor.release.value = 0.18;
+
+          const makeupGain = ctx.createGain();
+          makeupGain.gain.value = 1.12;
+
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 128;
+
+          inputGain
+            .connect(highpass)
+            .connect(presence)
+            .connect(deEsser)
+            .connect(compressor)
+            .connect(makeupGain)
+            .connect(analyser)
+            .connect(ctx.destination);
+
+          masterInputRef.current = inputGain;
+          highpassFilterRef.current = highpass;
+          presenceFilterRef.current = presence;
+          deEsserFilterRef.current = deEsser;
+          compressorRef.current = compressor;
+          makeupGainRef.current = makeupGain;
+          analyserRef.current = analyser;
+          applyVoiceMasteringParams(voiceProfile);
+        }
+
+        if (!connectedMediaElementsRef.current.has(mediaEl) && masterInputRef.current) {
+          const src = ctx.createMediaElementSource(mediaEl);
+          src.connect(masterInputRef.current);
+          connectedMediaElementsRef.current.add(mediaEl);
+        }
+      } catch {
+        // Fallback gracefully if browser blocks MediaElementAudioSourceNode
+      }
+    },
+    [applyVoiceMasteringParams, voiceProfile]
+  );
+
+  const ensureAudioAnalyser = useCallback(() => {
+    attachElementToStudioChain(audioRef.current);
+  }, [attachElementToStudioChain]);
 
   const fetchSceneTts = useCallback(
     async (narration: string, mood: string): Promise<string | null> => {
@@ -399,9 +508,22 @@ export const CartoonVideosView: React.FC = () => {
       }
 
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setAudioStatusNote('يتم التشغيل بالصوت الاحتياطي للمتصفح');
-        const utter = new SpeechSynthesisUtterance(targetScene.narration);
-        utter.lang = 'ar-SA';
+        setAudioStatusNote('يتم التشغيل بالصوت الاحتياطي للمتصفح (مع اختيار أوضح نبرة عربية)');
+        const utter = new SpeechSynthesisUtterance(
+          targetScene.vocalizedNarration || targetScene.narration
+        );
+        const voices = window.speechSynthesis.getVoices();
+        const bestArabicVoice =
+          voices.find((v) => v.lang.toLowerCase() === 'ar-om') ||
+          voices.find((v) => v.lang.toLowerCase() === 'ar-sa') ||
+          voices.find((v) => v.lang.toLowerCase().startsWith('ar'));
+        if (bestArabicVoice) {
+          utter.voice = bestArabicVoice;
+          utter.lang = bestArabicVoice.lang;
+        } else {
+          utter.lang = 'ar-OM';
+        }
+        utter.pitch = 1.03;
         utter.rate = playbackSpeed;
         utter.volume = isMuted ? 0 : 1;
         utter.onend = advanceNext;
@@ -645,6 +767,7 @@ export const CartoonVideosView: React.FC = () => {
                   playsInline
                   preload="metadata"
                   crossOrigin="anonymous"
+                  onPlay={() => attachElementToStudioChain(videoRef.current)}
                   className="w-full aspect-video bg-stone-950 block"
                 >
                   {activeEpisode.subtitlesVttUrl && (
@@ -697,6 +820,30 @@ export const CartoonVideosView: React.FC = () => {
                     >
                       {playbackSpeed}x
                     </button>
+
+                    <div className="inline-flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-lg">
+                      <AudioWaveform className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mx-1" />
+                      {(
+                        [
+                          { id: 'studio', label: 'استوديو EQ' },
+                          { id: 'warm', label: 'دافئ' },
+                          { id: 'natural', label: 'طبيعي' },
+                        ] as const
+                      ).map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setVoiceProfile(preset.id)}
+                          className={`px-2 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                            voiceProfile === preset.id
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
@@ -868,6 +1015,30 @@ export const CartoonVideosView: React.FC = () => {
                       >
                         {playbackSpeed}x
                       </button>
+
+                      <div className="hidden sm:inline-flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-lg">
+                        <AudioWaveform className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mx-1" />
+                        {(
+                          [
+                            { id: 'studio', label: 'استوديو EQ' },
+                            { id: 'warm', label: 'دافئ' },
+                            { id: 'natural', label: 'طبيعي' },
+                          ] as const
+                        ).map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => setVoiceProfile(preset.id)}
+                            className={`px-2 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                              voiceProfile === preset.id
+                                ? 'bg-emerald-600 text-white'
+                                : 'text-stone-600 dark:text-stone-300'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
 
                       <button
                         type="button"

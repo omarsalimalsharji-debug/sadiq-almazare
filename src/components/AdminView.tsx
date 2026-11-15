@@ -25,6 +25,7 @@ import {
   Trash2,
   Filter,
   ClipboardList,
+  LogOut,
 } from 'lucide-react';
 import { UserProfile } from '../types/index.ts';
 import { GAME_QUESTIONS, Question } from '../data/agriculturalData.ts';
@@ -719,7 +720,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Admin Header */}
-      <div className="rounded-2xl bg-stone-900 text-white p-5 sm:p-6 shadow-md border border-stone-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="rounded-2xl bg-gradient-to-r from-[#132247] to-[#0e1936] text-white p-5 sm:p-6 shadow-md border border-sky-300/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
             <ShieldCheck className="w-4 h-4" />
@@ -730,16 +731,39 @@ export const AdminView: React.FC<AdminViewProps> = ({
           <h1 className="text-xl sm:text-2xl font-bold mt-1 text-white">
             {isModeratorOnly ? 'لوحة مشرف المجتمع' : 'لوحة تحكم مدير المنصة'}
           </h1>
-          <div className="text-xs text-stone-300 mt-1">
-            صاحب الفكرة والمدير العام: <strong className="text-emerald-300 font-bold">عمر الشرجي</strong> ·{' '}
+          <div className="text-xs text-slate-300 mt-1">
+            صاحب الفكرة والمدير العام: <strong className="text-emerald-300 font-bold">عمر بن سالم الشرجي</strong> ·{' '}
             {isModeratorOnly ? `المشرف: ${user.name}` : 'صلاحيات الإدارة الكاملة'}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className="px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono">
-            {adminToken ? 'جلسة مشفرة موثقة ✅' : 'بانتظار توثيق الدخول'}
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="px-3 py-1.5 rounded-lg bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 font-semibold">
+            {adminToken ? 'جلسة إدارية موثقة' : 'بانتظار توثيق الدخول'}
           </span>
+          {adminToken && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await fetch('/api/auth/logout', { method: 'POST', headers: { 'x-admin-token': adminToken } });
+                } catch {
+                  // Ignore offline error
+                }
+                localStorage.removeItem('farmer_admin_token');
+                localStorage.removeItem('farmer_staff_role');
+                localStorage.removeItem('farmer_force_pw_change');
+                setAdminToken('');
+                setStaffRole(null);
+                setMustChangePassword(false);
+                setStatusMsg({ ok: true, text: 'تم إنهاء الجلسة الإدارية بنجاح.' });
+              }}
+              className="min-h-[40px] px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold flex items-center gap-1.5 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>إنهاء الجلسة</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -824,7 +848,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {activeTab === 'overview' && !isModeratorOnly && !mustChangePassword && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm">
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
               <span className="text-stone-400 text-[11px] font-semibold block">الزوار النشطون الآن</span>
               <span className="text-2xl font-black text-emerald-600 font-mono">
                 {stats?.activeVisitorsNow ?? 0}
@@ -834,7 +858,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm">
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
               <span className="text-stone-400 text-[11px] font-semibold block">المشرفون النشطون</span>
               <span className="text-2xl font-black text-stone-900 dark:text-white font-mono">
                 {stats?.activeModerators ?? 0}
@@ -844,7 +868,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm">
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
               <span className="text-stone-400 text-[11px] font-semibold block">قراءات المكتبة</span>
               <span className="text-2xl font-black text-amber-600 font-mono">
                 {stats?.totalReads?.toLocaleString() || '0'}
@@ -852,7 +876,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <span className="text-[10px] text-stone-400 block mt-0.5">قراءة محمية بعلامة مائية</span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm">
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
               <span className="text-stone-400 text-[11px] font-semibold block">المزارع الافتراضية 3D</span>
               <span className="text-2xl font-black text-stone-900 dark:text-white font-mono">
                 {stats?.totalVirtualFarms ?? 0}
@@ -861,7 +885,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm space-y-2">
+          <div className="p-5 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm space-y-2">
             <h3 className="font-bold text-xs text-stone-800 dark:text-stone-200">
               حالة النظام والأمان والبنية التحتية:
             </h3>
@@ -876,7 +900,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {activeTab === 'visitors' && !isModeratorOnly && !mustChangePassword && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm">
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
               <div className="flex items-center justify-between text-stone-400 text-xs">
                 <span>زوار اليوم</span>
                 <Eye className="w-4 h-4 text-emerald-500" />
@@ -887,7 +911,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <span className="text-[10px] text-stone-400">بتوقيت مسقط</span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm">
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
               <div className="flex items-center justify-between text-stone-400 text-xs">
                 <span>زوار الأسبوع</span>
                 <Users className="w-4 h-4 text-cyan-500" />
@@ -898,7 +922,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <span className="text-[10px] text-stone-400">آخر 7 أيام</span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm">
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
               <div className="flex items-center justify-between text-stone-400 text-xs">
                 <span>إجمالي الزوار</span>
                 <Activity className="w-4 h-4 text-amber-500" />
@@ -912,7 +936,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 shadow-sm">
               <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 text-xs font-bold">
                 <span>الزوار النشطون الآن</span>
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <Activity className="w-4 h-4 text-emerald-500" />
               </div>
               <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300 font-mono mt-1">
                 {visitorAnalytics?.activeNowCount ?? 0}

@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import {
-  getFirestore,
+  initializeFirestore,
   doc,
   getDocFromServer,
   setDoc,
@@ -11,7 +11,14 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = initializeFirestore(
+  app,
+  {
+    experimentalForceLongPolling: true,
+    ignoreUndefinedProperties: true,
+  },
+  firebaseConfig.firestoreDatabaseId
+);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
@@ -67,17 +74,24 @@ export function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Validate connection to Firestore on boot
-async function testConnection() {
+// Validate connection to Firestore on boot (with single transient retry)
+async function testConnection(retryAttempt = 0): Promise<void> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return;
+  }
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
+      if (retryAttempt < 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        return testConnection(retryAttempt + 1);
+      }
       console.error('Please check your Firebase configuration.');
     }
   }
 }
-testConnection();
+void testConnection();
 
 export async function signInWithGoogleFarmer() {
   const result = await signInWithPopup(auth, googleProvider);

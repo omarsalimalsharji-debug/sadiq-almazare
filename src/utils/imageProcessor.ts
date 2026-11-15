@@ -1,7 +1,8 @@
 /**
- * Client-side plant photo compression & clarity enhancement utility.
- * Preserves natural disease/leaf hues while improving exposure & sharpness
- * and shrinking payload size for fast Gemini Vision inference.
+ * Client-side agricultural photo validation, compression & clarity enhancement utility.
+ * Preserves natural leaf lesion / insect coloration while gently normalizing dim exposure,
+ * rejecting unsupported/tiny files, and generating a deterministic image fingerprint
+ * to prevent duplicate AI submissions.
  */
 
 export interface ProcessedPlantImage {
@@ -11,10 +12,20 @@ export interface ProcessedPlantImage {
   width: number;
   height: number;
   enhanced: boolean;
+  fingerprint: string;
 }
 
-const MAX_DIMENSION = 1280;
-const JPEG_QUALITY = 0.82;
+const MAX_DIMENSION = 1400;
+const MIN_DIMENSION = 96;
+const JPEG_QUALITY = 0.85;
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
 
 function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -26,15 +37,28 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
     };
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error('تعذر قراءة ملف الصورة. تأكد من سلامة الصورة بصيغة JPG أو PNG.'));
+      reject(new Error('تعذر قراءة ملف الصورة. تأكد من سلامة الصورة وأنها بصيغة JPG أو PNG أو WEBP.'));
     };
     img.src = objectUrl;
   });
 }
 
+function computeFastFingerprint(input: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0xdeadbeef;
+  const step = Math.max(1, Math.floor(input.length / 2048));
+  for (let i = 0; i < input.length; i += step) {
+    const c = input.charCodeAt(i);
+    h1 ^= c;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 = Math.imul(h2 ^ c, 0x85ebca6b);
+  }
+  return `${(h1 >>> 0).toString(16)}-${(h2 >>> 0).toString(16)}-${input.length}`;
+}
+
 /**
  * Applies gentle auto-exposure normalization (only when photo is noticeably dim)
- * plus subtle crispness enhancement without distorting natural chlorosis/lesion colors.
+ * plus subtle crispness enhancement without distorting natural chlorosis/lesion or insect colors.
  */
 function enhanceCanvasClarity(ctx: CanvasRenderingContext2D, width: number, height: number): boolean {
   try {
@@ -43,7 +67,6 @@ function enhanceCanvasClarity(ctx: CanvasRenderingContext2D, width: number, heig
     const totalPixels = width * height;
     if (totalPixels === 0) return false;
 
-    // Sample average luminance (every 8th pixel for speed)
     let lumSum = 0;
     let sampleCount = 0;
     for (let i = 0; i < data.length; i += 32) {
@@ -55,16 +78,14 @@ function enhanceCanvasClarity(ctx: CanvasRenderingContext2D, width: number, heig
     }
 
     const avgLum = sampleCount > 0 ? lumSum / sampleCount : 128;
-    // Gentle gain only if underexposed (< 105), or mild contrast stretch around midpoint
-    const brightnessGain = avgLum < 95 ? Math.min(1.22, 108 / Math.max(avgLum, 45)) : 1.0;
-    const contrastFactor = 1.07;
+    const brightnessGain = avgLum < 92 ? Math.min(1.22, 106 / Math.max(avgLum, 45)) : 1.0;
+    const contrastFactor = 1.05;
 
     for (let i = 0; i < data.length; i += 4) {
       let r = data[i] * brightnessGain;
       let g = data[i + 1] * brightnessGain;
       let b = data[i + 2] * brightnessGain;
 
-      // Subtle contrast pivot around 128 preserving channel ratios
       r = (r - 128) * contrastFactor + 128;
       g = (g - 128) * contrastFactor + 128;
       b = (b - 128) * contrastFactor + 128;
@@ -82,16 +103,24 @@ function enhanceCanvasClarity(ctx: CanvasRenderingContext2D, width: number, heig
 }
 
 export async function compressAndEnhancePlantImage(file: File): Promise<ProcessedPlantImage> {
-  if (!file.type.startsWith('image/')) {
-    throw new Error('يرجى اختيار ملف صورة صالح (JPG أو PNG أو WEBP).');
+  const normalizedType = (file.type || '').toLowerCase();
+  if (!normalizedType.startsWith('image/') || (normalizedType && !ALLOWED_IMAGE_MIME_TYPES.has(normalizedType))) {
+    throw new Error('صيغة الملف غير مدعومة. يرجى اختيار صورة بصيغة JPG أو PNG أو WEBP.');
+  }
+  if (file.size < 1024) {
+    throw new Error('ملف الصورة صغير جداً أو تالف. يرجى التقاط أو اختيار صورة واضحة.');
   }
   if (file.size > 20 * 1024 * 1024) {
-    throw new Error('حجم الصورة الأصلي كبير جداً (أكثر من 20 ميجابايت).');
+    throw new Error('حجم الصورة الأصلي كبير جداً (أكثر من 20 ميجابايت). يرجى اختيار صورة أصغر.');
   }
 
   const img = await loadImageFromFile(file);
   const srcWidth = img.naturalWidth || img.width;
   const srcHeight = img.naturalHeight || img.height;
+
+  if (srcWidth < MIN_DIMENSION || srcHeight < MIN_DIMENSION) {
+    throw new Error('أبعاد الصورة صغيرة جداً ولا تسمح بفحص الأعراض أو الحشرة بوضوح. التقط صورة أقرب.');
+  }
 
   const scale = Math.min(1, MAX_DIMENSION / Math.max(srcWidth, srcHeight));
   const targetWidth = Math.max(1, Math.round(srcWidth * scale));
@@ -116,6 +145,7 @@ export async function compressAndEnhancePlantImage(file: File): Promise<Processe
   const originalKB = Math.max(1, Math.round(file.size / 1024));
   const base64Body = dataUrl.split(',')[1] || '';
   const compressedKB = Math.max(1, Math.round((base64Body.length * 3) / 4 / 1024));
+  const fingerprint = computeFastFingerprint(base64Body);
 
   return {
     dataUrl,
@@ -124,5 +154,6 @@ export async function compressAndEnhancePlantImage(file: File): Promise<Processe
     width: targetWidth,
     height: targetHeight,
     enhanced,
+    fingerprint,
   };
 }

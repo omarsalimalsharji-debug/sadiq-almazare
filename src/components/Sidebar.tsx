@@ -1,33 +1,35 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  Home, 
-  Scan, 
-  Bug, 
-  BookOpen, 
-  Calendar, 
-  Bell, 
-  CloudSun, 
-  Users, 
-  Gamepad2, 
-  Trophy, 
-  Award, 
-  Library, 
-  BookMarked, 
-  Radio, 
-  Lightbulb, 
-  UserCircle, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
-  LogIn, 
-  ShieldCheck, 
+import {
+  X,
+  Home,
+  Scan,
+  Bug,
+  BookOpen,
+  Calendar,
+  Bell,
+  CloudSun,
+  Users,
+  Gamepad2,
+  Trophy,
+  Award,
+  Library,
+  BookMarked,
+  Radio,
+  Lightbulb,
+  UserCircle,
+  Settings,
+  HelpCircle,
+  LogOut,
+  LogIn,
+  ShieldCheck,
   Search,
   Sprout,
-  Clapperboard
+  Clapperboard,
+  Phone
 } from 'lucide-react';
 import { ActivePage, UserProfile } from '../types/index.ts';
 import { PWAInstallButton } from './PWAInstallButton.tsx';
+import { TRANSLATIONS } from '../utils/i18n.ts';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -36,15 +38,17 @@ interface SidebarProps {
   onNavigate: (page: ActivePage) => void;
   user: UserProfile;
   onToggleLogin: () => void;
+  lang?: 'ar' | 'en';
 }
 
 interface MenuItem {
   id: ActivePage;
   number: number;
-  label: string;
+  labelAr: string;
+  labelEn: string;
   icon: React.ElementType;
-  badge?: string;
-  category: 'رئيسي' | 'الذكاء الاصطناعي' | 'المعرفة والمكتبة' | 'المسابقات والترفيه' | 'الروحانيات والإعلام' | 'المستخدم والنظام';
+  badgeAr?: string;
+  badgeEn?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -53,102 +57,109 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activePage,
   onNavigate,
   user,
-  onToggleLogin
+  onToggleLogin,
+  lang = 'ar'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const t = TRANSLATIONS[lang];
 
   const menuItems: MenuItem[] = [
-    { id: 'home', number: 1, label: 'الصفحة الرئيسية', icon: Home, category: 'رئيسي' },
-    { id: 'plant_diagnosis', number: 2, label: 'تشخيص أمراض النباتات بالذكاء الاصطناعي', icon: Scan, badge: 'AI', category: 'الذكاء الاصطناعي' },
-    { id: 'pest_diagnosis', number: 3, label: 'تشخيص الحشرات والآفات بالذكاء الاصطناعي', icon: Bug, badge: 'AI', category: 'الذكاء الاصطناعي' },
-    { id: 'cartoon_videos', number: 4, label: 'فيديوهات فليجان التوعوية (كرتون)', icon: Clapperboard, badge: 'جديد', category: 'المعرفة والمكتبة' },
-    { id: 'encyclopedia', number: 5, label: 'الموسوعة الزراعية', icon: BookOpen, category: 'المعرفة والمكتبة' },
-    { id: 'calendar', number: 6, label: 'التقويم الزراعي ومواعيد الزراعة', icon: Calendar, category: 'المعرفة والمكتبة' },
-    { id: 'alerts', number: 7, label: 'التنبيهات والإرشادات الزراعية', icon: Bell, category: 'المعرفة والمكتبة' },
-    { id: 'weather', number: 8, label: 'الطقس والتنبيهات المناخية', icon: CloudSun, category: 'المعرفة والمكتبة' },
-    { id: 'community', number: 9, label: 'المجتمع الزراعي والدردشة', icon: Users, category: 'المعرفة والمكتبة' },
-    { id: 'virtual_farm', number: 10, label: 'مزرعتي الافتراضية (3D)', icon: Sprout, badge: 'جديد 3D', category: 'المسابقات والترفيه' },
-    { id: 'games', number: 11, label: 'الألعاب الزراعية', icon: Gamepad2, badge: '6 ألعاب', category: 'المسابقات والترفيه' },
-    { id: 'cultural_quiz', number: 12, label: 'المسابقة الثقافية العامة', icon: Trophy, category: 'المسابقات والترفيه' },
-    { id: 'leaderboard', number: 13, label: 'لوحة المتصدرين والنقاط', icon: Award, category: 'المسابقات والترفيه' },
-    { id: 'library', number: 14, label: 'المكتبة الزراعية الإلكترونية', icon: Library, badge: '12 تصنيف', category: 'المعرفة والمكتبة' },
-    { id: 'quran', number: 15, label: 'القرآن الكريم (الشيخ هزاع البلوشي)', icon: BookMarked, category: 'الروحانيات والإعلام' },
-    { id: 'radio', number: 16, label: 'الإذاعات والبث المباشر (عُمان)', icon: Radio, category: 'الروحانيات والإعلام' },
-    { id: 'daily_tips', number: 17, label: 'النصائح اليومية والمعلومات الرمضانية', icon: Lightbulb, category: 'المعرفة والمكتبة' },
-    { id: 'profile', number: 18, label: 'الملف الشخصي', icon: UserCircle, category: 'المستخدم والنظام' },
-    { id: 'settings', number: 19, label: 'الإعدادات والمظهر', icon: Settings, category: 'المستخدم والنظام' },
-    { id: 'help_support', number: 20, label: 'المساعدة والدعم وتوثيق المنصة', icon: HelpCircle, category: 'المستخدم والنظام' },
-    { id: 'login', number: 21, label: user.isAdmin ? 'تسجيل الخروج / تبديل الحساب' : 'تسجيل الدخول / لوحة الإدارة', icon: user.isAdmin ? LogOut : LogIn, category: 'المستخدم والنظام' }
+    { id: 'home', number: 1, labelAr: 'الصفحة الرئيسية', labelEn: 'Home Dashboard', icon: Home },
+    { id: 'virtual_farm', number: 2, labelAr: 'مزرعتي الافتراضية ثلاثية الأبعاد (3D)', labelEn: 'My Virtual Farm (3D)', icon: Sprout, badgeAr: '3D', badgeEn: '3D' },
+    { id: 'plant_diagnosis', number: 3, labelAr: 'التشخيص الذكي لأمراض النباتات', labelEn: 'Smart Plant Disease Diagnosis', icon: Scan, badgeAr: 'ذكي', badgeEn: 'Smart' },
+    { id: 'pest_diagnosis', number: 4, labelAr: 'تشخيص الحشرات والآفات الزراعية', labelEn: 'Insect & Pest Diagnosis', icon: Bug },
+    { id: 'cartoon_videos', number: 5, labelAr: 'فيديوهات فليجان التوعوية (كرتون)', labelEn: 'Flijan Educational Cartoons', icon: Clapperboard },
+    { id: 'games', number: 6, labelAr: 'الألعاب الزراعية التفاعلية', labelEn: 'Interactive Agri Games', icon: Gamepad2, badgeAr: '6', badgeEn: '6' },
+    { id: 'cultural_quiz', number: 7, labelAr: 'المسابقة الثقافية العمانية', labelEn: 'Omani Cultural Quiz', icon: Trophy },
+    { id: 'leaderboard', number: 8, labelAr: 'لوحة المتصدرين والنقاط', labelEn: 'Leaderboards & Points', icon: Award },
+    { id: 'library', number: 9, labelAr: 'المكتبة الزراعية الإلكترونية', labelEn: 'Digital Agricultural Library', icon: Library, badgeAr: '12', badgeEn: '12' },
+    { id: 'alerts', number: 10, labelAr: 'التنبيهات والإرشادات الزراعية', labelEn: 'Agricultural Alerts', icon: Bell },
+    { id: 'weather', number: 11, labelAr: 'الطقس والتنبيهات المناخية', labelEn: 'Oman Live Weather', icon: CloudSun },
+    { id: 'community', number: 12, labelAr: 'الدردشة والمجتمع الزراعي', labelEn: 'Farmer Chat & Community', icon: Users },
+    { id: 'quran', number: 13, labelAr: 'القرآن الكريم (الشيخ هزاع البلوشي)', labelEn: 'Holy Quran (Hazza Al-Balushi)', icon: BookMarked },
+    { id: 'radio', number: 14, labelAr: 'الإذاعات العمانية والبث المباشر', labelEn: 'Oman Live Radio', icon: Radio },
+    { id: 'encyclopedia', number: 15, labelAr: 'الموسوعة الزراعية الشاملة', labelEn: 'Agricultural Encyclopedia', icon: BookOpen },
+    { id: 'calendar', number: 16, labelAr: 'التقويم الزراعي العماني', labelEn: 'Omani Crop Calendar', icon: Calendar },
+    { id: 'daily_tips', number: 17, labelAr: 'النصائح اليومية والموسمية', labelEn: 'Daily & Seasonal Tips', icon: Lightbulb },
+    { id: 'profile', number: 18, labelAr: 'الملف الشخصي', labelEn: 'Farmer Profile', icon: UserCircle },
+    { id: 'settings', number: 19, labelAr: 'الإعدادات والمظهر', labelEn: 'Settings & Theme', icon: Settings },
+    { id: 'help_support', number: 20, labelAr: 'المساعدة والدعم وتوثيق المنصة', labelEn: 'Help & Support', icon: HelpCircle },
+    { id: 'login', number: 21, labelAr: user.isAdmin ? 'تبديل الحساب / تسجيل الخروج' : 'تسجيل الدخول / الإدارة', labelEn: user.isAdmin ? 'Switch Account / Logout' : 'Sign In / Admin', icon: user.isAdmin ? LogOut : LogIn }
   ];
 
-  const filteredItems = menuItems.filter(item => 
-    item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.number.toString().includes(searchQuery)
-  );
+  const filteredItems = menuItems.filter((item) => {
+    const label = lang === 'ar' ? item.labelAr : item.labelEn;
+    return (
+      label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.number.toString().includes(searchQuery)
+    );
+  });
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity"
+      <div
+        className="fixed inset-0 bg-[#040816]/75 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <div className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-stone-900 h-full shadow-2xl flex flex-col z-10 border-l border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100">
+      <div className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-[#0b1329] h-full shadow-2xl flex flex-col z-10 border-e border-slate-200 dark:border-sky-300/15 text-slate-900 dark:text-slate-100">
         
-        {/* Header of Drawer */}
-        <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/70 dark:bg-stone-900/80">
+        {/* Drawer Header */}
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-sky-300/15 flex items-center justify-between bg-slate-50/80 dark:bg-[#132247]/90">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xl shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-bold text-xl shadow-sm">
               🌾
             </div>
             <div>
-              <div className="font-bold text-base text-stone-900 dark:text-white leading-tight">
-                صديق المزارع
+              <div className="font-bold text-base text-slate-900 dark:text-white leading-tight">
+                {t.appName}
               </div>
               <div className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
-                فكرة وإدارة: عمر الشرجي
+                {t.founderName}
               </div>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800 transition-colors"
-            title="إغلاق القائمة"
-            aria-label="إغلاق القائمة"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors"
+            title={t.close}
+            aria-label={t.close}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Search input in sidebar */}
-        <div className="p-3 border-b border-stone-200 dark:border-stone-800">
+        {/* Search */}
+        <div className="p-3 border-b border-slate-200 dark:border-sky-300/15">
           <div className="relative">
-            <Search className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2" />
+            <Search className={`w-4 h-4 text-slate-400 absolute ${lang === 'ar' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2`} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث في قائمة الخدمات الـ 19..."
-              className="w-full pr-9 pl-3 py-2 text-xs rounded-lg bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-stone-900 dark:text-white placeholder:text-stone-400"
+              placeholder={lang === 'ar' ? 'ابحث في أقسام المنصة...' : 'Search platform sections...'}
+              className={`w-full min-h-[44px] ${lang === 'ar' ? 'pr-9 pl-3' : 'pl-9 pr-3'} py-2 text-xs rounded-xl bg-slate-100 dark:bg-[#132247] border border-slate-200 dark:border-sky-300/15 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white placeholder:text-slate-400`}
             />
           </div>
         </div>
 
-        {/* Scrollable Items List */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 divide-y divide-stone-100 dark:divide-stone-800/50">
+        {/* Scrollable Menu List */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
           {filteredItems.length === 0 ? (
-            <div className="text-center py-8 text-stone-500 text-xs">
-              لم يتم العثور على خدمة مطابقة للبحث
+            <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-xs">
+              {lang === 'ar' ? 'لم يتم العثور على قسم مطابق للبحث' : 'No matching section found'}
             </div>
           ) : (
             filteredItems.map((item) => {
               const Icon = item.icon;
               const isSelected = activePage === item.id;
+              const label = lang === 'ar' ? item.labelAr : item.labelEn;
+              const badge = lang === 'ar' ? item.badgeAr : item.badgeEn;
 
               return (
                 <button
@@ -161,23 +172,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }
                     onClose();
                   }}
-                  className={`w-full flex items-center justify-between p-2.5 rounded-lg text-right text-xs transition-colors group ${
-                    isSelected 
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-semibold' 
-                      : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/70 hover:text-stone-900 dark:hover:text-white'
+                  className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl text-start text-xs transition-colors group ${
+                    isSelected
+                      ? 'bg-emerald-50 dark:bg-[#132247] text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-400/30'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#132247]/70 border border-transparent'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="w-5 text-[11px] font-mono text-stone-400 dark:text-stone-500 group-hover:text-emerald-600 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-5 text-[11px] font-mono tabular-nums text-slate-400 dark:text-slate-400 group-hover:text-emerald-400 transition-colors shrink-0">
                       {item.number < 10 ? `0${item.number}` : item.number}
                     </span>
-                    <Icon className={`w-4 h-4 ${isSelected ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500 dark:text-stone-400 group-hover:text-emerald-600'}`} />
-                    <span className="leading-snug">{item.label}</span>
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        isSelected
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-slate-500 dark:text-slate-300 group-hover:text-emerald-400'
+                      }`}
+                    />
+                    <span className="leading-snug truncate">{label}</span>
                   </div>
 
-                  {item.badge && (
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">
-                      {item.badge}
+                  {badge && (
+                    <span className="text-[10px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300 shrink-0 ms-2">
+                      {badge}
                     </span>
                   )}
                 </button>
@@ -185,7 +202,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             })
           )}
 
-          {/* Quick Admin / Moderator Access Row */}
+          {/* Quick Admin / Moderator Entry */}
           {(user.isAdmin || user.isModerator) && (
             <div className="pt-2">
               <button
@@ -193,29 +210,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onNavigate('admin');
                   onClose();
                 }}
-                className="min-h-[44px] w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-stone-900 text-white dark:bg-emerald-800 hover:bg-stone-800 text-xs font-semibold"
+                className="min-h-[44px] w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors"
               >
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>
-                  {user.isAdmin
-                    ? 'لوحة التحكم الإدارية الشاملة (عمر الشرجي)'
-                    : 'لوحة الإشراف وسجل الإجراءات'}
-                </span>
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>{user.isAdmin ? t.admin : t.mod}</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* Footer of Drawer */}
-        <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 space-y-3 text-center">
+        {/* Drawer Footer */}
+        <div className="p-4 border-t border-slate-200 dark:border-sky-300/15 bg-slate-50/70 dark:bg-[#132247]/70 space-y-3 text-center">
           <PWAInstallButton />
-          <div>
-            <div className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">
-              تطبيق «صديق المزارع» · الإصدار الشامل 2026
+          <div className="space-y-1">
+            <div className="text-[11px] text-slate-700 dark:text-slate-200 font-semibold">
+              {t.appName} · {t.founderName}
             </div>
-            <div className="text-[10px] text-stone-400 dark:text-stone-500 mt-0.5">
-              سلطنة عُمان · إشراف وإدارة: عمر الشرجي
-            </div>
+            <a
+              href="tel:94896333"
+              className="inline-flex items-center justify-center gap-1.5 text-[11px] text-emerald-700 dark:text-emerald-400 font-bold tabular-nums hover:underline"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              <span>{t.supportPhoneLabel}: 94896333</span>
+            </a>
           </div>
         </div>
 

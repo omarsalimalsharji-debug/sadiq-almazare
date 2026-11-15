@@ -45,6 +45,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 }) => {
   const [books, setBooks] = useState<Book[]>(INITIAL_BOOKS);
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
+  const [collectionFilter, setCollectionFilter] = useState<'all' | 'bookmarked' | 'offline'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeReadingBook, setActiveReadingBook] = useState<Book | null>(null);
 
@@ -113,13 +114,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   const filteredBooks = books.filter((b) => {
     const matchesCat = selectedCategory === 'الكل' || b.category === selectedCategory;
+    const matchesCollection =
+      collectionFilter === 'all' ||
+      (collectionFilter === 'bookmarked' && user.bookmarkedBookIds.includes(b.id)) ||
+      (collectionFilter === 'offline' && offlineBookIds.includes(b.id));
     const term = searchQuery.trim().toLowerCase();
     const matchesSearch =
       !term ||
       b.title.toLowerCase().includes(term) ||
       b.author.toLowerCase().includes(term) ||
       b.description.toLowerCase().includes(term);
-    return matchesCat && matchesSearch;
+    return matchesCat && matchesCollection && matchesSearch;
   });
 
   const handleOpenBook = async (book: Book) => {
@@ -348,17 +353,42 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         </div>
       )}
 
-      {/* Search and Category Filters */}
+      {/* Search, Collection Modes and Category Filters */}
       <div className="space-y-3">
-        <div className="relative max-w-md">
-          <Search className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ابحث بالعنوان، المؤلف، أو المحتوى..."
-            className="w-full min-h-[44px] pr-10 pl-4 py-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm"
-          />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث بالعنوان، المؤلف، أو المحتوى..."
+              className="w-full min-h-[44px] pr-10 pl-4 py-2.5 rounded-xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 text-xs text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-stone-100 dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 w-fit">
+            {(
+              [
+                { id: 'all', label: `الكل (${books.length})` },
+                { id: 'bookmarked', label: `المفضلة (${user.bookmarkedBookIds.length})` },
+                { id: 'offline', label: `بدون إنترنت (${offlineBookIds.length})` },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setCollectionFilter(tab.id)}
+                className={`min-h-[36px] px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                  collectionFilter === tab.id
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
@@ -400,7 +430,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           return (
             <div
               key={book.id}
-              className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
+              className="rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
             >
               {/* Cover Image when available (e.g. Samail book page 1) */}
               {book.coverUrl && (

@@ -4,7 +4,7 @@ import App from './App.tsx';
 import { AudioProvider } from './context/AudioContext.tsx';
 import './index.css';
 
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+if (import.meta.env.PROD && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   registerSW({ immediate: true });
 }
 

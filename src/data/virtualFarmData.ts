@@ -558,7 +558,7 @@ export const SAMAIL_DAILY_BOOK_TIPS: string[] = [
 export interface VirtualShopItem {
   id: string;
   nameAr: string;
-  category: 'water' | 'fertilizer' | 'tool' | 'land';
+  category: 'water' | 'fertilizer' | 'tool' | 'land' | 'livestock';
   description: string;
   costCoins: number;
   effectValue: number;
@@ -569,6 +569,7 @@ export const VIRTUAL_SHOP_ITEMS: VirtualShopItem[] = [
   { id: 'fert_organic', nameAr: 'سماد عضوي عُماني متحلل (×3)', category: 'fertilizer', description: 'يرفع خصوبة التربة تدريجياً ويحسن قوامها بأمان.', costCoins: 30, effectValue: 3 },
   { id: 'fert_npk', nameAr: 'سماد مركب NPK متوازن (×3)', category: 'fertilizer', description: 'تغذية سريعة للعناصر الكبرى (احذر الإفراط!).', costCoins: 45, effectValue: 3 },
   { id: 'pest_neem', nameAr: 'مستخلص النيم والمكافحة الحيوية (×3)', category: 'tool', description: 'مبيد حيوي آمن لمكافحة الآفات دون الإضرار بالنحل.', costCoins: 35, effectValue: 3 },
+  { id: 'fodder_pack', nameAr: 'أعلاف قت وبرسيم عُماني طازج (×5)', category: 'livestock', description: 'علف طبيعي للأبقار والأغنام والدواجن لرفع إنتاج الحليب والبيض.', costCoins: 28, effectValue: 5 },
   { id: 'expand_plot', nameAr: 'استصلاح وتوسيع قطعة أرض جديدة', category: 'land', description: 'فتح قطعة أرض إضافية في المزرعة لزراعة المزيد.', costCoins: 120, effectValue: 1 },
   { id: 'upgrade_greenhouse', nameAr: 'تطوير وتحديث البيت المحمي (+1 مستوى)', category: 'land', description: 'توسيع البيت المحمي وتحسين أنظمة التبريد والتظليل الآلية.', costCoins: 180, effectValue: 1 },
 ];
@@ -587,5 +588,165 @@ export const FARM_ACHIEVEMENTS: FarmAchievement[] = [
   { id: 'first_harvest', titleAr: 'بشائر الحصاد', description: 'إتمام أول عملية حصاد ناجحة في المزرعة', rewardPoints: 30, icon: '🌾' },
   { id: 'smart_greenhouse', titleAr: 'رائد البيوت المحمية', description: 'تشغيل وضبط البيت المحمي للخضراوات', rewardPoints: 25, icon: '🏡' },
   { id: 'pest_doctor', titleAr: 'الطبيب الوقائي', description: 'تشخيص ومعالجة آفة زراعية بشكل آمن', rewardPoints: 20, icon: '🛡️' },
+  { id: 'dairy_master', titleAr: 'راعي الحظيرة العُمانية', description: 'إطعام وجمع إنتاج الأبقار والأغنام والدواجن', rewardPoints: 25, icon: '🐄' },
+  { id: 'honey_keeper', titleAr: 'نحال العسل العُماني', description: 'رعاية المنحل وجني عسل السدر العُماني الطبيعي', rewardPoints: 30, icon: '🍯' },
+  { id: 'market_merchant', titleAr: 'تاجر سوق عُمان', description: 'بيع منتجات المزرعة في السوق الموسمي بنجاح', rewardPoints: 25, icon: '🏪' },
   { id: 'oman_competitor', titleAr: 'نجم المزارعين', description: 'تجاوز 200 نقطة معتمدة في المنافسات', rewardPoints: 40, icon: '🏆' },
 ];
+
+export type LivestockKind = 'cows' | 'goats' | 'chickens' | 'bees';
+
+export interface LivestockDef {
+  id: LivestockKind;
+  nameAr: string;
+  productId: 'milk' | 'goat_cheese' | 'eggs' | 'honey';
+  productNameAr: string;
+  icon: string;
+  baseSellPrice: number;
+  harvestPoints: number;
+  cooldownSec: number;
+  description: string;
+}
+
+export const FARM_LIVESTOCK_DEFS: LivestockDef[] = [
+  {
+    id: 'cows',
+    nameAr: 'الأبقار العُمانية الحلوب',
+    productId: 'milk',
+    productNameAr: 'حليب طازج',
+    icon: '🐄',
+    baseSellPrice: 55,
+    harvestPoints: 18,
+    cooldownSec: 45,
+    description: 'تنتج الحليب العُماني الطازج عند إطعامها بالبرسيم (القت).',
+  },
+  {
+    id: 'goats',
+    nameAr: 'الأغنام والماعز الجبلي',
+    productId: 'goat_cheese',
+    productNameAr: 'ألبان وجبن عُماني',
+    icon: '🐐',
+    baseSellPrice: 48,
+    harvestPoints: 15,
+    cooldownSec: 40,
+    description: 'تتغذى على الأعلاف وتنتج ألباناً وأجباناً محلية مطلوبة في السوق.',
+  },
+  {
+    id: 'chickens',
+    nameAr: 'الدواجن العُمانية البلدي',
+    productId: 'eggs',
+    productNameAr: 'سلة بيض بلدي',
+    icon: '🐓',
+    baseSellPrice: 36,
+    harvestPoints: 12,
+    cooldownSec: 30,
+    description: 'تنتج البيض البلدي الطازج بسرعة مع انتظام التغذية.',
+  },
+  {
+    id: 'bees',
+    nameAr: 'منحل العسل العُماني',
+    productId: 'honey',
+    productNameAr: 'عسل سدر عُماني',
+    icon: '🐝',
+    baseSellPrice: 85,
+    harvestPoints: 24,
+    cooldownSec: 55,
+    description: 'يساعد في تلقيح أشجار المزرعة وينتج عسل السدر والسمر الفاخر.',
+  },
+];
+
+export type BuildingKind = 'wellPump' | 'barnStorage' | 'beehiveApiary' | 'livestockShelter';
+
+export interface FarmBuildingDef {
+  id: BuildingKind;
+  nameAr: string;
+  icon: string;
+  maxLevel: number;
+  baseCostCoins: number;
+  benefitText: string;
+}
+
+export const FARM_BUILDING_DEFS: FarmBuildingDef[] = [
+  {
+    id: 'wellPump',
+    nameAr: 'مضخة وخزان الفلج',
+    icon: '💧',
+    maxLevel: 4,
+    baseCostCoins: 110,
+    benefitText: '+100 لتر سعة خزان وتعبئة تلقائية إضافية مع كل يوم زراعي',
+  },
+  {
+    id: 'barnStorage',
+    nameAr: 'مخزن الغلال العُماني',
+    icon: '🏚️',
+    maxLevel: 4,
+    baseCostCoins: 100,
+    benefitText: 'يرفع سعة التخزين ويزيد سعر بيع السوق بنسبة +12% لكل مستوى',
+  },
+  {
+    id: 'beehiveApiary',
+    nameAr: 'منحل عسل السدر',
+    icon: '🍯',
+    maxLevel: 4,
+    baseCostCoins: 130,
+    benefitText: 'يضاعف إنتاج العسل العُماني ويسرّع التلقيح في البستان',
+  },
+  {
+    id: 'livestockShelter',
+    nameAr: 'حظيرة الماشية والدواجن',
+    icon: '🐄',
+    maxLevel: 4,
+    baseCostCoins: 120,
+    benefitText: 'يرفع صحة القطيع ويزيد كمية الحليب والأجبان والبيض البلدي',
+  },
+];
+
+export interface FarmQuestTemplate {
+  id: string;
+  titleAr: string;
+  actionKey: 'irrigate' | 'harvest' | 'livestock_collect' | 'market_sell' | 'falaj_or_day';
+  target: number;
+  rewardCoins: number;
+  rewardPoints: number;
+  rewardWater: number;
+}
+
+export const FARM_QUEST_TEMPLATES: FarmQuestTemplate[] = [
+  {
+    id: 'q_irrigate',
+    titleAr: 'اسقِ المحاصيل بالماء المتوازن (مرتين)',
+    actionKey: 'irrigate',
+    target: 2,
+    rewardCoins: 45,
+    rewardPoints: 20,
+    rewardWater: 40,
+  },
+  {
+    id: 'q_livestock',
+    titleAr: 'اجمع إنتاج الحظيرة والمنحل الطازج',
+    actionKey: 'livestock_collect',
+    target: 2,
+    rewardCoins: 60,
+    rewardPoints: 25,
+    rewardWater: 30,
+  },
+  {
+    id: 'q_market',
+    titleAr: 'بِع منتجاً في سوق المزرعة العُماني',
+    actionKey: 'market_sell',
+    target: 1,
+    rewardCoins: 55,
+    rewardPoints: 22,
+    rewardWater: 25,
+  },
+  {
+    id: 'q_harvest',
+    titleAr: 'احصد محصولاً ناضجاً من الحقل أو البيت المحمي',
+    actionKey: 'harvest',
+    target: 1,
+    rewardCoins: 70,
+    rewardPoints: 30,
+    rewardWater: 40,
+  },
+];
+

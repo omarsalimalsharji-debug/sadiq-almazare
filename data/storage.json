@@ -931,8 +931,8 @@
       "deviceType": "هاتف",
       "browserLabel": "Android · Chrome",
       "firstVisitAt": 1794570398345,
-      "lastSeenAt": 1794653631274,
-      "visitCount": 3,
+      "lastSeenAt": 1794734667323,
+      "visitCount": 4,
       "lastPage": "home"
     }
   },
@@ -941,6 +941,9 @@
       "v_e76150ef976d2df9"
     ],
     "2026-11-14": [
+      "v_e76150ef976d2df9"
+    ],
+    "2026-11-15": [
       "v_e76150ef976d2df9"
     ]
   },
@@ -1946,7 +1949,476 @@
       }
     }
   ],
-  "virtualFarms": {},
+  "virtualFarms": {
+    "usr-oman-default": {
+      "ownerId": "usr-oman-default",
+      "ownerName": "سالم بن سعيد الحارثي",
+      "governorate": "محافظة الداخلية",
+      "farmName": "مزرعة عُمان الافتراضية",
+      "coins": 250,
+      "points": 195,
+      "weeklyPoints": 195,
+      "monthlyPoints": 195,
+      "xp": 290,
+      "level": 2,
+      "waterLiters": 300,
+      "maxWaterLiters": 300,
+      "sizeLevel": 1,
+      "greenhouseLevel": 1,
+      "greenhouseTemp": 33,
+      "greenhouseHumidity": 50,
+      "greenhouseIrrigationAuto": false,
+      "greenhouseVentilation": true,
+      "greenhouseShading": 30,
+      "inventory": {
+        "fert_organic": 2,
+        "fert_npk": 1,
+        "pest_neem": 2,
+        "fodder_pack": 3
+      },
+      "plots": [
+        {
+          "id": "plot-0",
+          "ownerId": "usr-oman-default",
+          "plotIndex": 0,
+          "isGreenhouse": false,
+          "isUnlocked": true,
+          "soilPrepared": true,
+          "soilLeveled": true,
+          "cropId": "omani_cucumber",
+          "plantedAt": 1794731199819,
+          "lastStageAdvanceAt": 1794731364819,
+          "stageIndex": 5,
+          "moisture": 57.7,
+          "nutrients": 57.2,
+          "health": 94,
+          "weedsLevel": 10,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794734352105
+        },
+        {
+          "id": "plot-1",
+          "ownerId": "usr-oman-default",
+          "plotIndex": 1,
+          "isGreenhouse": false,
+          "isUnlocked": true,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794731214819
+        },
+        {
+          "id": "plot-2",
+          "ownerId": "usr-oman-default",
+          "plotIndex": 2,
+          "isGreenhouse": false,
+          "isUnlocked": true,
+          "soilPrepared": true,
+          "soilLeveled": true,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794731214819
+        },
+        {
+          "id": "plot-3",
+          "ownerId": "usr-oman-default",
+          "plotIndex": 3,
+          "isGreenhouse": false,
+          "isUnlocked": true,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794731214820
+        },
+        {
+          "id": "plot-4",
+          "ownerId": "usr-oman-default",
+          "plotIndex": 4,
+          "isGreenhouse": false,
+          "isUnlocked": false,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794731214820
+        },
+        {
+          "id": "plot-5",
+          "ownerId": "usr-oman-default",
+          "plotIndex": 5,
+          "isGreenhouse": false,
+          "isUnlocked": false,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794731214820
+        },
+        {
+          "id": "plot-6",
+          "ownerId": "usr-oman-default",
+          "plotIndex": 6,
+          "isGreenhouse": true,
+          "isUnlocked": true,
+          "soilPrepared": true,
+          "soilLeveled": true,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794731214820
+        },
+        {
+          "id": "plot-7",
+          "ownerId": "usr-oman-default",
+          "plotIndex": 7,
+          "isGreenhouse": true,
+          "isUnlocked": false,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794731214820
+        },
+        {
+          "id": "plot-8",
+          "ownerId": "usr-oman-default",
+          "plotIndex": 8,
+          "isGreenhouse": true,
+          "isUnlocked": false,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794731214820
+        }
+      ],
+      "achievements": [],
+      "logs": [
+        {
+          "id": "flog-1794734294251-qqq6",
+          "actionType": "level_soil",
+          "description": "تسوية التربة وتجهيز خطوط الزراعة بالقطعة 3",
+          "pointsDelta": 10,
+          "coinsDelta": 0,
+          "timestamp": 1794734294251
+        },
+        {
+          "id": "flog-1794734287218-vajj",
+          "actionType": "plow",
+          "description": "حرث وتقليب التربة في القطعة 3",
+          "pointsDelta": 10,
+          "coinsDelta": 0,
+          "timestamp": 1794734287218
+        },
+        {
+          "id": "flog-1794731681818-y27t",
+          "actionType": "stage_complete",
+          "description": "اكتمال مرحلة «جاهز للحصاد (6-8 أسابيع)» لمحصول الخيار العُماني",
+          "pointsDelta": 25,
+          "coinsDelta": 0,
+          "timestamp": 1794731681818
+        },
+        {
+          "id": "flog-1794731681817-vdgj",
+          "actionType": "stage_complete",
+          "description": "اكتمال مرحلة «نضج غض» لمحصول الخيار العُماني",
+          "pointsDelta": 25,
+          "coinsDelta": 0,
+          "timestamp": 1794731681817
+        },
+        {
+          "id": "flog-1794731681817-t7h4",
+          "actionType": "stage_complete",
+          "description": "اكتمال مرحلة «إثمار وعقد» لمحصول الخيار العُماني",
+          "pointsDelta": 25,
+          "coinsDelta": 0,
+          "timestamp": 1794731681817
+        },
+        {
+          "id": "flog-1794731681817-atpo",
+          "actionType": "stage_complete",
+          "description": "اكتمال مرحلة «نمو وتزهير» لمحصول الخيار العُماني",
+          "pointsDelta": 25,
+          "coinsDelta": 0,
+          "timestamp": 1794731681817
+        },
+        {
+          "id": "flog-1794731681817-vi6r",
+          "actionType": "stage_complete",
+          "description": "اكتمال مرحلة «شتلة وتسلق» لمحصول الخيار العُماني",
+          "pointsDelta": 25,
+          "coinsDelta": 0,
+          "timestamp": 1794731681817
+        },
+        {
+          "id": "flog-1794731214819",
+          "actionType": "init",
+          "description": "تأسيس المزرعة الافتراضية ومنح البذور والأدوات الأولية مجاناً",
+          "pointsDelta": 50,
+          "coinsDelta": 250,
+          "timestamp": 1794731214819
+        }
+      ],
+      "notifications": [
+        {
+          "id": "fnotif-1794731681798-plot-0-5",
+          "title": "تقدم نمو الخيار العُماني",
+          "message": "انتقل المحصول في القطعة 1 إلى مرحلة: جاهز للحصاد (6-8 أسابيع)",
+          "category": "growth",
+          "isRead": false,
+          "timestamp": 1794731681798
+        },
+        {
+          "id": "fnotif-1794731681798-plot-0-4",
+          "title": "تقدم نمو الخيار العُماني",
+          "message": "انتقل المحصول في القطعة 1 إلى مرحلة: نضج غض",
+          "category": "growth",
+          "isRead": false,
+          "timestamp": 1794731681798
+        },
+        {
+          "id": "fnotif-1794731681798-plot-0-3",
+          "title": "تقدم نمو الخيار العُماني",
+          "message": "انتقل المحصول في القطعة 1 إلى مرحلة: إثمار وعقد",
+          "category": "growth",
+          "isRead": false,
+          "timestamp": 1794731681798
+        },
+        {
+          "id": "fnotif-1794731681798-plot-0-2",
+          "title": "تقدم نمو الخيار العُماني",
+          "message": "انتقل المحصول في القطعة 1 إلى مرحلة: نمو وتزهير",
+          "category": "growth",
+          "isRead": false,
+          "timestamp": 1794731681798
+        },
+        {
+          "id": "fnotif-1794731681798-plot-0-1",
+          "title": "تقدم نمو الخيار العُماني",
+          "message": "انتقل المحصول في القطعة 1 إلى مرحلة: شتلة وتسلق",
+          "category": "growth",
+          "isRead": false,
+          "timestamp": 1794731681798
+        },
+        {
+          "id": "fnotif-1794731214819",
+          "title": "أهلاً بك في مزرعتك الافتراضية!",
+          "message": "ابدأ بحرث الأرض أو متابعة شتلة الخيار العُماني المزروعة في القطعة 1.",
+          "category": "system",
+          "isRead": false,
+          "timestamp": 1794731214819
+        }
+      ],
+      "notificationsEnabled": true,
+      "lastDailyLoginKey": "",
+      "dailyPointsEarned": 145,
+      "dailyPointsDateKey": "2026-11-15",
+      "farmDay": 53,
+      "lastDayAdvanceAt": 1794734334819,
+      "seasonIndex": 2,
+      "seasonName": "القيظ (الصيف الداخلي)",
+      "seasonHint": "حرارة عالية في الحقل المكشوف؛ تتحمل النخلة والسمسم ويُفضّل البيت المحمي للخضر [ع]",
+      "ambientTemp": 42,
+      "falajTurnActive": false,
+      "falajCollectedDay": 0,
+      "dailyBookTip": "السمسم يتحمل فترات جفاف قصيرة لكنه شديد الحساسية لركود الماء؛ ولا تؤخر حصاده كي لا تتفتح القرون [ع].",
+      "lastSimulatedAt": 1794734352105,
+      "createdAt": 1794731214819,
+      "updatedAt": 1794734352105,
+      "livestock": {
+        "cows": {
+          "fedAt": 1794734264822,
+          "lastCollectedAt": 1794734219822,
+          "happiness": 85
+        },
+        "goats": {
+          "fedAt": 1794734264822,
+          "lastCollectedAt": 1794734219822,
+          "happiness": 82
+        },
+        "chickens": {
+          "fedAt": 1794734264822,
+          "lastCollectedAt": 1794734219822,
+          "happiness": 88
+        },
+        "bees": {
+          "fedAt": 1794734279822,
+          "lastCollectedAt": 1794734209822,
+          "happiness": 90
+        }
+      },
+      "buildings": {
+        "wellPump": 1,
+        "barnStorage": 1,
+        "beehiveApiary": 1,
+        "livestockShelter": 1
+      },
+      "warehouse": {
+        "crops": {
+          "omani_cucumber": 1
+        },
+        "goods": {
+          "milk": 1,
+          "goat_cheese": 0,
+          "eggs": 1,
+          "honey": 0
+        }
+      },
+      "quests": [
+        {
+          "id": "q_harvest_d52",
+          "templateId": "q_harvest",
+          "titleAr": "احصد محصولاً ناضجاً من الحقل أو البيت المحمي",
+          "actionKey": "harvest",
+          "progress": 0,
+          "target": 1,
+          "rewardCoins": 70,
+          "rewardPoints": 30,
+          "rewardWater": 40,
+          "claimed": false
+        },
+        {
+          "id": "q_irrigate_d52",
+          "templateId": "q_irrigate",
+          "titleAr": "اسقِ المحاصيل بالماء المتوازن (مرتين)",
+          "actionKey": "irrigate",
+          "progress": 0,
+          "target": 2,
+          "rewardCoins": 45,
+          "rewardPoints": 20,
+          "rewardWater": 40,
+          "claimed": false
+        },
+        {
+          "id": "q_livestock_d52",
+          "templateId": "q_livestock",
+          "titleAr": "اجمع إنتاج الحظيرة والمنحل الطازج",
+          "actionKey": "livestock_collect",
+          "progress": 0,
+          "target": 2,
+          "rewardCoins": 60,
+          "rewardPoints": 25,
+          "rewardWater": 30,
+          "claimed": false
+        }
+      ],
+      "questsDay": 52,
+      "marketMultipliers": {
+        "faradh_palm": 0.95,
+        "omani_cucumber": 1.47,
+        "omani_wheat": 1.1,
+        "onion": 0.95,
+        "garlic": 1.48,
+        "sesame": 1.07,
+        "tomato": 0.95,
+        "pepper": 1.49,
+        "potato": 1.03,
+        "omani_lemon": 0.95,
+        "milk": 1.5,
+        "goat_cheese": 1,
+        "eggs": 0.96,
+        "honey": 1.5
+      },
+      "hotItems": [
+        "omani_cucumber",
+        "garlic",
+        "pepper"
+      ]
+    }
+  },
   "farmFriendships": [],
   "farmCompetitions": [
     {

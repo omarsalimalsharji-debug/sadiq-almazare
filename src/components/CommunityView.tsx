@@ -8,6 +8,12 @@ import {
   ShieldCheck,
   AlertCircle,
   X,
+  Bot,
+  Sparkles,
+  CheckCircle2,
+  ShieldAlert,
+  Loader2,
+  Share2,
 } from 'lucide-react';
 import { UserProfile } from '../types/index.ts';
 
@@ -40,7 +46,25 @@ type PendingDelete =
   | { kind: 'post'; postId: string; preview: string }
   | { kind: 'comment'; postId: string; commentId: string; preview: string };
 
+interface AiChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  practicalSteps?: string[];
+  safetyReminder?: string;
+  suggestedFollowUps?: string[];
+  timestamp: number;
+}
+
+const STARTER_AI_QUESTIONS = [
+  'ما أفضل جدول لري النخيل في القيظ مع مياه الفلج؟',
+  'كيف أواجه ملوحة التربة في مزارع الباطنة عضوياً؟',
+  'متى وكيف أعالج سوسة النخيل الحمراء بأمان؟',
+  'أفضل تسميد عضوي للرمان والليمون العُماني في الجبل الأخضر؟',
+];
+
 export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
+  const [activeTab, setActiveTab] = useState<'ai_chat' | 'forum'>('ai_chat');
   const [posts, setPosts] = useState<Post[]>([]);
   const [newContent, setNewContent] = useState<string>('');
   const [newCategory, setNewCategory] = useState<string>('نخيل التمر');
@@ -50,6 +74,25 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
   const [canModerate, setCanModerate] = useState<boolean>(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [deleting, setDeleting] = useState<boolean>(false);
+
+  // Live AI Agricultural Chat state
+  const [aiCropFocus, setAiCropFocus] = useState<string>('نخيل التمر');
+  const [aiInput, setAiInput] = useState<string>('');
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
+  const [aiMessages, setAiMessages] = useState<AiChatMessage[]>([
+    {
+      id: 'ai-welcome',
+      role: 'assistant',
+      text: `مرحباً بك يا ${user.name} في الدردشة الزراعية الذكية لمزارعي سلطنة عُمان! أنا مستشارك الزراعي الميداني لمحافظة ${user.governorate}. اسألني عن الري، التسميد، مكافحة الآفات حسب القرار الوزاري 160/2023، أو إدارة البيوت المحمية.`,
+      practicalSteps: [
+        'اختر المحصول من القائمة أعلاه لتخصيص الإرشادات وفق مناخ محافظتك.',
+        'اكتب سؤالك بالتفصيل أو اختر أحد الأسئلة السريعة الجاهزة.',
+      ],
+      safetyReminder:
+        'توصياتنا متوافقة مع اشتراطات سلامة النحل وفترة التحريم والقرار الوزاري رقم 160/2023.',
+      timestamp: Date.now(),
+    },
+  ]);
 
   const fetchPosts = async () => {
     try {
@@ -229,6 +272,75 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
     }
   };
 
+  const handleSendAiChat = async (questionOverride?: string) => {
+    const questionText = (questionOverride ?? aiInput).trim();
+    if (!questionText || aiLoading) return;
+
+    const userMsg: AiChatMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      text: questionText,
+      timestamp: Date.now(),
+    };
+    const nextHistory = [...aiMessages, userMsg];
+    setAiMessages(nextHistory);
+    if (!questionOverride) setAiInput('');
+    setAiLoading(true);
+
+    try {
+      const res = await fetch('/api/community/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: questionText,
+          governorate: user.governorate,
+          cropFocus: aiCropFocus,
+          history: nextHistory.slice(-6).map((m) => ({ role: m.role, text: m.text })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'تعذر الحصول على إجابة الآن');
+      }
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          text: data.reply,
+          practicalSteps: data.practicalSteps,
+          safetyReminder: data.safetyReminder,
+          suggestedFollowUps: data.suggestedFollowUps,
+          timestamp: Date.now(),
+        },
+      ]);
+    } catch {
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          text: 'تعذر الوصول الفوري للخادم، يمكنك مراجعة الإرشادات الأساسية أو طرح الاستفسار في ديوانية المزارعين.',
+          timestamp: Date.now(),
+        },
+      ]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleShareAdviceToForum = (msg: AiChatMessage) => {
+    const formatted = `${msg.text}${
+      msg.practicalSteps?.length
+        ? '\n\nالخطوات العملية:\n' + msg.practicalSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')
+        : ''
+    }`;
+    setNewCategory(aiCropFocus);
+    setNewContent(formatted);
+    setActiveTab('forum');
+    setFeedback({ ok: true, text: 'تم نقل الإجابة إلى نموذج النشر في ديوانية المزارعين.' });
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
@@ -277,7 +389,196 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Create New Post Form */}
+      {/* Mode Switcher: AI Agricultural Chat vs Farmer Forum */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-stone-100 dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveTab('ai_chat')}
+          className={`min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${
+            activeTab === 'ai_chat'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <Bot className="w-4 h-4" />
+          <span>المستشار الزراعي الذكي AI</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('forum')}
+          className={`min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${
+            activeTab === 'forum'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>ديوانية المزارعين ({posts.length})</span>
+        </button>
+      </div>
+
+      {/* TAB 1: LIVE AI AGRICULTURAL CHAT ASSISTANT */}
+      {activeTab === 'ai_chat' && (
+        <div className="bg-white dark:bg-[#132247] rounded-3xl border border-stone-200 dark:border-sky-300/15 shadow-sm overflow-hidden flex flex-col">
+          {/* Chat Context Bar */}
+          <div className="p-4 sm:p-5 border-b border-stone-100 dark:border-sky-300/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50/70 dark:bg-[#0e1936]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white">
+                  المستشار الزراعي العُماني المباشر
+                </div>
+                <div className="text-[11px] text-stone-500 dark:text-slate-300/80">
+                  مخصص لمحافظة {user.governorate} · ملتزم بقرار حظر المبيدات 160/2023
+                </div>
+              </div>
+            </div>
+
+            <select
+              value={aiCropFocus}
+              onChange={(e) => setAiCropFocus(e.target.value)}
+              className="min-h-[40px] px-3 py-1.5 text-xs font-semibold rounded-xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/20 text-stone-800 dark:text-white focus:outline-none"
+            >
+              <option value="نخيل التمر">نخيل التمر</option>
+              <option value="الحمضيات والفاكهة">الليمون العُماني والفاكهة</option>
+              <option value="البيوت المحمية">البيوت المحمية والخضار</option>
+              <option value="الري والأفلاج">الري ومياه الأفلاج</option>
+              <option value="تربية النحل والمواشي">تربية النحل والمواشي</option>
+            </select>
+          </div>
+
+          {/* Conversation Messages */}
+          <div className="p-4 sm:p-5 space-y-4 max-h-[520px] overflow-y-auto bg-stone-50/30 dark:bg-[#0b1329]/45">
+            {aiMessages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[92%] sm:max-w-[84%] rounded-2xl p-4 text-xs sm:text-sm space-y-3 ${
+                    msg.role === 'user'
+                      ? 'bg-emerald-600 text-white rounded-ee-sm shadow-sm'
+                      : 'bg-white dark:bg-[#132247] text-stone-800 dark:text-slate-100 border border-stone-200 dark:border-sky-300/15 rounded-es-sm shadow-sm'
+                  }`}
+                >
+                  <p className="leading-relaxed whitespace-pre-line">{msg.text}</p>
+
+                  {msg.practicalSteps && msg.practicalSteps.length > 0 && (
+                    <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/35 border border-emerald-200 dark:border-emerald-700/40 space-y-1.5 text-xs">
+                      <div className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>خطوات التنفيذ الميداني:</span>
+                      </div>
+                      <ul className="space-y-1 text-stone-700 dark:text-slate-200">
+                        {msg.practicalSteps.map((step, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                              {i + 1}.
+                            </span>
+                            <span>{step}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {msg.safetyReminder && (
+                    <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-700/40 text-[11px] font-semibold text-amber-900 dark:text-amber-200 flex items-start gap-1.5">
+                      <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>{msg.safetyReminder}</span>
+                    </div>
+                  )}
+
+                  {msg.role === 'assistant' && msg.id !== 'ai-welcome' && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleShareAdviceToForum(msg)}
+                        className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>مشاركة هذه الإرشادات في الديوانية</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {msg.suggestedFollowUps.map((q, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleSendAiChat(q)}
+                          className="text-[11px] px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-[#0e1936] border border-stone-200 dark:border-sky-300/20 text-stone-700 dark:text-sky-200 hover:border-emerald-500 transition-colors text-start"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {aiLoading && (
+              <div className="flex justify-start">
+                <div className="px-4 py-3 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>المستشار الذكي يحلل معطيات محافظتك ويجيب الآن...</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Starter Prompts + Input Bar */}
+          <div className="p-4 border-t border-stone-100 dark:border-sky-300/15 bg-white dark:bg-[#0e1936] space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {STARTER_AI_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  disabled={aiLoading}
+                  onClick={() => handleSendAiChat(q)}
+                  className="text-[11px] px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 text-stone-700 dark:text-slate-200 hover:border-emerald-500 transition-colors disabled:opacity-50"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendAiChat();
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                type="text"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                placeholder="اكتب استفسارك الزراعي للمستشار الذكي..."
+                className="min-h-[46px] flex-1 px-3.5 py-2 text-xs sm:text-sm rounded-xl bg-stone-100 dark:bg-[#132247] border border-stone-200 dark:border-sky-300/20 text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <button
+                type="submit"
+                disabled={aiLoading || !aiInput.trim()}
+                className="min-h-[46px] px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-colors shrink-0"
+              >
+                <Send className="w-4 h-4" />
+                <span>اسأل</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: FARMER COMMUNITY FORUM */}
+      {activeTab === 'forum' && (
+        <div className="space-y-6">
+          {/* Create New Post Form */}
       <form
         onSubmit={handleCreatePost}
         className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 sm:p-5 shadow-sm space-y-3"
@@ -490,6 +791,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
           );
         })}
       </div>
+        </div>
+      )}
 
       {/* Explicit Confirmation Modal for Staff Deletion */}
       {pendingDelete && (

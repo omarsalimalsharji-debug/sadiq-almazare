@@ -27,6 +27,9 @@ import {
   FARM_ACHIEVEMENTS,
   OMAN_FARM_SEASONS,
   SAMAIL_DAILY_BOOK_TIPS,
+  FARM_LIVESTOCK_DEFS,
+  FARM_BUILDING_DEFS,
+  FARM_QUEST_TEMPLATES,
   VirtualCropDef
 } from './src/data/virtualFarmData.ts';
 import { DEFAULT_SEASONAL_CONFIG, SeasonalConfig } from './src/utils/islamicCalendar.ts';
@@ -1279,282 +1282,527 @@ app.get('/api/staff/moderation-logs', requireStaff, (_req, res) => {
   });
 });
 
-// --- 3. AI Plant Disease & Pest Diagnosis API ---
-app.post('/api/diagnose/plant', aiRateLimit, async (req, res) => {
+// --- 3 & 4. Unified Smart Agricultural Diagnosis Engine (Plant Diseases, Deficiencies, Stress & Beneficial/Harmful Insects) ---
+const smartDiagnosisCache = new Map<string, { expiresAt: number; diagnosis: any }>();
+const SMART_CACHE_TTL_MS = 5 * 60 * 1000;
+const SMART_CACHE_MAX_ITEMS = 80;
+
+function extractAndValidateBase64Image(rawDataUrl: string): { mimeType: string; cleanBase64: string; byteLength: number } | null {
+  if (typeof rawDataUrl !== 'string') return null;
+  const trimmed = rawDataUrl.trim();
+  if (trimmed.length < 64) return null;
+
+  const mimeMatch = trimmed.match(/^data:(image\/(?:jpeg|jpg|png|webp|heic|heif));base64,/i);
+  if (!mimeMatch && trimmed.startsWith('data:')) {
+    return null; // Unsupported non-image or SVG/script data URL
+  }
+
+  const mimeType = mimeMatch
+    ? (mimeMatch[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : mimeMatch[1].toLowerCase())
+    : 'image/jpeg';
+  const cleanBase64 = trimmed.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
+
+  if (!/^[A-Za-z0-9+/=\r\n]+$/.test(cleanBase64)) {
+    return null;
+  }
+
+  const byteLength = Math.floor((cleanBase64.length * 3) / 4);
+  if (byteLength < 128 || byteLength > 10 * 1024 * 1024) {
+    return null;
+  }
+
+  return { mimeType, cleanBase64, byteLength };
+}
+
+async function runUnifiedAgriVisionDiagnosis(params: {
+  images: Array<{ label: string; mimeType: string; cleanBase64: string }>;
+  cropName?: string;
+  wilayat?: string;
+  observations?: string;
+  modeHint?: 'auto' | 'plant' | 'insect';
+}) {
+  const { images, cropName = '', wilayat = '', observations = '', modeHint = 'auto' } = params;
+
+  const hash = crypto.createHash('sha256');
+  images.forEach((img) => hash.update(img.cleanBase64));
+  hash.update(`|${cropName}|${wilayat}|${observations}|${modeHint}`);
+  const cacheKey = hash.digest('hex');
+
+  const now = Date.now();
+  const cached = smartDiagnosisCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return { diagnosis: cached.diagnosis, fromCache: true };
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('خدمة التحليل الذكي غير مهيأة حالياً على الخادم.');
+  }
+
+  const MANDATORY_ADVISORY =
+    'التشخيص عبر الصورة تقديري استرشادي ولا يغني عن الفحص الميداني لدى المهندس الزراعي أو دوائر التنمية الزراعية في الحالات الملتبسة أو الشديدة.';
+
+  const systemInstruction = `أنت خبير زراعي دولي ومختص في أمراض النبات والحشرات الزراعية والتشخيص البصري في سلطنة عُمان (تطبيق صديق المزارع الذكي).
+مهمتك تحليل صورة واحدة (أو أكثر إن وُجدت) لنبات أو ورقة أو ثمرة أو حشرة، وإخراج JSON دقيق يلتزم بالسلامة العلمية الكاملة والقوانين الزراعية في سلطنة عُمان.
+
+المحاصيل المدعومة في سلطنة عُمان تشمل: أشجار النخيل، الخضروات، أشجار الفاكهة (الليمون العماني، المانجو، الرمان، الموز...)، المحاصيل الحقلية (القمح العماني، الشعير، الذرة...)، الأعلاف (القت/البرسيم)، النباتات الزينة، والمحاصيل الموسمية.
+
+قواعد حاسمة لا تهاون فيها:
+1. الفحص الأولي للصورة (الأهم):
+   - حدد هل الصورة واضحة ومرتبطة فعلاً بالزراعة (نبات، ورقة، جذع، ثمرة، تربة مع أعراض، أو حشرة/آفة).
+   - إذا كانت الصورة غير مرتبطة بالزراعة (مثل سيارة، أثاث، وجه، شاشة، ورقة فارغة) أو ضبابية جداً أو مظلمة بحيث تتعذر الرؤية:
+     * اضبط isAgricultureRelated = false (إذا لم تكن زراعية) و needsClearerPhoto = true.
+     * اضبط detectedSubject = "unclear" و diagnosisCategory = "غير محدد".
+     * اضبط confidenceScore = 0 (للصور غير الزراعية) أو قيمة منخفضة صادقة أقل من 55 (للمشوشة).
+     * لا تخترع أي اسم مرض أو حشرة أو مبيد. اكتب في problemName: "تعذر تأكيد التشخيص — يرجى إرسال صورة أوضح" و problemNameEn: "Unable to Confirm Diagnosis — Clearer Photo Required".
+     * اذكر في clarificationMessage السبب بصراحة وكيف يلتقط المزارع صورة أفضل.
+
+2. التمييز التلقائي الدقيق (نبات أم حشرة):
+   - إذا ظهرت حشرة بوضوح في الصورة: اضبط detectedSubject = "insect" و problemType = "حشرة".
+   - لا تصنّف الحشرة على أنها ضارة لمجرد ظهورها! تحقق هل هي حشرة نافعة (مثل خنفساء أبو العيد، أسد المن، نحل العسل، فرس النبي، الذبابة الحوامة، اليعسوب) أم حشرة ضارة (مثل سوسة النخيل، دوباس النخيل، حفار الساق، الذبابة البيضاء، المن، التربس، صانعات الأنفاق، العناكب).
+     * إذا كانت نافعة: اضبط insectNature = "beneficial"، diagnosisCategory = "حشرة نافعة"، severity = "منخفضة"، severityLabel = "غير ضارة (حشرة نافعة)"، وأكّد على عدم رش المبيدات وحمايتها.
+     * إذا كانت ضارة: اضبط insectNature = "harmful"، diagnosisCategory = "حشرة ضارة"، وحدد درجة الخطورة والمحاصيل والأضرار ودورة الحياة (فقط إذا توفرت معلومات علمية موثوقة، وإلا اكتب ذلك بصراحة).
+   - إذا كانت الصورة لنبات أو ورقة أو ثمرة: اضبط detectedSubject = "plant"، وميّز بدقة بين:
+     * "مرض فطري" / "مرض بكتيري" / "مرض فيروسي" (problemType = "مرض")
+     * "نقص عناصر" (problemType = "نقص عناصر")
+     * "إجهاد بيئي" مثل الإجهاد الحراري أو المائي أو الملوحة (problemType = "مرض")
+     * "نبات سليم" (problemType = "سليم"، severity = "منخفضة")
+
+3. الأمانة العلمية في نسبة الثقة والتفاصيل:
+   - أعطِ confidenceScore رقمية صادقة من 0 إلى 100 تعكس مدى وضوح العلامات المرئية في الصورة فقط، ولا تخترع نسبة مرتفعة مع وجود لبس.
+   - صف في conditionSummary ما ظهر فعلياً في الصورة بلغة عربية واضحة ومطمئنة.
+   - اكتب visibleSymptoms كقائمة نقاط للملاحظات البصرية الفعلية التي استند عليها التقييم.
+
+4. سلامة المبيدات والالتزام بالقرار الوزاري العُماني رقم 160/2023:
+   - لا تقترح أي مبيد أو مادة كيميائية عند الحشرات النافعة أو النبات السليم أو الصور غير الواضحة أو الإجهاد البيئي أو نقص العناصر! اضبط pesticideNeeded = false.
+   - عند الحاجة الفعلية لمبيد لحشرة ضارة أو مرض مؤكد، لا تخترع أسماء تجارية أو مبيدات محظورة في سلطنة عُمان. اذكر المادة الفعالة المصرّح بها أو البديل الآمن بالعربية والإنجليزية.
+   - لا تكتب أرقام جرعات مخمّنة أو غير موثقة؛ اذكر الجرعة فقط إذا كانت موثقة ومعروفة على ملصق المنتج المعتمد وتناسب المحصول والآفة في سلطنة عُمان، وإلا وجّه المزارع للالتزام بالملصق المعتمد ومراجعة دائرة التنمية الزراعية.
+   - نبه دائماً على حماية نحل العسل وفترة التحريم (PHI) وتجنب الرش وقت التزهير واشتداد الحرارة.
+
+5. يجب تحديد متى يتواصل المزارع مع المهندس الزراعي في whenToContactEngineer، والالتزام بأن fieldDisclaimer يوضح أن التشخيص عبر الصورة تقديري ويحتاج فحصاً ميدانياً عند الالتباس.
+
+أرجع JSON فقط مطابقاً للمخطط.`;
+
+  const parts: any[] = [];
+  images.forEach((img, idx) => {
+    if (images.length > 1) {
+      parts.push({ text: `الصورة ${idx + 1} (${img.label})` });
+    }
+    parts.push({
+      inlineData: {
+        mimeType: img.mimeType,
+        data: img.cleanBase64,
+      },
+    });
+  });
+
+  const hintText =
+    modeHint === 'insect'
+      ? 'تلميح سياقي: المستخدم فتح الأداة من قسم الحشرات، لكن اعتمد على ما تراه فعلياً في الصورة (قد تكون نباتاً أو حشرة نافعة أو ضارة).'
+      : 'ميّز تلقائياً من الصورة هل هي لنبات/ورقة أم حشرة (نافعة أم ضارة) أم غير واضحة.';
+
+  parts.push({
+    text: `معلومات إضافية اختيارية من المزارع:
+- المحصول المذكور (إن وجد): ${cropName || 'غير محدد — استنتجه من الصورة إن أمكن'}
+- الولاية / المحافظة في سلطنة عُمان: ${wilayat || 'سلطنة عُمان'}
+- ملاحظات المزارع: ${observations || 'لا توجد ملاحظات نصية — اعتمد على تحليل الصورة'}
+- ${hintText}
+
+حلل الصورة بدقة علمية الآن وأخرج JSON فقط.`,
+  });
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-4-hydrogen',
+    contents: { parts },
+    config: {
+      systemInstruction,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          isAgricultureRelated: { type: Type.BOOLEAN },
+          detectedSubject: { type: Type.STRING, enum: ['plant', 'insect', 'unclear'] },
+          diagnosisCategory: {
+            type: Type.STRING,
+            enum: [
+              'مرض فطري',
+              'مرض بكتيري',
+              'مرض فيروسي',
+              'نقص عناصر',
+              'إجهاد بيئي',
+              'حشرة ضارة',
+              'حشرة نافعة',
+              'نبات سليم',
+              'غير محدد',
+            ],
+          },
+          problemType: { type: Type.STRING, enum: ['مرض', 'حشرة', 'نقص عناصر', 'سليم'] },
+          cropName: { type: Type.STRING },
+          problemName: { type: Type.STRING },
+          problemNameEn: { type: Type.STRING },
+          scientificName: { type: Type.STRING },
+          confidenceScore: { type: Type.INTEGER },
+          needsClearerPhoto: { type: Type.BOOLEAN },
+          clarificationMessage: { type: Type.STRING },
+          conditionSummary: { type: Type.STRING },
+          visibleSymptoms: { type: Type.ARRAY, items: { type: Type.STRING } },
+          causes: { type: Type.ARRAY, items: { type: Type.STRING } },
+          severity: { type: Type.STRING, enum: ['منخفضة', 'متوسطة', 'عالية'] },
+          severityLabel: { type: Type.STRING },
+          treatmentSteps: { type: Type.ARRAY, items: { type: Type.STRING } },
+          organicRemedy: { type: Type.STRING },
+          preventionTips: { type: Type.ARRAY, items: { type: Type.STRING } },
+          pesticideNeeded: { type: Type.BOOLEAN },
+          pesticideProductAr: { type: Type.STRING },
+          pesticideProductEn: { type: Type.STRING },
+          pesticideDosage: { type: Type.STRING },
+          pesticideSafetyNote: { type: Type.STRING },
+          whenToContactEngineer: { type: Type.STRING },
+          omaniFarmingNote: { type: Type.STRING },
+          possibleConditions: { type: Type.ARRAY, items: { type: Type.STRING } },
+          insectNature: { type: Type.STRING, enum: ['beneficial', 'harmful', 'neutral', 'none'] },
+          insectTargetCrops: { type: Type.ARRAY, items: { type: Type.STRING } },
+          insectDamage: { type: Type.STRING },
+          insectLifeCycle: { type: Type.STRING },
+          insectControlMethod: { type: Type.STRING },
+          insectPrevention: { type: Type.STRING },
+        },
+        required: [
+          'isAgricultureRelated',
+          'detectedSubject',
+          'diagnosisCategory',
+          'problemType',
+          'cropName',
+          'problemName',
+          'problemNameEn',
+          'scientificName',
+          'confidenceScore',
+          'needsClearerPhoto',
+          'clarificationMessage',
+          'conditionSummary',
+          'visibleSymptoms',
+          'causes',
+          'severity',
+          'severityLabel',
+          'treatmentSteps',
+          'organicRemedy',
+          'preventionTips',
+          'pesticideNeeded',
+          'pesticideProductAr',
+          'pesticideProductEn',
+          'pesticideDosage',
+          'pesticideSafetyNote',
+          'whenToContactEngineer',
+          'omaniFarmingNote',
+          'possibleConditions',
+          'insectNature',
+          'insectTargetCrops',
+          'insectDamage',
+          'insectLifeCycle',
+          'insectControlMethod',
+          'insectPrevention',
+        ],
+      },
+    },
+  });
+
+  const parsed = JSON.parse(response.text || '{}');
+
+  const isAgri = parsed.isAgricultureRelated !== false;
+  const rawConfidence = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0;
+  const clampedConfidence = Math.max(0, Math.min(100, Math.round(rawConfidence)));
+
+  const allowedSubjects = ['plant', 'insect', 'unclear'];
+  const detectedSubject: 'plant' | 'insect' | 'unclear' = allowedSubjects.includes(parsed.detectedSubject)
+    ? parsed.detectedSubject
+    : 'unclear';
+
+  const allowedCategories = [
+    'مرض فطري',
+    'مرض بكتيري',
+    'مرض فيروسي',
+    'نقص عناصر',
+    'إجهاد بيئي',
+    'حشرة ضارة',
+    'حشرة نافعة',
+    'نبات سليم',
+    'غير محدد',
+  ];
+  let diagnosisCategory = allowedCategories.includes(parsed.diagnosisCategory)
+    ? parsed.diagnosisCategory
+    : 'غير محدد';
+
+  const needsClearerPhoto =
+    !isAgri ||
+    detectedSubject === 'unclear' ||
+    diagnosisCategory === 'غير محدد' ||
+    Boolean(parsed.needsClearerPhoto) ||
+    clampedConfidence < 55;
+
+  if (needsClearerPhoto) {
+    diagnosisCategory = 'غير محدد';
+  }
+
+  const allowedProblemTypes = ['مرض', 'حشرة', 'نقص عناصر', 'سليم'];
+  let problemType: 'مرض' | 'حشرة' | 'نقص عناصر' | 'سليم' = allowedProblemTypes.includes(parsed.problemType)
+    ? parsed.problemType
+    : detectedSubject === 'insect'
+      ? 'حشرة'
+      : 'مرض';
+  if (diagnosisCategory === 'نبات سليم') problemType = 'سليم';
+  if (diagnosisCategory === 'نقص عناصر') problemType = 'نقص عناصر';
+  if (diagnosisCategory === 'حشرة ضارة' || diagnosisCategory === 'حشرة نافعة') problemType = 'حشرة';
+
+  const allowedSeverities = ['منخفضة', 'متوسطة', 'عالية'];
+  let severity: 'منخفضة' | 'متوسطة' | 'عالية' = allowedSeverities.includes(parsed.severity)
+    ? parsed.severity
+    : 'متوسطة';
+
+  const allowedInsectNatures = ['beneficial', 'harmful', 'neutral', 'none'];
+  let insectNature: 'beneficial' | 'harmful' | 'neutral' | 'none' =
+    detectedSubject === 'insect' && allowedInsectNatures.includes(parsed.insectNature)
+      ? parsed.insectNature
+      : detectedSubject === 'insect'
+        ? (diagnosisCategory === 'حشرة نافعة' ? 'beneficial' : 'harmful')
+        : 'none';
+
+  if (diagnosisCategory === 'حشرة نافعة') {
+    insectNature = 'beneficial';
+    severity = 'منخفضة';
+  }
+
+  const visibleSymptomsArr: string[] = Array.isArray(parsed.visibleSymptoms)
+    ? parsed.visibleSymptoms.filter((s: unknown) => typeof s === 'string' && s.trim()).slice(0, 8)
+    : [];
+  const visibleSymptomsText =
+    visibleSymptomsArr.join(' • ') ||
+    (typeof parsed.conditionSummary === 'string' ? parsed.conditionSummary : '');
+
+  const causesArr: string[] = Array.isArray(parsed.causes)
+    ? parsed.causes.filter((s: unknown) => typeof s === 'string' && s.trim()).slice(0, 8)
+    : [];
+
+  const treatmentStepsArr: string[] = Array.isArray(parsed.treatmentSteps)
+    ? parsed.treatmentSteps.filter((s: unknown) => typeof s === 'string' && s.trim()).slice(0, 8)
+    : [];
+
+  const preventionTipsArr: string[] = Array.isArray(parsed.preventionTips)
+    ? parsed.preventionTips.filter((s: unknown) => typeof s === 'string' && s.trim()).slice(0, 8)
+    : [];
+
+  const possibleConditionsArr: string[] = Array.isArray(parsed.possibleConditions)
+    ? parsed.possibleConditions.filter((s: unknown) => typeof s === 'string' && s.trim()).slice(0, 4)
+    : [];
+
+  const insectTargetCropsArr: string[] = Array.isArray(parsed.insectTargetCrops)
+    ? parsed.insectTargetCrops.filter((s: unknown) => typeof s === 'string' && s.trim()).slice(0, 8)
+    : [];
+
+  const allowPesticide =
+    !needsClearerPhoto &&
+    insectNature !== 'beneficial' &&
+    diagnosisCategory !== 'نبات سليم' &&
+    diagnosisCategory !== 'إجهاد بيئي' &&
+    diagnosisCategory !== 'نقص عناصر' &&
+    Boolean(parsed.pesticideNeeded) &&
+    Boolean((parsed.pesticideProductAr || '').trim() || (parsed.pesticideProductEn || '').trim());
+
+  const pesticideProductText = allowPesticide
+    ? [parsed.pesticideProductAr, parsed.pesticideProductEn].filter((v) => typeof v === 'string' && v.trim()).join(' — ')
+    : '';
+
+  const pesticideDosageText = allowPesticide
+    ? (parsed.pesticideDosage || '').trim() ||
+      'يُتبع التركيز الموثق على ملصق العبوة المعتمد والمناسب للمحصول والآفة في سلطنة عُمان بعد مراجعة المختص.'
+    : '';
+
+  const chemicalRemedyCombined = allowPesticide
+    ? `${pesticideProductText}${pesticideDosageText ? `\nالجرعة والإرشاد: ${pesticideDosageText}` : ''}${
+        parsed.pesticideSafetyNote ? `\nتنبيه السلامة: ${parsed.pesticideSafetyNote}` : ''
+      }`
+    : insectNature === 'beneficial'
+      ? 'لا تستخدم أي مبيد كيميائي؛ هذه الحشرة نافعة وتساعد في حماية المحصول طبيعياً.'
+      : 'لا يُنصح باستخدام مبيدات كيميائية لهذه الحالة ما لم يثبت انتشار وبائي بعد الفحص الميداني.';
+
+  const normalizedDiagnosis = {
+    isAgricultureRelated: isAgri,
+    detectedSubject: needsClearerPhoto ? 'unclear' : detectedSubject,
+    diagnosisCategory,
+    problemType,
+    cropName: (parsed.cropName || cropName || (detectedSubject === 'insect' ? 'محصول زراعي' : 'نبات زراعي')).trim(),
+    problemName: needsClearerPhoto
+      ? 'تعذر تأكيد التشخيص من هذه الصورة'
+      : (parsed.problemName || 'حالة زراعية مشخصة').trim(),
+    problemNameEn: needsClearerPhoto
+      ? 'Diagnosis Could Not Be Confirmed'
+      : (parsed.problemNameEn || '').trim(),
+    scientificName: needsClearerPhoto ? '' : (parsed.scientificName || '').trim(),
+    confidenceScore: needsClearerPhoto ? (isAgri ? Math.min(clampedConfidence, 54) : 0) : clampedConfidence,
+    needsClearerPhoto,
+    clarificationMessage: needsClearerPhoto
+      ? (parsed.clarificationMessage ||
+          'الصورة غير واضحة بما يكفي أو لا تُظهر النسيج النباتي أو الحشرة بدقة. يرجى التقاط صورة واحدة قريبة ومُركّزة في إضاءة نهارية جيدة.')
+      : '',
+    conditionSummary:
+      (parsed.conditionSummary || '').trim() ||
+      (needsClearerPhoto
+        ? 'لم يتمكن النظام من التحقق من أعراض أو معالم زراعية واضحة في الصورة المقدمة.'
+        : 'تم تحليل العلامات المرئية الظاهرة في الصورة.'),
+    visibleSymptomsList: visibleSymptomsArr,
+    visibleSymptoms: visibleSymptomsText || 'لم تُرصد أعراض واضحة في الصورة.',
+    causes: causesArr,
+    severity,
+    severityLabel:
+      insectNature === 'beneficial'
+        ? 'غير ضارة — حشرة نافعة'
+        : (parsed.severityLabel || severity),
+    treatmentSteps: treatmentStepsArr,
+    organicRemedy:
+      (parsed.organicRemedy || '').trim() ||
+      treatmentStepsArr.join(' — ') ||
+      'اتباع الإجراءات الوقائية الزراعية الملائمة ومراقبة المحصول.',
+    preventionTips: preventionTipsArr,
+    pesticideRecommendation: {
+      needed: allowPesticide,
+      productAr: allowPesticide ? (parsed.pesticideProductAr || '').trim() : '',
+      productEn: allowPesticide ? (parsed.pesticideProductEn || '').trim() : '',
+      dosage: pesticideDosageText,
+      safetyNote: allowPesticide
+        ? (parsed.pesticideSafetyNote || '').trim() ||
+          'الالتزام بالقرار الوزاري العُماني 160/2023 وحماية نحل العسل وفترة التحريم (PHI).'
+        : '',
+    },
+    chemicalRemedy: chemicalRemedyCombined,
+    whenToContactEngineer:
+      (parsed.whenToContactEngineer || '').trim() ||
+      'تواصل مع المهندس الزراعي أو دائرة التنمية الزراعية عند تزايد الأعراض سريعاً، أو في حال التباس التشخيص، أو قبل اتخاذ قرار الرش العلاجي الواسع.',
+    omaniFarmingNote:
+      (parsed.omaniFarmingNote || '').trim() ||
+      `راعِ ظروف الحرارة والرطوبة في ${wilayat || 'سلطنة عُمان'} ونفّذ عمليات الفحص والرش (إن لزم) في الصباح الباكر أو قبل الغروب.`,
+    advisoryNote: MANDATORY_ADVISORY,
+    possibleConditions: possibleConditionsArr,
+    insectDetails:
+      detectedSubject === 'insect' && !needsClearerPhoto
+        ? {
+            nature: insectNature,
+            targetCrops: insectTargetCropsArr,
+            damage: (parsed.insectDamage || '').trim(),
+            lifeCycle:
+              (parsed.insectLifeCycle || '').trim() ||
+              'تعتمد دورة الحياة الدقيقة على النوع الميداني ودرجات الحرارة والرطوبة في المنطقة.',
+            controlMethod: (parsed.insectControlMethod || '').trim(),
+            prevention: (parsed.insectPrevention || '').trim(),
+          }
+        : null,
+    photoParts: images.map((_, i) => (i === 0 ? 'primary' : `extra-${i}`)),
+    // Legacy pest alias fields for smooth compatibility
+    pestName: parsed.problemName || '',
+    severityLevel:
+      severity === 'عالية' ? 'شديد الخطورة' : severity === 'متوسطة' ? 'متوسط الخطورة' : 'قليل الضرر',
+    affectedParts: insectTargetCropsArr,
+    lifeCycleNote: parsed.insectLifeCycle || '',
+    organicAndBiologicalControl: parsed.insectControlMethod || parsed.organicRemedy || '',
+    safeChemicalOptions: chemicalRemedyCombined,
+    immediateAction: treatmentStepsArr[0] || parsed.organicRemedy || '',
+    officialDisclaimer: MANDATORY_ADVISORY,
+    omaniGuidance: parsed.omaniFarmingNote || '',
+  };
+
+  if (smartDiagnosisCache.size >= SMART_CACHE_MAX_ITEMS) {
+    const oldestKey = smartDiagnosisCache.keys().next().value;
+    if (oldestKey) smartDiagnosisCache.delete(oldestKey);
+  }
+  smartDiagnosisCache.set(cacheKey, {
+    expiresAt: now + SMART_CACHE_TTL_MS,
+    diagnosis: normalizedDiagnosis,
+  });
+
+  return { diagnosis: normalizedDiagnosis, fromCache: false };
+}
+
+async function handleSmartDiagnosisRequest(
+  req: express.Request,
+  res: express.Response,
+  defaultModeHint: 'auto' | 'plant' | 'insect' = 'auto'
+) {
   try {
-    const { images, imageBase64, cropName, symptoms, wilayat } = req.body;
+    const { images, imageBase64, cropName, hostCrop, symptoms, pestDescription, observations, wilayat, modeHint } =
+      req.body || {};
 
-    const normalizedImages: Array<{ part: string; label: string; base64: string }> = [];
-    const partArabicMap: Record<string, string> = {
-      leaf: 'الورقة',
-      stem: 'الساق / الجذع',
-      fruit: 'الثمرة / الزهرة',
-    };
+    const validImages: Array<{ label: string; mimeType: string; cleanBase64: string }> = [];
 
-    if (Array.isArray(images)) {
-      for (const item of images) {
-        if (item && typeof item.base64 === 'string' && item.base64.trim().length > 20) {
-          const partKey = typeof item.part === 'string' ? item.part : 'leaf';
-          normalizedImages.push({
-            part: partKey,
-            label: partArabicMap[partKey] || item.label || 'جزء النبات',
-            base64: item.base64,
+    if (typeof imageBase64 === 'string' && imageBase64.trim().length > 0) {
+      const validated = extractAndValidateBase64Image(imageBase64);
+      if (!validated) {
+        return res.status(400).json({
+          error: 'تنسيق الصورة غير مدعوم أو الملف تالف. يرجى إرسال صورة واضحة بصيغة JPG أو PNG أو WEBP.',
+        });
+      }
+      validImages.push({ label: 'الصورة الرئيسية', mimeType: validated.mimeType, cleanBase64: validated.cleanBase64 });
+    } else if (Array.isArray(images) && images.length > 0) {
+      for (let i = 0; i < Math.min(images.length, 3); i++) {
+        const item = images[i];
+        const raw = typeof item === 'string' ? item : item?.base64;
+        if (typeof raw === 'string' && raw.trim().length > 0) {
+          const validated = extractAndValidateBase64Image(raw);
+          if (!validated) {
+            return res.status(400).json({
+              error: 'تنسيق إحدى الصور غير مدعوم أو الحجم يتجاوز الحد المسموح (10 ميجابايت).',
+            });
+          }
+          validImages.push({
+            label: item?.label || `صورة ${i + 1}`,
+            mimeType: validated.mimeType,
+            cleanBase64: validated.cleanBase64,
           });
         }
       }
-    } else if (typeof imageBase64 === 'string' && imageBase64.trim().length > 20) {
-      normalizedImages.push({
-        part: 'leaf',
-        label: 'صورة النبات',
-        base64: imageBase64,
-      });
     }
 
-    const cleanSymptoms = typeof symptoms === 'string' ? symptoms.trim() : '';
-
-    if (normalizedImages.length === 0 && !cleanSymptoms) {
+    if (validImages.length === 0) {
       return res.status(400).json({
-        error: 'يرجى رفع 2 إلى 3 صور للنبات (ورقة، ساق، ثمرة) أو وصف الأعراض بدقة.',
+        error: 'يرجى التقاط أو اختيار صورة واحدة واضحة للنبات أو الحشرة لبدء التشخيص.',
       });
     }
 
-    if (normalizedImages.length === 1 && !cleanSymptoms) {
-      return res.status(400).json({
-        error: 'لرفع دقة التشخيص، يرجى إضافة صورة ثانية (مثل الساق أو الثمرة) أو كتابة ما تلاحظه من أعراض.',
-      });
-    }
+    const cleanCrop = String(cropName || hostCrop || '').trim().slice(0, 80);
+    const cleanWilayat = String(wilayat || '').trim().slice(0, 100);
+    const cleanObs = String(observations || symptoms || pestDescription || '').trim().slice(0, 1000);
+    const effectiveMode: 'auto' | 'plant' | 'insect' =
+      modeHint === 'insect' || modeHint === 'plant' || modeHint === 'auto' ? modeHint : defaultModeHint;
 
-    const MANDATORY_ADVISORY = 'التشخيص إرشادي، استشر مرشدًا زراعيًا للحالات الشديدة';
-
-    const systemInstruction = `أنت خبير دولي متخصص في أمراض النبات والحشرات الزراعية (Plant Pathology & Agricultural Entomology) مع خبرة ميدانية في المحاصيل المزروعة في سلطنة عُمان والخليج.
-مهمتك: فحص الصور المقدمة (الورقة، الساق، الثمرة) مع نوع المحصول ووصف المزارع ("ما الذي تلاحظه؟")، وإخراج نتيجة JSON فقط مطابقة للمخطط المحدد بدقة علمية عالية.
-
-قواعد حاسمة للتشخيص:
-1. افحص جودة الصور أولاً (الوضوح، الإضاءة، القرب من الإصابة، الخلفية).
-2. صنّف نوع المشكلة حصراً إلى إحدى القيم الأربع: "مرض" أو "حشرة" أو "نقص عناصر" أو "سليم".
-3. صنّف درجة الخطورة حصراً إلى إحدى القيم الأربع: "منخفضة" أو "متوسطة" أو "عالية" أو "حرجة".
-4. إذا كانت الصور غير واضحة (ضبابية، مظلمة، بعيدة جداً، أو لا تُظهر النسيج النباتي بوضوح) أو إذا كانت نسبة الثقة أقل من 70%:
-   - اضبط needsClearerPhoto على true.
-   - اضبط confidenceScore على قيمة واقعية أقل من 70 (مثلاً بين 25 و65).
-   - لا تعطِ تشخيصاً قاطعاً في problemName، بل اكتب "تشخيص أولي غير حاسم — يرجى إرسال صور أوضح".
-   - قدّم في possibleConditions قائمة من 2 إلى 3 احتمالات مرجحة فقط (اسم المشكلة وسبب الترجيح باختصار).
-   - اكتب في clarificationMessage إرشادات محددة لتصوير الجزء المطلوب بإضاءة نهارية جيدة وتقريب واضح وخلفية محايدة.
-5. إذا كانت نسبة الثقة 70% فأكثر وكانت الصورة واضحة:
-   - اضبط needsClearerPhoto على false.
-   - حدد problemName بدقة (الاسم الشائع والعلمي).
-   - اشرح visibleSymptoms، causes، organicRemedy (بدائل عضوية وحيوية عملية)، chemicalRemedy (مواد فعالة متخصصة مع فترة الأمان PHI والتحذيرات)، وpreventionTips.
-6. التزم دائماً بتضمين عبارة "${MANDATORY_ADVISORY}" في حقل advisoryNote.
-7. أرجع JSON صالحاً فقط دون أي نص خارجي.`;
-
-    const parts: any[] = [];
-    normalizedImages.forEach((img, index) => {
-      const mimeMatch = img.base64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
-      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-      const cleanBase64 = img.base64.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
-
-      parts.push({ text: `الصورة رقم ${index + 1} — الجزء المصوّر: ${img.label}` });
-      parts.push({
-        inlineData: {
-          mimeType,
-          data: cleanBase64,
-        },
-      });
+    const { diagnosis, fromCache } = await runUnifiedAgriVisionDiagnosis({
+      images: validImages,
+      cropName: cleanCrop,
+      wilayat: cleanWilayat,
+      observations: cleanObs,
+      modeHint: effectiveMode,
     });
 
-    const userPrompt = `بيانات الحالة الزراعية:
-- نوع النبات / المحصول: ${cropName || 'غير محدد'}
-- الموقع في سلطنة عُمان: ${wilayat || 'سلطنة عُمان'}
-- عدد الصور المرفقة: ${normalizedImages.length} (${normalizedImages.map((i) => i.label).join('، ') || 'بدون صور'})
-- ما الذي يلاحظه المزارع؟: ${cleanSymptoms || 'لم يُضف وصف نصي، اعتمد على الصور المرفقة'}
-
-حلل الصور والملاحظات الآن وأرجع JSON فقط وفق المخطط المطلوب.`;
-
-    parts.push({ text: userPrompt });
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-4-hydrogen',
-      contents: { parts },
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            cropName: { type: Type.STRING },
-            problemName: { type: Type.STRING },
-            problemType: {
-              type: Type.STRING,
-              enum: ['مرض', 'حشرة', 'نقص عناصر', 'سليم'],
-            },
-            confidenceScore: { type: Type.INTEGER },
-            needsClearerPhoto: { type: Type.BOOLEAN },
-            clarificationMessage: { type: Type.STRING },
-            possibleConditions: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
-            visibleSymptoms: { type: Type.STRING },
-            causes: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
-            organicRemedy: { type: Type.STRING },
-            chemicalRemedy: { type: Type.STRING },
-            preventionTips: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
-            severity: {
-              type: Type.STRING,
-              enum: ['منخفضة', 'متوسطة', 'عالية', 'حرجة'],
-            },
-            omaniFarmingNote: { type: Type.STRING },
-            advisoryNote: { type: Type.STRING },
-          },
-          required: [
-            'cropName',
-            'problemName',
-            'problemType',
-            'confidenceScore',
-            'needsClearerPhoto',
-            'clarificationMessage',
-            'possibleConditions',
-            'visibleSymptoms',
-            'causes',
-            'organicRemedy',
-            'chemicalRemedy',
-            'preventionTips',
-            'severity',
-            'omaniFarmingNote',
-            'advisoryNote',
-          ],
-        },
-      },
-    });
-
-    const parsed = JSON.parse(response.text || '{}');
-
-    // Defense-in-depth normalization for strict UI & Firestore consistency
-    const rawConfidence = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 50;
-    const confidenceScore = Math.max(0, Math.min(100, Math.round(rawConfidence)));
-    const allowedTypes = ['مرض', 'حشرة', 'نقص عناصر', 'سليم'];
-    const problemType = allowedTypes.includes(parsed.problemType) ? parsed.problemType : 'مرض';
-    const allowedSeverities = ['منخفضة', 'متوسطة', 'عالية', 'حرجة'];
-    const severity = allowedSeverities.includes(parsed.severity) ? parsed.severity : 'متوسطة';
-
-    const isLowConfidence = confidenceScore < 70 || Boolean(parsed.needsClearerPhoto);
-
-    let possibleConditions = Array.isArray(parsed.possibleConditions)
-      ? parsed.possibleConditions.filter((c: unknown) => typeof c === 'string' && c.trim().length > 0).slice(0, 3)
-      : [];
-
-    if (isLowConfidence && possibleConditions.length < 2) {
-      possibleConditions = [
-        parsed.problemName && !String(parsed.problemName).includes('غير حاسم')
-          ? String(parsed.problemName)
-          : `إصابة فطرية أو بكتيرية محتملة على ${cropName || 'النبات'}`,
-        'نقص عناصر غذائية أو إجهاد مائي/حراري',
-        'إصابة حشرية مبكرة أو عناكب دقيقة تحتاج فحصاً أقرب',
-      ].slice(0, 3);
-    }
-
-    const normalizedDiagnosis = {
-      cropName: parsed.cropName || cropName || 'نبات زراعي',
-      problemName: isLowConfidence
-        ? 'تشخيص أولي غير حاسم — يرجى إرسال صور أوضح'
-        : (parsed.problemName || 'حالة زراعية مشخصة'),
-      problemType,
-      confidenceScore,
-      needsClearerPhoto: isLowConfidence,
-      clarificationMessage: isLowConfidence
-        ? (parsed.clarificationMessage ||
-            'نسبة الثقة أقل من 70% أو أن الصورة تحتاج وضوحاً أعلى. التقط صورة قريبة في إضاءة نهارية جيدة مع خلفية واضحة للورقة والساق.')
-        : (parsed.clarificationMessage || ''),
-      possibleConditions,
-      visibleSymptoms: parsed.visibleSymptoms || cleanSymptoms || 'تغيرات ظاهرية مرصودة على الأجزاء المصورة.',
-      causes: Array.isArray(parsed.causes) ? parsed.causes.slice(0, 8) : [],
-      organicRemedy:
-        parsed.organicRemedy ||
-        'إزالة الأجزاء شديدة الإصابة، تحسين التهوية وتنظيم الري، واستخدام مستخلص النيم أو الصابون البوتاسي عند اللزوم.',
-      chemicalRemedy:
-        parsed.chemicalRemedy ||
-        'يُرجى عدم الرش الكيميائي قبل تأكيد التشخيص؛ وعند الضرورة يُستخدم المبيد المتخصص المسجل وفق الجرعة وفترة الأمان (PHI).',
-      preventionTips: Array.isArray(parsed.preventionTips) ? parsed.preventionTips.slice(0, 8) : [],
-      severity,
-      omaniFarmingNote:
-        parsed.omaniFarmingNote ||
-        `راعِ ظروف الحرارة والرطوبة في ${wilayat || 'سلطنة عُمان'} وتجنب الري وقت اشتداد الشمس.`,
-      advisoryNote: MANDATORY_ADVISORY,
-      photoParts: normalizedImages.map((img) => img.part),
-    };
-
-    return res.json({ success: true, diagnosis: normalizedDiagnosis });
+    return res.json({ success: true, cached: fromCache, diagnosis });
   } catch (error: any) {
-    console.error('Plant diagnosis error:', error);
-    return res.status(500).json({
-      error: 'تعذر إتمام التشخيص الذكي حالياً. يرجى التأكد من وضوح الصور وتوافر الاتصال بالإنترنت.',
-      details: error.message,
+    console.error('Smart agricultural diagnosis error:', error);
+    const message = String(error?.message || '');
+    const isRate = message.includes('429') || message.toLowerCase().includes('quota');
+    return res.status(isRate ? 503 : 500).json({
+      error: isRate
+        ? 'خادم التشخيص الذكي مشغول حالياً. يرجى الانتظار بضع لحظات ثم إعادة المحاولة.'
+        : 'تعذر إتمام التشخيص الذكي حالياً. يرجى التأكد من وضوح الصورة وتوفر الاتصال بالإنترنت والمحاولة مرة أخرى.',
+      details: error?.message,
     });
   }
-});
+}
 
-// --- 4. AI Pest Diagnosis API ---
-app.post('/api/diagnose/pest', aiRateLimit, async (req, res) => {
-  try {
-    const { imageBase64, hostCrop, pestDescription, wilayat } = req.body;
+app.post('/api/diagnose/smart', aiRateLimit, (req, res) =>
+  handleSmartDiagnosisRequest(req, res, 'auto')
+);
 
-    const systemInstruction = `أنت عالم حشرات وخبير مكافحة آفات زراعية معتمد في سلطنة عُمان.
-قم بتشخيص الآفة الحشرية وقدم إرشادات المكافحة المتكاملة (IPM) بصيغة JSON التالية حصراً:
-{
-  "pestName": "اسم الحشرة أو الآفة الشائع",
-  "scientificName": "الاسم العلمي اللاتيني",
-  "severityLevel": "شديد الخطورة | متوسط الخطورة | قليل الضرر",
-  "affectedParts": ["الجذع", "السعف", "الثمار"],
-  "confidenceScore": 90,
-  "lifeCycleNote": "معلومة هامة عن دورة حياتها وأوقات نشاطها في مناخ عُمان",
-  "organicAndBiologicalControl": "طرق المكافحة الحيوية والأعداء الطبيعية (كخنافس أبو العيد والمصائد الفيرمونية)",
-  "safeChemicalOptions": "المبيدات المتخصصة المعتمدة مع تحذير إلزامي لحماية نحل العسل وفترة التحريم (PHI)",
-  "immediateAction": "الخطوة العاجلة الواجب اتخاذها اليوم لحصار الإصابة",
-  "officialDisclaimer": "تنبيه إرشادي: التشخيص الذكي استرشادي احتمالي. يُرجى مراجعة دوائر التنمية الزراعية الميدانية لفحص العينات الحقلية والالتزام بالملصق المعتمد.",
-  "omaniGuidance": "توجيهات وزارة الثروة الزراعية ومواعيد الرش المعتمدة"
-}`;
+app.post('/api/diagnose/plant', aiRateLimit, (req, res) =>
+  handleSmartDiagnosisRequest(req, res, 'auto')
+);
 
-    const parts: any[] = [];
-    if (imageBase64) {
-      const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-      parts.push({
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: cleanBase64,
-        },
-      });
-    }
-
-    parts.push({
-      text: `المحصول العائل: ${hostCrop || 'نخيل / خضار / فاكهة'}
-المحافظة في سلطنة عُمان: ${wilayat || 'سلطنة عمان'}
-الوصف والأعراض: ${pestDescription || 'شخص نوع الآفة ومستوى خطورتها مع تحديد نسبة الثقة'}`
-    });
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: { parts },
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-      },
-    });
-
-    const parsed = JSON.parse(response.text || '{}');
-    return res.json({ success: true, diagnosis: parsed });
-  } catch (error: any) {
-    console.error('Pest diagnosis error:', error);
-    return res.status(500).json({ 
-      error: 'تعذر تشخيص الآفة الحشرية حالياً.',
-      details: error.message 
-    });
-  }
-});
+app.post('/api/diagnose/pest', aiRateLimit, (req, res) =>
+  handleSmartDiagnosisRequest(req, res, 'insect')
+);
 
 // --- 5. AI Quiz Generator & Server-side Verified Score Submission (Anti-Cheat) ---
 const aiQuizBank = new Map<string, Question>();
@@ -1989,6 +2237,97 @@ app.post('/api/community/posts/:id/comment', (req, res) => {
   return res.json({ success: true, comment: newComment });
 });
 
+// AI Agricultural Chat Assistant inside Community Hub
+app.post('/api/community/ai-chat', aiRateLimit, async (req, res) => {
+  try {
+    const { message, governorate, cropFocus, history } = req.body;
+    const cleanMessage = censorText(String(message || '').trim().slice(0, 1200), storage.bannedWords);
+    if (!cleanMessage) {
+      return res.status(400).json({ error: 'يرجى كتابة سؤالك الزراعي أولاً.' });
+    }
+
+    const cleanGov = typeof governorate === 'string' ? governorate.trim().slice(0, 100) : 'سلطنة عُمان';
+    const cleanCrop = typeof cropFocus === 'string' ? cropFocus.trim().slice(0, 80) : 'الزراعة العامة';
+    const safeHistory = Array.isArray(history)
+      ? history
+          .slice(-6)
+          .filter((h: any) => h && typeof h.text === 'string' && (h.role === 'user' || h.role === 'assistant'))
+          .map((h: any) => `${h.role === 'user' ? 'المزارع' : 'المستشار'}: ${h.text.slice(0, 450)}`)
+          .join('\n')
+      : '';
+
+    const systemInstruction = `أنت المستشار الزراعي الذكي لتطبيق «صديق المزارع الذكي» في سلطنة عُمان (فكرة عمر بن سالم الشرجي).
+مهامك وقواعدك الصارمة:
+1. أجب باللغة العربية الواضحة والدافئة بأسلوب عملي مخصص لمناخ محافظات سلطنة عُمان، والأفلاج العُمانية، والنخيل والحمضيات والخضروات والبيوت المحمية.
+2. التزم التزاماً مطلقاً بالقرار الوزاري رقم 160/2023 لحظر المبيدات شديدة السمية والمحظورة في سلطنة عُمان؛ لا تذكر أي مبيد محظور، وقدّم الحلول العضوية والحيوية والتنظيمية أولاً.
+3. اجعل الإجابة منظمة ومباشرة بصيغة JSON المطابقة للمخطط فقط:
+   - reply: إجابة شاملة ومفيدة (3 إلى 6 جمل).
+   - practicalSteps: 3 خطوات تطبيقية واضحة ينفذها المزارع في مزرعته.
+   - safetyReminder: تنبيه وقائي أو فترة تحريم أو توقيت ري/رش مثالي للمناخ العُماني.
+   - suggestedFollowUps: سؤالان مقترحان للمتابعة.`;
+
+    const prompt = `المحافظة: ${cleanGov}
+المحصول أو المجال: ${cleanCrop}
+${safeHistory ? `سياق المحادثة السابقة:\n${safeHistory}\n` : ''}سؤال المزارع الحالي: ${cleanMessage}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-4-hydrogen',
+      contents: [{ text: prompt }],
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            reply: { type: Type.STRING },
+            practicalSteps: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            safetyReminder: { type: Type.STRING },
+            suggestedFollowUps: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+          },
+          required: ['reply', 'practicalSteps', 'safetyReminder', 'suggestedFollowUps'],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    return res.json({
+      success: true,
+      source: 'gemini',
+      reply: parsed.reply || 'يمكنني مساعدتك في إدارة الري والتسميد ومكافحة الآفات وفق البيئة العُمانية.',
+      practicalSteps: Array.isArray(parsed.practicalSteps) ? parsed.practicalSteps.slice(0, 4) : [],
+      safetyReminder:
+        parsed.safetyReminder ||
+        'راعِ تجنب الرش والري وقت الذروة الشمسية والتزم بالملصق الإرشادي المعتمد بسلطنة عُمان (القرار 160/2023).',
+      suggestedFollowUps: Array.isArray(parsed.suggestedFollowUps) ? parsed.suggestedFollowUps.slice(0, 3) : [],
+    });
+  } catch (error: any) {
+    console.warn('Community AI chat fallback:', error?.message);
+    return res.json({
+      success: true,
+      source: 'fallback',
+      reply:
+        'في مناخ سلطنة عُمان يُنصح بجدولة الري في الصباح الباكر أو بعد العصر لتقليل التبخر، والاعتماد على السماد العضوي المتحلل ومستخلص النيم والمصائد الفرمونية قبل اللجوء لأي مبيدات مسجلة.',
+      practicalSteps: [
+        'افحص رطوبة التربة على عمق 10–15 سم قبل تشغيل شبكة الري أو فتح مسار الفلج.',
+        'أزل الأوراق والأفرع الجافة أو المصابة للحفاظ على تهوية التاج ومنع انتشار الآفات.',
+        'استشر دائرة التنمية الزراعية في ولايتك عند ملاحظة أعراض غير معتادة أو قبل أي رش كيميائي.',
+      ],
+      safetyReminder:
+        'تنبيه وقائي: تجنب الرش خلال تفتح الأزهار لحماية نحل العسل العُماني والتزم بفترة التحريم (PHI) والقرار الوزاري 160/2023.',
+      suggestedFollowUps: [
+        'ما أفضل جدول ري للنخيل في فصل الصيف؟',
+        'كيف أرفع خصوبة التربة المالحة عضوياً؟',
+      ],
+    });
+  }
+});
+
 // Delete post (Admin or active Moderator)
 app.delete('/api/community/posts/:id', requireStaff, (req: AuthenticatedRequest, res) => {
   const idx = storage.communityPosts.findIndex((p) => p.id === req.params.id);
@@ -2326,6 +2665,97 @@ function createInitialPlots(ownerId: string) {
   return plots;
 }
 
+function buildDailyQuests(farmDay: number) {
+  const offset = Math.max(0, farmDay - 1) % FARM_QUEST_TEMPLATES.length;
+  const rotated = [
+    FARM_QUEST_TEMPLATES[offset % FARM_QUEST_TEMPLATES.length],
+    FARM_QUEST_TEMPLATES[(offset + 1) % FARM_QUEST_TEMPLATES.length],
+    FARM_QUEST_TEMPLATES[(offset + 2) % FARM_QUEST_TEMPLATES.length],
+  ];
+  return rotated.map((q) => ({
+    id: `${q.id}_d${farmDay}`,
+    templateId: q.id,
+    titleAr: q.titleAr,
+    actionKey: q.actionKey,
+    progress: 0,
+    target: q.target,
+    rewardCoins: q.rewardCoins,
+    rewardPoints: q.rewardPoints,
+    rewardWater: q.rewardWater,
+    claimed: false,
+  }));
+}
+
+function advanceQuestProgress(farm: any, actionKey: string, amount = 1) {
+  if (!Array.isArray(farm.quests)) return;
+  for (const q of farm.quests) {
+    if (q.actionKey === actionKey && !q.claimed && q.progress < q.target) {
+      q.progress = Math.min(q.target, (q.progress || 0) + amount);
+    }
+  }
+}
+
+function ensurePhase4FarmFields(farm: any) {
+  const now = Date.now();
+  if (!farm.inventory) farm.inventory = {};
+  if (typeof farm.inventory.fert_organic !== 'number') farm.inventory.fert_organic = 2;
+  if (typeof farm.inventory.fert_npk !== 'number') farm.inventory.fert_npk = 1;
+  if (typeof farm.inventory.pest_neem !== 'number') farm.inventory.pest_neem = 2;
+  if (typeof farm.inventory.fodder_pack !== 'number') farm.inventory.fodder_pack = 3;
+
+  if (!farm.livestock) {
+    farm.livestock = {
+      cows: { fedAt: now - 15000, lastCollectedAt: now - 60000, happiness: 85 },
+      goats: { fedAt: now - 15000, lastCollectedAt: now - 60000, happiness: 82 },
+      chickens: { fedAt: now - 15000, lastCollectedAt: now - 60000, happiness: 88 },
+      bees: { fedAt: now, lastCollectedAt: now - 70000, happiness: 90 },
+    };
+  } else {
+    for (const kind of ['cows', 'goats', 'chickens', 'bees'] as const) {
+      if (!farm.livestock[kind]) {
+        farm.livestock[kind] = { fedAt: now, lastCollectedAt: now - 60000, happiness: 82 };
+      }
+    }
+  }
+
+  if (!farm.buildings) {
+    farm.buildings = {
+      wellPump: 1,
+      barnStorage: 1,
+      beehiveApiary: 1,
+      livestockShelter: 1,
+    };
+  } else {
+    if (typeof farm.buildings.wellPump !== 'number') farm.buildings.wellPump = 1;
+    if (typeof farm.buildings.barnStorage !== 'number') farm.buildings.barnStorage = 1;
+    if (typeof farm.buildings.beehiveApiary !== 'number') farm.buildings.beehiveApiary = 1;
+    if (typeof farm.buildings.livestockShelter !== 'number') farm.buildings.livestockShelter = 1;
+  }
+
+  farm.maxWaterLiters = 300 + Math.max(0, (farm.buildings.wellPump || 1) - 1) * 100;
+
+  if (!farm.warehouse) {
+    farm.warehouse = {
+      crops: { omani_cucumber: 1 },
+      goods: { milk: 1, goat_cheese: 0, eggs: 1, honey: 0 },
+    };
+  } else {
+    if (!farm.warehouse.crops) farm.warehouse.crops = {};
+    if (!farm.warehouse.goods) farm.warehouse.goods = { milk: 0, goat_cheese: 0, eggs: 0, honey: 0 };
+  }
+
+  if (!Array.isArray(farm.quests) || farm.quests.length === 0) {
+    farm.quests = buildDailyQuests(farm.farmDay || 1);
+    farm.questsDay = farm.farmDay || 1;
+  }
+  if (!farm.marketMultipliers) {
+    farm.marketMultipliers = {};
+  }
+  if (!Array.isArray(farm.hotItems)) {
+    farm.hotItems = [];
+  }
+}
+
 function getOrInitFarm(userId: string, userName?: string, governorate?: string) {
   let farm = storage.virtualFarms[userId];
   if (!farm) {
@@ -2353,7 +2783,8 @@ function getOrInitFarm(userId: string, userName?: string, governorate?: string) 
       inventory: {
         fert_organic: 2,
         fert_npk: 1,
-        pest_neem: 2
+        pest_neem: 2,
+        fodder_pack: 3
       },
       plots: createInitialPlots(userId),
       achievements: [],
@@ -2371,7 +2802,7 @@ function getOrInitFarm(userId: string, userName?: string, governorate?: string) 
         {
           id: `fnotif-${now}`,
           title: 'أهلاً بك في مزرعتك الافتراضية!',
-          message: 'ابدأ بحرث الأرض أو متابعة شتلة الخيار العُماني المزروعة في القطعة 1.',
+          message: 'ابدأ بحرث الأرض أو متابعة شتلة الخيار العُماني أو رعاية الحظيرة والمنحل.',
           category: 'system',
           isRead: false,
           timestamp: now
@@ -2394,6 +2825,7 @@ function getOrInitFarm(userId: string, userName?: string, governorate?: string) 
       createdAt: now,
       updatedAt: now
     };
+    ensurePhase4FarmFields(farm);
     storage.virtualFarms[userId] = farm;
     saveStorage();
   } else {
@@ -2402,6 +2834,7 @@ function getOrInitFarm(userId: string, userName?: string, governorate?: string) 
     if (!farm.farmDay) farm.farmDay = 1;
     if (!farm.lastDayAdvanceAt) farm.lastDayAdvanceAt = Date.now();
     if (typeof farm.falajCollectedDay !== 'number') farm.falajCollectedDay = 0;
+    ensurePhase4FarmFields(farm);
   }
   return farm;
 }
@@ -2467,10 +2900,28 @@ function syncFarmDayEnvironment(farm: any) {
   farm.ambientTemp = seasonDef.tempMin + tempSpread;
   farm.falajTurnActive = dayNum % 3 === 1;
   farm.dailyBookTip = SAMAIL_DAILY_BOOK_TIPS[(dayNum - 1) % SAMAIL_DAILY_BOOK_TIPS.length];
+
+  // Dynamic deterministic daily market multipliers (0.95x - 1.55x)
+  const mults: Record<string, number> = {};
+  const allIds = [
+    ...storage.virtualCrops.map((c: any) => c.id),
+    ...FARM_LIVESTOCK_DEFS.map((l) => l.productId),
+  ];
+  const hotItems: string[] = [];
+  allIds.forEach((id, idx) => {
+    const wave = Math.sin(dayNum * 1.37 + idx * 2.13 + seasonIdx * 0.9);
+    const val = Math.round((1.15 + wave * 0.35) * 100) / 100;
+    const clamped = Math.max(0.95, Math.min(1.55, val));
+    mults[id] = clamped;
+    if (clamped >= 1.35 && hotItems.length < 3) hotItems.push(id);
+  });
+  farm.marketMultipliers = mults;
+  farm.hotItems = hotItems;
   return seasonDef;
 }
 
 function recomputeFarmGrowth(farm: any) {
+  ensurePhase4FarmFields(farm);
   const now = Date.now();
   const elapsedMs = Math.max(0, now - (farm.lastSimulatedAt || now));
   const elapsedHours = elapsedMs / 3600000;
@@ -2482,6 +2933,12 @@ function recomputeFarmGrowth(farm: any) {
   if (daysPassed > 0) {
     farm.farmDay = (farm.farmDay || 1) + daysPassed;
     farm.lastDayAdvanceAt = lastDayAt + daysPassed * DAY_DURATION_MS;
+    const pumpBonus = (farm.buildings?.wellPump || 1) * 15 * daysPassed;
+    farm.waterLiters = Math.min(farm.maxWaterLiters, (farm.waterLiters || 0) + pumpBonus);
+    if (farm.quests.every((q: any) => q.claimed) || farm.farmDay - (farm.questsDay || 1) >= 2) {
+      farm.quests = buildDailyQuests(farm.farmDay);
+      farm.questsDay = farm.farmDay;
+    }
   }
   const seasonDef = syncFarmDayEnvironment(farm);
 
@@ -2542,12 +2999,13 @@ function recomputeFarmGrowth(farm: any) {
       plot.health = Math.max(15, Math.min(100, Math.round(plot.health + healthDelta)));
     }
 
-    // 2. Real-time Server Stage Advancement with Requirements Gate
+    // 2. Real-time Server Stage Advancement with Requirements Gate (+Beehive pollination speedup for fruit trees)
     let safetyLoops = 0;
+    const apiaryBonus = (farm.buildings?.beehiveApiary || 1) >= 2 && (crop.id === 'omani_lemon' || crop.id === 'faradh_palm') ? 0.9 : 1;
     while (plot.stageIndex < crop.stages.length - 1 && safetyLoops < 6) {
       safetyLoops++;
       const currentStage = crop.stages[plot.stageIndex];
-      const stageMs = currentStage.durationSec * 1000;
+      const stageMs = Math.round(currentStage.durationSec * 1000 * apiaryBonus);
       const sinceStage = now - (plot.lastStageAdvanceAt || plot.plantedAt || now);
 
       if (sinceStage < stageMs) {
@@ -2594,7 +3052,15 @@ function recomputeFarmGrowth(farm: any) {
 }
 
 app.get('/api/virtual-farm/crops', (_req, res) => {
-  return res.json({ success: true, crops: storage.virtualCrops, shopItems: VIRTUAL_SHOP_ITEMS, achievements: FARM_ACHIEVEMENTS });
+  return res.json({
+    success: true,
+    crops: storage.virtualCrops,
+    shopItems: VIRTUAL_SHOP_ITEMS,
+    achievements: FARM_ACHIEVEMENTS,
+    livestockDefs: FARM_LIVESTOCK_DEFS,
+    buildingDefs: FARM_BUILDING_DEFS,
+    questTemplates: FARM_QUEST_TEMPLATES,
+  });
 });
 
 app.get('/api/virtual-farm/state', (req, res) => {
@@ -2718,7 +3184,7 @@ app.post('/api/virtual-farm/action', (req, res) => {
       farm.coins -= shopItem.costCoins;
       farm.waterLiters = Math.min(farm.maxWaterLiters, farm.waterLiters + shopItem.effectValue);
       feedback = `تم تعبئة خزان المياه (+${shopItem.effectValue} لتر)`;
-    } else if (shopItem.id === 'fert_organic' || shopItem.id === 'fert_npk' || shopItem.id === 'pest_neem') {
+    } else if (shopItem.id === 'fert_organic' || shopItem.id === 'fert_npk' || shopItem.id === 'pest_neem' || shopItem.id === 'fodder_pack') {
       farm.coins -= shopItem.costCoins;
       farm.inventory[shopItem.id] = (farm.inventory[shopItem.id] || 0) + shopItem.effectValue;
       feedback = `تم شراء ${shopItem.nameAr} وإضافته للمخزن`;
@@ -2738,6 +3204,128 @@ app.post('/api/virtual-farm/action', (req, res) => {
       unlockAchievement(farm, 'smart_greenhouse');
       feedback = `تم تطوير البيت المحمي إلى المستوى ${farm.greenhouseLevel} وتوسيعه!`;
     }
+  } else if (action === 'feed_livestock') {
+    const kind = payload?.kind as 'cows' | 'goats' | 'chickens' | 'bees';
+    const def = FARM_LIVESTOCK_DEFS.find((d) => d.id === kind);
+    if (!def) return res.status(400).json({ error: 'نوع الحظيرة غير معروف' });
+
+    if (kind !== 'bees') {
+      if ((farm.inventory.fodder_pack || 0) <= 0) {
+        return res.status(400).json({ error: 'نفد رصيد الأعلاف! اشترِ «أعلاف قت وبرسيم» من متجر المزرعة.' });
+      }
+      farm.inventory.fodder_pack -= 1;
+    }
+
+    const entry = farm.livestock[kind];
+    entry.fedAt = now;
+    entry.happiness = Math.min(100, (entry.happiness || 75) + 20);
+    const pts = awardFarmPoints(farm, 8, `رعاية وإطعام ${def.nameAr}`, 'feed_livestock');
+    feedback = kind === 'bees'
+      ? `تم فحص خلايا النحل وتنشيط التلقيح بالزهور (+${pts} نقاط)`
+      : `تم إطعام ${def.nameAr} بالبرسيم العُماني الطازج وارتفع إنتاجها (+${pts} نقاط)`;
+  } else if (action === 'collect_livestock') {
+    const kind = payload?.kind as 'cows' | 'goats' | 'chickens' | 'bees';
+    const def = FARM_LIVESTOCK_DEFS.find((d) => d.id === kind);
+    if (!def) return res.status(400).json({ error: 'نوع الحظيرة غير معروف' });
+
+    const entry = farm.livestock[kind];
+    const elapsedSec = Math.floor((now - (entry.lastCollectedAt || 0)) / 1000);
+    if (elapsedSec < def.cooldownSec) {
+      return res.status(400).json({
+        error: `الإنتاج قيد التكوين لـ ${def.nameAr}؛ متبقٍ ${def.cooldownSec - elapsedSec} ثانية.`
+      });
+    }
+
+    const buildingLv = kind === 'bees' ? (farm.buildings?.beehiveApiary || 1) : (farm.buildings?.livestockShelter || 1);
+    const yieldQty = buildingLv >= 3 ? 2 : 1;
+    entry.lastCollectedAt = now;
+    entry.happiness = Math.max(55, (entry.happiness || 85) - 6);
+    farm.warehouse.goods[def.productId] = (farm.warehouse.goods[def.productId] || 0) + yieldQty;
+
+    const pts = awardFarmPoints(farm, def.harvestPoints, `جني ${yieldQty}× ${def.productNameAr} من ${def.nameAr}`, 'collect_livestock');
+    advanceQuestProgress(farm, 'livestock_collect', 1);
+    if (kind === 'bees') unlockAchievement(farm, 'honey_keeper');
+    else unlockAchievement(farm, 'dairy_master');
+
+    feedback = `تم جمع +${yieldQty} ${def.productNameAr} وإيداعها في مخزن المزرعة (+${pts} نقطة)!`;
+  } else if (action === 'sell_market') {
+    const itemType = payload?.itemType === 'good' ? 'good' : 'crop';
+    const itemId = String(payload?.itemId || '');
+    const reqQty = Number(payload?.quantity || 1);
+
+    const bucket = itemType === 'good' ? farm.warehouse.goods : farm.warehouse.crops;
+    const available = Math.max(0, Number(bucket[itemId] || 0));
+    if (available <= 0) {
+      return res.status(400).json({ error: 'لا توجد كمية متوفرة من هذا المنتج في المخزن لبيعها.' });
+    }
+    const sellQty = payload?.quantity === 'all' ? available : Math.max(1, Math.min(available, reqQty));
+
+    let basePrice = 40;
+    let itemName = itemId;
+    if (itemType === 'good') {
+      const def = FARM_LIVESTOCK_DEFS.find((l) => l.productId === itemId);
+      if (!def) return res.status(404).json({ error: 'المنتج الحيواني غير معروف' });
+      basePrice = def.baseSellPrice;
+      itemName = def.productNameAr;
+    } else {
+      const crop = storage.virtualCrops.find((c) => c.id === itemId);
+      if (!crop) return res.status(404).json({ error: 'المحصول غير معروف' });
+      basePrice = Math.max(30, Math.round(crop.harvestCoins * 0.72));
+      itemName = `صندوق ${crop.nameAr}`;
+    }
+
+    const dailyMult = Number(farm.marketMultipliers?.[itemId] || 1.1);
+    const barnBonus = 1 + Math.max(0, (farm.buildings?.barnStorage || 1) - 1) * 0.12;
+    const unitPrice = Math.max(15, Math.round(basePrice * dailyMult * barnBonus));
+    const totalCoins = unitPrice * sellQty;
+
+    bucket[itemId] = available - sellQty;
+    const pts = awardFarmPoints(farm, Math.min(25, 10 + sellQty * 4), `بيع ${sellQty}× ${itemName} في سوق المزرعة بسعر ${unitPrice}🪙`, 'sell_market', totalCoins);
+    advanceQuestProgress(farm, 'market_sell', sellQty);
+    unlockAchievement(farm, 'market_merchant');
+
+    feedback = `تم بيع ${sellQty}× ${itemName} في سوق عُمان مقابل +${totalCoins} 🪙 و+${pts} نقاط!`;
+  } else if (action === 'upgrade_building') {
+    const buildingId = payload?.buildingId as 'wellPump' | 'barnStorage' | 'beehiveApiary' | 'livestockShelter';
+    const bDef = FARM_BUILDING_DEFS.find((b) => b.id === buildingId);
+    if (!bDef) return res.status(400).json({ error: 'المنشأة غير معروفة' });
+
+    const currentLv = Number(farm.buildings?.[buildingId] || 1);
+    if (currentLv >= bDef.maxLevel) {
+      return res.status(400).json({ error: `${bDef.nameAr} وصلت بالفعل إلى أعلى مستوى (${bDef.maxLevel}).` });
+    }
+    const cost = bDef.baseCostCoins * currentLv;
+    if (farm.coins < cost) {
+      return res.status(400).json({ error: `تحتاج ${cost} 🪙 لتطوير ${bDef.nameAr}.` });
+    }
+
+    farm.coins -= cost;
+    farm.buildings[buildingId] = currentLv + 1;
+    if (buildingId === 'wellPump') {
+      farm.maxWaterLiters = 300 + currentLv * 100;
+      farm.waterLiters = Math.min(farm.maxWaterLiters, farm.waterLiters + 100);
+    }
+    const pts = awardFarmPoints(farm, 22, `تطوير ${bDef.nameAr} إلى المستوى ${currentLv + 1}`, 'upgrade_building');
+    feedback = `تم تطوير ${bDef.nameAr} إلى المستوى ${currentLv + 1} بنجاح (+${pts} نقطة)!`;
+  } else if (action === 'claim_quest') {
+    const questId = String(payload?.questId || '');
+    const quest = (farm.quests || []).find((q: any) => q.id === questId);
+    if (!quest) return res.status(404).json({ error: 'المهمة غير موجودة' });
+    if (quest.claimed) return res.status(409).json({ error: 'تم استلام مكافأة هذه المهمة مسبقاً.' });
+    if ((quest.progress || 0) < (quest.target || 1)) {
+      return res.status(400).json({ error: 'أكمل خطوات المهمة أولاً قبل استلام المكافأة.' });
+    }
+
+    quest.claimed = true;
+    farm.waterLiters = Math.min(farm.maxWaterLiters, (farm.waterLiters || 0) + (quest.rewardWater || 0));
+    const pts = awardFarmPoints(
+      farm,
+      quest.rewardPoints || 20,
+      `إنجاز مهمة يومية: ${quest.titleAr}`,
+      'claim_quest',
+      quest.rewardCoins || 50
+    );
+    feedback = `أحسنت! استلمت +${quest.rewardCoins} 🪙 و+${pts} نقطة و+${quest.rewardWater} لتر ماء!`;
   } else {
     // Plot-level 10 Agricultural Operations
     const plot = farm.plots.find((p: any) => p.id === plotId);
@@ -2802,8 +3390,10 @@ app.post('/api/virtual-farm/action', (req, res) => {
       } else if (prevMoisture < 65 && now - lastTokenTime > 12000) {
         plot.lastActionTokens.irrigate = now;
         const pts = awardFarmPoints(farm, storage.pointRules.farmAction, `ري متوازن للقطعة ${plot.plotIndex + 1}`, 'irrigate');
+        advanceQuestProgress(farm, 'irrigate', 1);
         feedback = `تم الري بنجاح (+${pts} نقاط)`;
       } else {
+        advanceQuestProgress(farm, 'irrigate', 1);
         feedback = 'تم الري، تذكر عدم تكرار الري على فترات متقاربة لحفظ صحة الجذور.';
       }
     } else if (action === 'fertilize') {
@@ -2860,7 +3450,10 @@ app.post('/api/virtual-farm/action', (req, res) => {
       }
       const qualityBonus = plot.health >= 85 ? 25 : 0;
       const earnedCoins = crop.harvestCoins + qualityBonus;
+      const crateQty = plot.health >= 85 ? 2 : 1;
+      farm.warehouse.crops[crop.id] = (farm.warehouse.crops[crop.id] || 0) + crateQty;
       const pts = awardFarmPoints(farm, crop.harvestPoints || storage.pointRules.harvest, `حصاد محصول ${crop.nameAr} بجودة ${plot.health}%`, 'harvest', earnedCoins);
+      advanceQuestProgress(farm, 'harvest', 1);
       unlockAchievement(farm, 'first_harvest');
       plot.cropId = null;
       plot.plantedAt = null;
@@ -2871,7 +3464,7 @@ app.post('/api/virtual-farm/action', (req, res) => {
       plot.pruned = false;
       plot.blockedReason = null;
       plot.harvestedCount += 1;
-      feedback = `مبارك الحصاد! كسبت +${earnedCoins} عملة و+${pts} نقطة معتمدة!`;
+      feedback = `مبارك الحصاد! كسبت +${earnedCoins} 🪙 و+${pts} نقطة وإيداع ${crateQty} صندوق ${crop.nameAr} في المخزن!`;
     } else if (action === 'clear_reset') {
       plot.cropId = null;
       plot.plantedAt = null;
@@ -2921,7 +3514,7 @@ app.post('/api/virtual-farm/advisor', aiRateLimit, async (req, res) => {
 سؤال المزارع: ${userQuestion || 'ما هي أفضل خطوة أعملها الآن لهذا المحصول؟'}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: [{ text: prompt }],
       config: { systemInstruction }
     });

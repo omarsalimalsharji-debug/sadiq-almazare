@@ -118,6 +118,18 @@
         "preventionTips": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
         "possibleConditions": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
         "advisoryNote": { "type": "string", "maxLength": 500 },
+        "problemNameEn": { "type": "string", "maxLength": 160 },
+        "scientificName": { "type": "string", "maxLength": 160 },
+        "diagnosisCategory": { "type": "string", "maxLength": 60 },
+        "detectedSubject": { "type": "string", "enum": ["plant", "insect", "unclear"] },
+        "insectNature": { "type": "string", "enum": ["beneficial", "harmful", "neutral", "none"] },
+        "conditionSummary": { "type": "string", "maxLength": 1000 },
+        "whenToContactEngineer": { "type": "string", "maxLength": 800 },
+        "insectLifeCycle": { "type": "string", "maxLength": 800 },
+        "insectTargetCrops": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
+        "insectDamage": { "type": "string", "maxLength": 800 },
+        "pesticideProduct": { "type": "string", "maxLength": 300 },
+        "pesticideDosage": { "type": "string", "maxLength": 400 },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": [
