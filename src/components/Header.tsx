@@ -54,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   const navLinks: Array<{ id: ActivePage; label: string }> = [
     { id: 'home', label: t.home },
     { id: 'plant_diagnosis', label: t.diagnosis },
-    { id: 'virtual_farm', label: t.virtualFarm },
+    { id: 'games', label: lang === 'ar' ? 'التحدي' : 'Challenge' },
     { id: 'cartoon_videos', label: t.flijan },
     { id: 'library', label: t.library },
     { id: 'community', label: t.community },
