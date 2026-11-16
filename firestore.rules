@@ -179,7 +179,7 @@ service cloud.firestore {
         && data.totalPoints is number && data.totalPoints >= 0 && data.totalPoints <= 10000000
         && data.roundsPlayed is number && data.roundsPlayed >= 1 && data.roundsPlayed <= 100000
         && data.bestStreak is number && data.bestStreak >= 0 && data.bestStreak <= 100
-        && data.lastGameType in ['knowledge', 'guess_crop', 'plant_doctor', 'true_false', 'speed', 'cultural']
+        && data.lastGameType in ['knowledge', 'guess_crop', 'plant_doctor', 'true_false', 'speed', 'cultural', 'image_id']
         && data.updatedAt is timestamp;
     }
 
@@ -353,20 +353,8 @@ service cloud.firestore {
     match /leaderboard_entries/{userId} {
       allow get: if isValidId(userId);
       allow list: if true;
-      allow create: if isVerified() && isValidId(userId) && isOwner(userId)
-        && exists(/databases/$(database)/documents/users/$(userId))
-        && isValidLeaderboardEntry(incoming())
-        && incoming().userId == request.auth.uid
-        && incoming().totalPoints <= 1200
-        && incoming().roundsPlayed == 1
-        && incoming().updatedAt == request.time;
-      allow update: if isVerified() && isValidId(userId) && isOwner(userId)
-        && isValidLeaderboardEntry(incoming())
-        && incoming().userId == existing().userId
-        && incoming().totalPoints >= existing().totalPoints
-        && (incoming().totalPoints - existing().totalPoints) <= 1200
-        && incoming().roundsPlayed == existing().roundsPlayed + 1
-        && incoming().updatedAt == request.time;
+      // Score writes are performed by the trusted server using Cloud Run Application Default Credentials.
+      allow create, update: if false;
       allow delete: if isAdmin() && isValidId(userId);
     }
   }

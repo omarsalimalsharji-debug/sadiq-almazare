@@ -6,6 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 const root = process.cwd();
+const firestoreRules = await readFile(path.join(root, 'firestore.rules'), 'utf8');
+const gamesSource = await readFile(path.join(root, 'src/components/GamesView.tsx'), 'utf8');
+assert.match(firestoreRules, /allow create, update: if false;/, 'Leaderboard writes must stay server-only.');
+assert.match(firestoreRules, /'image_id'/, 'Image challenges must be accepted by the leaderboard schema.');
+assert.doesNotMatch(gamesSource, /runTransaction|setDoc\(lbRef/, 'The browser must not write leaderboard points directly.');
 const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'farmer-friend-smoke-'));
 const dataDir = path.join(tempRoot, 'data');
 const mediaDir = path.join(tempRoot, 'media');

@@ -1,4 +1,4 @@
-# Firestore Security Specification – «صديق المزارع / مزرعتي الافتراضية»
+# Firestore Security Specification — صديق المزارع
 
 ## 1. Data Invariants
 1. **Default-Deny Catch-All**: No collection is accessible unless explicitly matched and permitted.
@@ -23,3 +23,13 @@
 10. Unverified email spoofing `Alsharji73@gmail.com` with `email_verified: false`: Rejected (`request.auth.token.email_verified == true`).
 11. Non-admin modifying `/system/seasonal_config`: Rejected (`isAdmin()`).
 12. Creating `/friendships/f1` with `requesterId: "someone_else"` or `status: "accepted"`: Rejected (`incoming().requesterId == request.auth.uid && incoming().status == 'pending'`).
+
+
+## 3. تحدي المزارع: الكتابة الموثوقة للترتيب
+
+- يحتفظ العميل بصلاحية قراءة قائمة الترتيب فقط؛ قواعد Firestore تمنع إنشاء أو تعديل وثائق `leaderboard_entries` من أي عميل.
+- يرسل التطبيق أجوبة الجولة إلى خادم Express مع رمز Firebase ID. يتحقق الخادم من الرمز عبر Firebase Admin، ويشترط بريداً موثقاً، ثم يعيد احتساب النقاط من بنك الأسئلة.
+- يسجل الخادم النتيجة في `leaderboard_entries/{uid}` داخل معاملة Firestore باستخدام Google Application Default Credentials، ويضع علامة منع إعادة الإرسال في `score_submission_dedup`. لا يقبل الخادم UID من جسم الطلب بديلاً عن UID المستخرج من الرمز.
+- واجهة صورة اللعبة `image_id` مدرجة ضمن أنواع التحدي المسموح بها.
+- يجب تشغيل خادم الإنتاج على Cloud Run مع حساب خدمة يملك صلاحية بيانات Firestore (مثل `roles/datastore.user`). لا توضع مفاتيح حساب خدمة في المستودع أو العميل. لا تنشر قواعد منع الكتابة قبل جاهزية الخادم الموثوق.
+- لا يثبت فحص CI وحده صلاحية بيانات Cloud Run أو نجاح كتابة حقيقية في مشروع Firebase؛ يلزم اختبار تكاملي بعد إعداد حساب الخدمة، ثم نشر الخادم قبل نشر القواعد.

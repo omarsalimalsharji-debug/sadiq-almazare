@@ -22,20 +22,10 @@ import {
   CloudCheck,
 } from 'lucide-react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import {
-  doc,
-  getDoc,
-  runTransaction,
-  serverTimestamp,
-  setDoc,
-} from 'firebase/firestore';
 import { GAME_QUESTIONS, Question } from '../data/agriculturalData.ts';
 import { UserProfile } from '../types/index.ts';
 import {
   auth,
-  db,
-  handleFirestoreError,
-  OperationType,
   signInWithGoogleFarmer,
 } from '../firebase.ts';
 import { playDiagnosisSuccessSound, playSoftNoticeSound } from '../utils/soundEffects.ts';
@@ -171,9 +161,8 @@ export const GamesView: React.FC<GamesViewProps> = ({
   // Firebase sync state
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
   const [firebaseSyncStatus, setFirebaseSyncStatus] = useState<
-    'idle' | 'syncing' | 'synced' | 'needs_auth' | 'error'
+    'idle' | 'synced' | 'needs_auth'
   >('idle');
-  const [firebaseSyncedRound, setFirebaseSyncedRound] = useState<boolean>(false);
   const [authBusy, setAuthBusy] = useState<boolean>(false);
 
   // Speed timer
@@ -339,82 +328,6 @@ export const GamesView: React.FC<GamesViewProps> = ({
     }
   };
 
-  const syncScoreToFirebase = async (
-    targetUser: FirebaseUser,
-    addedPoints: number,
-    roundBestStreak: number,
-    gameType: GameKey
-  ) => {
-    if (!targetUser.emailVerified || firebaseSyncedRound) return;
-
-    setFirebaseSyncStatus('syncing');
-    const safeAdded = Math.max(0, Math.min(1200, Math.round(addedPoints)));
-    const userPath = `users/${targetUser.uid}`;
-    const lbPath = `leaderboard_entries/${targetUser.uid}`;
-
-    try {
-      // Ensure parent /users/{uid} exists before writing leaderboard entry (required by firestore.rules)
-      const userRef = doc(db, 'users', targetUser.uid);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          uid: targetUser.uid,
-          displayName: (targetUser.displayName || user.name || 'مزارع عُماني').slice(0, 80),
-          governorate: (user.governorate || 'محافظة الداخلية').slice(0, 60),
-          role: 'farmer',
-          level: 1,
-          totalPoints: 0,
-          isBanned: false,
-          updatedAt: serverTimestamp(),
-        });
-      }
-
-      const lbRef = doc(db, 'leaderboard_entries', targetUser.uid);
-      await runTransaction(db, async (tx) => {
-        const snap = await tx.get(lbRef);
-        const displayName = (targetUser.displayName || user.name || 'مزارع عُماني').slice(0, 80);
-        const governorate = `${user.governorate} (${user.wilayat})`.slice(0, 80);
-
-        if (!snap.exists()) {
-          tx.set(lbRef, {
-            userId: targetUser.uid,
-            displayName,
-            governorate,
-            totalPoints: safeAdded,
-            roundsPlayed: 1,
-            bestStreak: Math.max(0, Math.min(100, roundBestStreak)),
-            lastGameType: gameType,
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          const prevData = snap.data();
-          const prevTotal = Number(prevData.totalPoints) || 0;
-          const prevRounds = Number(prevData.roundsPlayed) || 0;
-          const prevBestStreak = Number(prevData.bestStreak) || 0;
-          tx.update(lbRef, {
-            displayName,
-            governorate,
-            totalPoints: prevTotal + safeAdded,
-            roundsPlayed: prevRounds + 1,
-            bestStreak: Math.max(prevBestStreak, Math.min(100, roundBestStreak)),
-            lastGameType: gameType,
-            updatedAt: serverTimestamp(),
-          });
-        }
-      });
-
-      setFirebaseSyncedRound(true);
-      setFirebaseSyncStatus('synced');
-    } catch (err) {
-      setFirebaseSyncStatus('error');
-      try {
-        handleFirestoreError(err, OperationType.WRITE, lbPath || userPath);
-      } catch {
-        // Logged by handleFirestoreError
-      }
-    }
-  };
-
   const finishGameAndSubmitToServer = async () => {
     setGameFinished(true);
     setSubmittingToServer(true);
@@ -434,6 +347,8 @@ export const GamesView: React.FC<GamesViewProps> = ({
         },
         body: JSON.stringify({
           gameType: selectedGame,
+          userName: user.name,
+          userGovernorate: `${user.governorate} (${user.wilayat})`,
           answers: answersLog,
           clientNonce,
         }),
@@ -459,15 +374,10 @@ export const GamesView: React.FC<GamesViewProps> = ({
         }
       }
 
-      if (fbUser && selectedGame) {
-        await syncScoreToFirebase(
-          fbUser,
-          data.verifiedScore,
-          data.bestStreak ?? bestStreak,
-          selectedGame
-        );
-      } else {
+      if (data.practiceOnly) {
         setFirebaseSyncStatus('needs_auth');
+      } else {
+        setFirebaseSyncStatus('synced');
       }
     } catch (err: any) {
       console.error(err);
@@ -477,19 +387,11 @@ export const GamesView: React.FC<GamesViewProps> = ({
     }
   };
 
-  const handleConnectGoogleAndSync = async () => {
-    if (!verifiedResult || verifiedResult.practiceOnly || !selectedGame) return;
+  const handleConnectGoogle = async () => {
     setAuthBusy(true);
     try {
       const signedIn = await signInWithGoogleFarmer();
-      if (signedIn) {
-        await syncScoreToFirebase(
-          signedIn,
-          verifiedResult.verifiedScore,
-          verifiedResult.bestStreak ?? bestStreak,
-          selectedGame
-        );
-      }
+      if (signedIn) setFirebaseSyncStatus('idle');
     } catch (err: any) {
       setServerError(err?.message || 'تعذر تسجيل الدخول بحساب Google.');
     } finally {
@@ -736,26 +638,22 @@ export const GamesView: React.FC<GamesViewProps> = ({
                 <div className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 flex items-center justify-center gap-2">
                   <CloudCheck className="w-4 h-4 shrink-0" />
                   <span>
-                    تم تسجيل نقاطك مباشرة في لوحة المتصدرين على <strong>Firebase</strong> باسم {fbUser?.displayName || user.name}!
+                    تحقّق الخادم من الجولة وسجّل نقاطك في لوحة المتصدرين باسم {fbUser?.displayName || user.name}.
                   </span>
-                </div>
-              ) : firebaseSyncStatus === 'syncing' ? (
-                <div className="text-xs text-stone-500 p-2">
-                  جاري مزامنة النقاط مع لوحة Firebase...
                 </div>
               ) : (
                 <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2.5">
                   <div className="text-xs text-amber-900 dark:text-amber-200">
                     {verifiedResult.practiceOnly ? 'هذه جولة تدريبية ولا تدخل لوحة المتصدرين. سجّل الدخول قبل بدء الجولة لتنافس على الترتيب.' : 'سجّل الدخول بحساب Google لإدراج هذه الجولة في لوحة المتصدرين الدائمة.'}
                   </div>
-                  {!verifiedResult.practiceOnly && <button
+                  {!fbUser && <button
                     type="button"
-                    onClick={handleConnectGoogleAndSync}
+                    onClick={handleConnectGoogle}
                     disabled={authBusy}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50"
                   >
                     <LogIn className="w-4 h-4" />
-                    <span>{authBusy ? 'جاري الربط...' : 'ربط حساب Google وحفظ النقاط'}</span>
+                    <span>{authBusy ? 'جاري الربط...' : 'تسجيل الدخول للجولة القادمة'}</span>
                   </button>}
                 </div>
               )}

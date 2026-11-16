@@ -13,6 +13,10 @@ import { isIP } from 'node:net';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
+import { Firestore, FieldValue } from '@google-cloud/firestore';
+import { getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
+
 import { 
   INITIAL_BOOKS, 
   GAME_QUESTIONS, 
@@ -99,6 +103,12 @@ const writeRateLimit = createRateLimiter(
   20,
   60 * 1000,
   'تم إرسال طلبات كثيرة خلال وقت قصير؛ يرجى التمهل قليلاً.'
+);
+const scoreRateLimit = createRateLimiter(
+  'score',
+  12,
+  60 * 1000,
+  'تم تسجيل جولات كثيرة خلال دقيقة؛ انتظر قليلاً قبل المحاولة.'
 );
 
 // Initialize Gemini on server-side
@@ -462,7 +472,6 @@ function saveStorage() {
 if (persistStorageMigration) saveStorage();
 
 // Nonce set to prevent score replaying
-const submittedNonces = new Set<string>();
 
 // Brute-force lockout tracker (5 failed attempts -> 5-minute temporary block)
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -2140,24 +2149,101 @@ ${cleanFocus ? `- محور إضافي مطلوب: ${cleanFocus}` : ''}
   }
 });
 
-async function verifyFirebaseIdToken(idToken: string): Promise<{ localId: string; displayName?: string }> {
-  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-  const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8')) as { apiKey?: string };
-  if (!firebaseConfig.apiKey) throw new Error('Firebase web configuration is unavailable');
-  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseConfig.apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken }),
-    signal: AbortSignal.timeout(6000),
-  });
-  if (!response.ok) throw new Error('Firebase rejected the sign-in token');
-  const result = await response.json() as { users?: Array<{ localId?: string; displayName?: string; emailVerified?: boolean }> };
-  const identity = result.users?.[0];
-  if (!identity?.localId || identity.emailVerified !== true) throw new Error('Firebase identity is missing or unverified');
-  return { localId: identity.localId, displayName: identity.displayName };
+const firebaseServerConfig = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8')
+) as { projectId: string; firestoreDatabaseId?: string };
+
+let scoreFirestore: Firestore | null = null;
+function getScoreFirestore(): Firestore {
+  if (!scoreFirestore) {
+    scoreFirestore = new Firestore({
+      projectId: firebaseServerConfig.projectId,
+      databaseId: firebaseServerConfig.firestoreDatabaseId || '(default)',
+    });
+  }
+  return scoreFirestore;
 }
 
-app.post('/api/scores/submit', async (req, res) => {
+function getFirebaseAdminApp() {
+  return getApps().find((app) => app.name === 'sadiq-almazare-score-server')
+    || initializeApp({ projectId: firebaseServerConfig.projectId }, 'sadiq-almazare-score-server');
+}
+
+async function verifyFirebaseIdToken(idToken: string): Promise<{ localId: string }> {
+  const decoded = await getAdminAuth(getFirebaseAdminApp()).verifyIdToken(idToken);
+  if (decoded.email_verified !== true) throw new Error('Verified Firebase account required');
+  return { localId: decoded.uid };
+}
+
+async function persistVerifiedLeaderboardEntry(input: {
+  userId: string;
+  displayName: string;
+  governorate: string;
+  gameType: string;
+  score: number;
+  bestStreak: number;
+  clientNonce: string;
+}) {
+  const firestore = getScoreFirestore();
+  const profileRef = firestore.collection('users').doc(input.userId);
+  const leaderboardRef = firestore.collection('leaderboard_entries').doc(input.userId);
+  const nonceId = crypto.createHash('sha256').update(input.clientNonce).digest('hex');
+  const nonceRef = firestore.collection('score_submission_dedup').doc(nonceId);
+
+  await firestore.runTransaction(async (transaction) => {
+    const profileSnapshot = await transaction.get(profileRef);
+    const leaderboardSnapshot = await transaction.get(leaderboardRef);
+    const nonceSnapshot = await transaction.get(nonceRef);
+    if (nonceSnapshot.exists) {
+      const replayError: any = new Error('Score submission has already been applied');
+      replayError.code = 'score/replayed';
+      throw replayError;
+    }
+    if (profileSnapshot.exists && profileSnapshot.data()?.isBanned === true) {
+      const bannedError: any = new Error('Account is banned');
+      bannedError.code = 'score/account-banned';
+      throw bannedError;
+    }
+
+    const now = FieldValue.serverTimestamp();
+    if (!profileSnapshot.exists) {
+      transaction.set(profileRef, {
+        uid: input.userId,
+        displayName: input.displayName,
+        governorate: input.governorate,
+        role: 'farmer',
+        level: 1,
+        totalPoints: 0,
+        isBanned: false,
+        updatedAt: now,
+      });
+    }
+
+    const previous = leaderboardSnapshot.data();
+    const previousTotal = Math.max(0, Number(previous?.totalPoints) || 0);
+    const previousRounds = Math.max(0, Number(previous?.roundsPlayed) || 0);
+    const previousStreak = Math.max(0, Number(previous?.bestStreak) || 0);
+    const allowedGameTypes = ['knowledge', 'guess_crop', 'plant_doctor', 'true_false', 'speed', 'cultural', 'image_id'];
+    const lastGameType = allowedGameTypes.includes(input.gameType) ? input.gameType : 'knowledge';
+    transaction.set(leaderboardRef, {
+      userId: input.userId,
+      displayName: input.displayName,
+      governorate: input.governorate,
+      totalPoints: Math.min(10_000_000, previousTotal + input.score),
+      roundsPlayed: Math.min(100_000, previousRounds + 1),
+      bestStreak: Math.min(100, Math.max(previousStreak, input.bestStreak)),
+      lastGameType,
+      updatedAt: now,
+    });
+    transaction.create(nonceRef, {
+      userId: input.userId,
+      score: input.score,
+      createdAt: now,
+    });
+  });
+}
+
+app.post('/api/scores/submit', scoreRateLimit, async (req, res) => {
   try {
     const { gameType, answers, clientNonce } = req.body;
     const authHeader = req.header('authorization') || '';
@@ -2167,20 +2253,14 @@ app.post('/api/scores/submit', async (req, res) => {
       return res.status(400).json({ error: 'بيانات المشاركة غير مكتملة' });
     }
 
-    let identity: { localId: string; displayName?: string } | null = null;
+    let identity: { localId: string } | null = null;
     if (bearerToken) {
       try {
         identity = await verifyFirebaseIdToken(bearerToken);
       } catch {
-        return res.status(401).json({ error: 'انتهت جلسة الدخول أو تعذر التحقق منها. سجّل الدخول مجدداً.' });
+        return res.status(401).json({ error: 'تعذر التحقق من حسابك. سجّل الدخول مجدداً.' });
       }
     }
-
-    // Anti-cheat replay check
-    if (submittedNonces.has(clientNonce)) {
-      return res.status(409).json({ error: 'تم تسجيل نتيجة هذه الجلسة مسبقاً لمنع التكرار والتلاعب.' });
-    }
-    submittedNonces.add(clientNonce);
 
     let verifiedScore = 0;
     let correctCount = 0;
@@ -2224,8 +2304,8 @@ app.post('/api/scores/submit', async (req, res) => {
     const submission = identity ? {
       id: `sub-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       userId: identity.localId,
-      userName: identity.displayName?.trim() || 'مزارع عُماني',
-      userGovernorate: 'سلطنة عُمان',
+      userName: typeof req.body.userName === 'string' ? req.body.userName.trim().slice(0, 80) || 'مزارع عُماني' : 'مزارع عُماني',
+      userGovernorate: typeof req.body.userGovernorate === 'string' ? req.body.userGovernorate.trim().slice(0, 80) || 'سلطنة عُمان' : 'سلطنة عُمان',
       gameType: typeof gameType === 'string' ? gameType : 'all',
       score: verifiedScore,
       correctCount,
@@ -2236,7 +2316,23 @@ app.post('/api/scores/submit', async (req, res) => {
       clientNonce
     } : null;
 
-    if (submission) {
+    if (submission && identity) {
+      try {
+        await persistVerifiedLeaderboardEntry({
+          userId: identity.localId,
+          displayName: submission.userName,
+          governorate: submission.userGovernorate,
+          gameType: submission.gameType,
+          score: submission.score,
+          bestStreak: submission.bestStreak,
+          clientNonce,
+        });
+      } catch (error: any) {
+        if (error?.code === 'score/replayed') return res.status(409).json({ error: 'تم تسجيل نتيجة هذه الجولة مسبقاً.' });
+        if (error?.code === 'score/account-banned') return res.status(403).json({ error: 'هذا الحساب غير مؤهل للمشاركة.' });
+        console.error('Verified leaderboard persistence failed:', error?.code || error?.message || 'unknown');
+        return res.status(503).json({ error: 'تعذر حفظ النتيجة الآمنة الآن. حاول لاحقاً.' });
+      }
       storage.scoreSubmissions.push(submission);
       saveStorage();
     }
