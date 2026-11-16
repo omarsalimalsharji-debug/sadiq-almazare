@@ -1336,8 +1336,7 @@ export const GAME_QUESTIONS: Question[] = [
     correctIndex: 0,
     explanation: "الورد الجبلي في قرى سيق والشريجة والعين بالجبل الأخضر ينتج أفخر أنواع ماء الورد الطبيعي بالتقطير الفخاري التقليدي.",
     points: 100
-  }
-
+  },
   {
     id: "img-date-palm",
     gameType: "image_id",
