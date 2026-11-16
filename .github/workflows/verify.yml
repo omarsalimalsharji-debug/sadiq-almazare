@@ -26,3 +26,7 @@ jobs:
         run: npm run lint
       - name: Production build
         run: npm run build
+      - name: Server API and legacy-data smoke test
+        run: node scripts/smoke-server.mjs
+        env:
+          ADMIN_BOOTSTRAP_PASSWORD: Smoke-Only-Not-A-Real-Credential-123!
