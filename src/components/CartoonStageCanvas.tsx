@@ -965,7 +965,10 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
 
     let animId = 0;
     let lastTime = performance.now();
+    let lastDrawAt = 0;
     let elapsedSec = 0;
+    let isInViewport = true;
+    let isPageVisible = !document.hidden;
 
     const effectivePose = overridePose || scene.flijanPose;
     const effectiveMood = overrideMood || scene.flijanMood;
@@ -980,6 +983,13 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
             : 'wide');
 
     const renderFrame = (now: number) => {
+      animId = 0;
+      if (!isInViewport || !isPageVisible) return;
+      if (now - lastDrawAt < 1000 / 30) {
+        animId = requestAnimationFrame(renderFrame);
+        return;
+      }
+      lastDrawAt = now;
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
       if (isPlaying) {
@@ -1113,8 +1123,42 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
       animId = requestAnimationFrame(renderFrame);
     };
 
-    animId = requestAnimationFrame(renderFrame);
-    return () => cancelAnimationFrame(animId);
+    const scheduleFrame = () => {
+      if (isInViewport && isPageVisible && animId === 0) {
+        animId = requestAnimationFrame(renderFrame);
+      }
+    };
+    const observer = typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver((entries) => {
+          isInViewport = entries.some((entry) => entry.isIntersecting);
+          if (isInViewport) scheduleFrame();
+          else if (animId) {
+            cancelAnimationFrame(animId);
+            animId = 0;
+          }
+        }, { threshold: 0.05 })
+      : null;
+    observer?.observe(canvas);
+
+    const handleVisibilityChange = () => {
+      isPageVisible = !document.hidden;
+      if (!isPageVisible && animId) {
+        cancelAnimationFrame(animId);
+        animId = 0;
+      } else if (isPageVisible) {
+        lastTime = performance.now();
+        lastDrawAt = lastTime - 1000 / 30;
+        scheduleFrame();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    scheduleFrame();
+
+    return () => {
+      observer?.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (animId) cancelAnimationFrame(animId);
+    };
   }, [
     scene,
     isPlaying,

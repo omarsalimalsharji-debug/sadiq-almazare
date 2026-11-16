@@ -3117,7 +3117,7 @@ app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, (req, res) => {
   return res.json({ success: true, review: current });
 });
 
-app.post('/api/cartoon/tts', async (req, res) => {
+app.post('/api/cartoon/tts', aiRateLimit, async (req, res) => {
   try {
     const { text, mood } = req.body;
     const rawClean = typeof text === 'string' ? text.trim().slice(0, 800) : '';

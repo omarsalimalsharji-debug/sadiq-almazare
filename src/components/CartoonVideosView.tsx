@@ -220,9 +220,6 @@ export const CartoonVideosView: React.FC = () => {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
     environmentalSfx.setSpeakingDuck(false);
     environmentalSfx.stop();
     audioLevelRef.current = 0;
@@ -504,38 +501,14 @@ export const CartoonVideosView: React.FC = () => {
         }
       }
 
-      if (!base64Wav) {
-        setTtsFailed(true);
-      }
-
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setAudioStatusNote('تعذر تحميل صوت الاستوديو — يتم التشغيل مؤقتاً بصوت المتصفح');
-        const utter = new SpeechSynthesisUtterance(
-          targetScene.vocalizedNarration || targetScene.narration
-        );
-        const voices = window.speechSynthesis.getVoices();
-        const bestArabicVoice =
-          voices.find((v) => v.lang.toLowerCase() === 'ar-om') ||
-          voices.find((v) => v.lang.toLowerCase() === 'ar-sa') ||
-          voices.find((v) => v.lang.toLowerCase().startsWith('ar'));
-        if (bestArabicVoice) {
-          utter.voice = bestArabicVoice;
-          utter.lang = bestArabicVoice.lang;
-        } else {
-          utter.lang = 'ar-OM';
-        }
-        utter.pitch = 1.03;
-        utter.rate = playbackSpeed;
-        utter.volume = isMuted ? 0 : 1;
-        utter.onend = advanceNext;
-        utter.onerror = () => {
-          fallbackTimerRef.current = setTimeout(advanceNext, 5500);
-        };
-        window.speechSynthesis.speak(utter);
-      } else {
-        setAudioStatusNote('تعذر توليد الصوت حالياً؛ تُعرض الترجمة النصية للمشهد.');
-        fallbackTimerRef.current = setTimeout(advanceNext, 6000);
-      }
+      setTtsFailed(true);
+      setIsPlaying(false);
+      audioLevelRef.current = 0;
+      setAudioStatusNote(
+        base64Wav
+          ? 'تم إنشاء الصوت، لكن الجهاز لم يسمح بتشغيله. أعد المحاولة من زر الصوت.'
+          : 'الصوت المولّد غير متاح لهذه الفقرة؛ اقرأ النص الظاهر أو أعد المحاولة.'
+      );
     },
     [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, stopAllAudio]
   );
@@ -731,13 +704,16 @@ export const CartoonVideosView: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
             <Clapperboard className="w-4 h-4" />
-            <span>استوديو فليجان التفاعلي · صوت عُماني متوازن -16 LUFS</span>
+            <span>دروس زراعية مرئية · تشكيل عربي ومزامنة صوتية</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white text-balance">
             استوديو فليجان التعليمي للمزارع العُماني
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 max-w-3xl">
-            دروس تفاعلية حيّة بشخصية فليجان العُمانية مع تحريك الشفاه والكاميرا ومؤثرات الأفلاج والبيئة الطبيعية ونطق مدقق.
+            حلقات قصيرة بشخصية فليجان، مع حركة فم مرتبطة بمستوى الصوت ومؤثرات بيئية اختيارية.
+          </p>
+          <p className="mt-2 max-w-3xl rounded-xl border border-amber-300/50 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+            توضيح الصوت: التعليق الحالي مولّد آلياً مع تشكيل للنص، وليس تسجيلاً بشرياً بلهجة عُمانية.
           </p>
         </div>
 
@@ -941,7 +917,7 @@ export const CartoonVideosView: React.FC = () => {
                           [
                             { id: 'studio', label: 'استوديو EQ' },
                             { id: 'warm', label: 'دافئ' },
-                            { id: 'natural', label: 'طبيعي' },
+                            { id: 'natural', label: 'EQ محايد' },
                           ] as const
                         ).map((preset) => (
                           <button
@@ -1013,10 +989,10 @@ export const CartoonVideosView: React.FC = () => {
                         />
                         <div>
                           <div className="text-xs font-bold text-stone-900 dark:text-white">
-                            معاينة شخصية فليجان المحدّثة (الهوية العُمانية ومزامنة الشفاه)
+                            معاينة فليجان · الزي العُماني وحركة الفم المرتبطة بالصوت
                           </div>
                           <div className="text-[11px] text-stone-500 dark:text-stone-400">
-                            جرّب تعابير الوجه والنبرة الصوتية مباشرة مع تحريك الشفاه والرمش الطبيعي
+                            جرّب التعابير والرمش؛ حركة الفم تتبع شدة الصوت بصورة تقريبية
                           </div>
                         </div>
                       </div>
