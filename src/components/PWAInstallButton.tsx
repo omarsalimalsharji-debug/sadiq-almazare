@@ -9,6 +9,28 @@ interface PWAInstallButtonProps {
 export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ compact = false }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const apkUrl = import.meta.env.VITE_ANDROID_APK_URL;
+  const isAndroid = /android/i.test(window.navigator.userAgent);
+
+  if (isAndroid) {
+    return (
+      <a
+        href={apkUrl || undefined}
+        download={apkUrl ? 'sadiq-almazare.apk' : undefined}
+        aria-disabled={!apkUrl}
+        className={`min-h-[44px] flex items-center justify-center gap-2 rounded-xl font-bold shadow-sm transition-all ${
+          apkUrl
+            ? 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
+            : 'bg-stone-200 dark:bg-stone-800 text-stone-500 cursor-not-allowed'
+        } ${compact ? 'px-3 py-2 text-xs' : 'w-full px-4 py-2.5 text-xs'}`}
+        onClick={(event) => { if (!apkUrl) event.preventDefault(); }}
+      >
+        <Download className="w-4 h-4 shrink-0" />
+        <span>{apkUrl ? 'تحميل تطبيق Android (APK)' : 'ملف APK قيد التجهيز'}</span>
+      </a>
+    );
+  }
+
 
   if (isInstalled) {
     return null;
