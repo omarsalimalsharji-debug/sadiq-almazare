@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Home,
-  Sprout,
+  Gamepad2,
   Scan,
   Clapperboard,
   Radio,
@@ -27,7 +27,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   const tabs = [
     { id: 'home' as ActivePage, label: t.home, icon: Home },
-    { id: 'virtual_farm' as ActivePage, label: lang === 'ar' ? 'المزرعة' : 'Farm 3D', icon: Sprout },
+    { id: 'games' as ActivePage, label: lang === 'ar' ? 'التحدي' : 'Challenge', icon: Gamepad2 },
     { id: 'plant_diagnosis' as ActivePage, label: lang === 'ar' ? 'الفحص' : 'Diagnose', icon: Scan },
     { id: 'cartoon_videos' as ActivePage, label: lang === 'ar' ? 'فليجان' : 'Flijan', icon: Clapperboard },
     { id: 'quran' as ActivePage, label: lang === 'ar' ? 'الإعلام' : 'Media', icon: Radio },

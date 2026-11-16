@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Gamepad2,
+  Image as ImageIcon,
   Trophy,
   Sparkles,
   CheckCircle,
@@ -37,12 +38,12 @@ import {
   OperationType,
   signInWithGoogleFarmer,
 } from '../firebase.ts';
+import { playDiagnosisSuccessSound, playSoftNoticeSound } from '../utils/soundEffects.ts';
 
 interface GamesViewProps {
   user: UserProfile;
   onScoreUpdated: (newTotal: number) => void;
   onNavigateToLeaderboard: () => void;
-  onOpenVirtualFarm?: () => void;
   initialGameType?: string;
 }
 
@@ -52,7 +53,8 @@ type GameKey =
   | 'plant_doctor'
   | 'true_false'
   | 'speed'
-  | 'cultural';
+  | 'cultural'
+  | 'image_id';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -113,11 +115,19 @@ const GAMES_CATALOG: GameInfo[] = [
   },
   {
     key: 'cultural',
-    title: 'المسابقة الثقافية العامة',
-    subtitle: 'أسئلة عن تاريخ سلطنة عُمان، الأفلاج، الجغرافيا، والمعالم الخالدة',
+    title: 'ذاكرة عُمان',
+    subtitle: 'أسئلة عن تاريخ السلطنة والأفلاج والجغرافيا والتراث الزراعي',
     icon: Landmark,
-    badge: 'تراث عُمان',
+    badge: 'تراث',
     gradient: 'from-emerald-700 to-amber-700',
+  },
+  {
+    key: 'image_id',
+    title: 'تعرّف على الصورة',
+    subtitle: 'تعرّف على المحاصيل والآفات العُمانية من رسوم توضيحية خفيفة',
+    icon: ImageIcon,
+    badge: 'تحدٍ بصري',
+    gradient: 'from-lime-600 to-emerald-800',
   },
 ];
 
@@ -125,7 +135,6 @@ export const GamesView: React.FC<GamesViewProps> = ({
   user,
   onScoreUpdated,
   onNavigateToLeaderboard,
-  onOpenVirtualFarm,
   initialGameType,
 }) => {
   const [selectedGame, setSelectedGame] = useState<GameKey | null>(
@@ -200,7 +209,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
     let qList: ExtendedQuestion[] = [];
     let src: 'gemini' | 'bank' = 'bank';
 
-    if (useAiQuestions) {
+    if (useAiQuestions && key !== 'image_id') {
       setLoadingQuestions(true);
       try {
         const res = await fetch('/api/games/generate-questions', {
@@ -232,7 +241,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
 
     setQuestionSource(src);
     setCurrentQuestions(qList);
-    setTimeLeft(key === 'speed' ? 15 : 30);
+    setTimeLeft(key === 'speed' ? 15 : key === 'image_id' ? 20 : 30);
     setQuestionStartTime(Date.now());
   };
 
@@ -279,6 +288,8 @@ export const GamesView: React.FC<GamesViewProps> = ({
 
     const curQ = currentQuestions[currentQIndex];
     const isCorrect = index === curQ.correctIndex;
+    if (isCorrect) playDiagnosisSuccessSound(true);
+    else playSoftNoticeSound(true);
 
     const newStreak = isCorrect ? streak + 1 : 0;
     setStreak(newStreak);
@@ -489,51 +500,37 @@ export const GamesView: React.FC<GamesViewProps> = ({
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            <Gamepad2 className="w-4 h-4" />
-            <span>مسابقات الذكاء الاصطناعي · متزامنة مع Firebase</span>
-          </div>
-          <h1 className="text-2xl font-bold text-stone-900 dark:text-white mt-1">
-            الألعاب الزراعية والمسابقات التفاعلية
-          </h1>
-          <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-0.5">
-            أسئلة متجددة بالذكاء الاصطناعي حسب الصعوبة مع وسائل مساعدة ولوحة متصدرين مباشرة في Firebase.
-          </p>
-        </div>
-
-        <button
-          onClick={onNavigateToLeaderboard}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-300/50 hover:bg-amber-500/20 text-xs font-semibold transition-colors self-start sm:self-auto"
-        >
-          <Trophy className="w-4 h-4 text-amber-600" />
-          <span>لوحة المتصدرين (Firebase)</span>
-        </button>
-      </div>
-
-      {/* Featured 3D Virtual Farm Card */}
-      {!selectedGame && onOpenVirtualFarm && (
-        <div className="rounded-3xl bg-gradient-to-r from-emerald-900 via-teal-900 to-stone-900 text-white p-6 border border-emerald-500/40 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4" />
-              <span>لعبة ثلاثية الأبعاد واقعية · مجانية 100%</span>
+      {/* Omani Farmer Challenge hero */}
+      <section className="relative overflow-hidden rounded-3xl border border-emerald-300/20 bg-gradient-to-br from-[#102b2a] via-[#143c35] to-[#72502e] p-5 text-white shadow-xl sm:p-7">
+        <div aria-hidden="true" className="pointer-events-none absolute -left-10 -top-12 h-48 w-48 rounded-full bg-emerald-300/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-emerald-200">
+              <Gamepad2 className="h-4 w-4" />
+              <span>صديق المزارع · سلطنة عُمان</span>
+              <span className="rounded-full border border-amber-200/30 bg-amber-100/10 px-2 py-0.5 text-[10px] text-amber-100">تحديات قصيرة</span>
             </div>
-            <h2 className="text-xl font-extrabold">🌴 مزرعتي الافتراضية (3D)</h2>
-            <p className="text-xs text-stone-200 max-w-xl">
-              ازرع النخيل العُماني والخضراوات، أدر البيت المحمي والفلج، وتنافس مع الأصدقاء ولاعبي سلطنة عُمان بنمو حقيقي مستمر!
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">تحدي المزارع العُماني</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-emerald-50/85">
+              اختبر خبرتك بالمحاصيل والآفات والري. أجب قبل انتهاء الوقت، واجمع النقاط وارفع مستواك.
             </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold">المستوى {Math.max(1, Math.floor((user.totalScore || 0) / 500) + 1)}</span>
+              <span className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold">الرصيد {Math.max(0, user.totalScore || 0)} نقطة</span>
+              {(user.totalScore || 0) >= 100 && <span className="rounded-xl border border-amber-200/30 bg-amber-100/10 px-3 py-2 text-xs font-semibold text-amber-100">إنجاز: بداية موفقة</span>}
+              {(user.totalScore || 0) >= 500 && <span className="rounded-xl border border-amber-200/30 bg-amber-100/10 px-3 py-2 text-xs font-semibold text-amber-100">إنجاز: خبير الحقول</span>}
+              {(user.totalScore || 0) >= 1500 && <span className="rounded-xl border border-amber-200/30 bg-amber-100/10 px-3 py-2 text-xs font-semibold text-amber-100">إنجاز: حارس النخيل</span>}
+            </div>
           </div>
           <button
-            onClick={onOpenVirtualFarm}
-            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow-md shrink-0"
+            onClick={onNavigateToLeaderboard}
+            className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-amber-200/35 bg-amber-100/10 px-4 py-2.5 text-xs font-bold text-amber-50 transition-colors hover:bg-amber-100/20"
           >
-            دخول مزرعتي الآن
+            <Trophy className="h-4 w-4 text-amber-200" />
+            <span>ترتيب المزارعين</span>
           </button>
         </div>
-      )}
+      </section>
 
       {/* AI Quiz Configuration Bar (when selecting a game) */}
       {!selectedGame && (
@@ -542,10 +539,10 @@ export const GamesView: React.FC<GamesViewProps> = ({
             <div>
               <h2 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>إعدادات تحدي الذكاء الاصطناعي (Gemini Quiz)</span>
+                <span>جهّز جولتك</span>
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                اختر مستوى الصعوبة والمحور لتوليد أسئلة جديدة في كل جولة، أو استخدم البنك المحلي.
+                اختر مستوى الجولة وموضوعها؛ ويبقى تحدي الصور متاحاً مباشرة دون انتظار.
               </p>
             </div>
 
@@ -882,6 +879,19 @@ export const GamesView: React.FC<GamesViewProps> = ({
             <div className="text-base sm:text-lg font-bold text-stone-900 dark:text-white leading-relaxed">
               {curQuestion.question}
             </div>
+
+            {curQuestion.imageUrl && (
+              <figure className="overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-amber-50 dark:border-emerald-900/50 dark:from-emerald-950/30 dark:to-stone-900">
+                <img
+                  src={curQuestion.imageUrl}
+                  alt={curQuestion.question}
+                  loading="lazy"
+                  decoding="async"
+                  className="mx-auto block max-h-64 w-full object-contain sm:max-h-72"
+                />
+                <figcaption className="px-3 pb-3 text-center text-[11px] font-medium text-stone-500 dark:text-stone-400">انظر إلى الرسم ثم اختر الإجابة الأقرب</figcaption>
+              </figure>
+            )}
 
             <div className="space-y-2.5">
               {curQuestion.options.map((option, optIdx) => {

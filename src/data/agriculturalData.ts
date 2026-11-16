@@ -75,7 +75,7 @@ export interface RamadanNutritionTip {
 
 export interface Question {
   id: string;
-  gameType: 'knowledge' | 'guess_crop' | 'plant_doctor' | 'true_false' | 'speed' | 'cultural';
+  gameType: 'knowledge' | 'guess_crop' | 'plant_doctor' | 'true_false' | 'speed' | 'cultural' | 'image_id';
   question: string;
   questionEn?: string;
   options: string[];
@@ -1337,4 +1337,54 @@ export const GAME_QUESTIONS: Question[] = [
     explanation: "الورد الجبلي في قرى سيق والشريجة والعين بالجبل الأخضر ينتج أفخر أنواع ماء الورد الطبيعي بالتقطير الفخاري التقليدي.",
     points: 100
   }
+
+  {
+    id: "img-date-palm",
+    gameType: "image_id",
+    question: "ما المحصول العُماني الظاهر في الرسم؟",
+    questionEn: "Which Omani crop is shown?",
+    imageUrl: "/assets/challenge/oman-date-palm.svg",
+    options: ["نخيل التمر", "الموز", "القصب", "الزيتون"],
+    optionsEn: ["Date palm", "Banana", "Sugar cane", "Olive"],
+    correctIndex: 0,
+    explanation: "النخيل من أهم المحاصيل العُمانية، وتشتهر السلطنة بأصناف متعددة من التمور.",
+    points: 120
+  },
+  {
+    id: "img-red-palm-weevil",
+    gameType: "image_id",
+    question: "ما الآفة التي يوضحها الرسم، وتهاجم جذع النخلة؟",
+    questionEn: "Which pest shown attacks the date palm trunk?",
+    imageUrl: "/assets/challenge/oman-red-palm-weevil.svg",
+    options: ["سوسة النخيل الحمراء", "دوباس النخيل", "ذبابة الفاكهة", "حفار ساق الذرة"],
+    optionsEn: ["Red palm weevil", "Dubas bug", "Fruit fly", "Corn stem borer"],
+    correctIndex: 0,
+    explanation: "يرقات سوسة النخيل الحمراء قد تعيش داخل الجذع؛ رصد العلامات المبكرة وطلب الإرشاد الزراعي مهمان.",
+    points: 140
+  },
+  {
+    id: "img-loomi",
+    gameType: "image_id",
+    question: "ما الثمرة العُمانية المجففة الظاهرة في الصورة التوضيحية؟",
+    questionEn: "Which Omani dried citrus is illustrated?",
+    imageUrl: "/assets/challenge/oman-loomi.svg",
+    options: ["اللومي العُماني", "الرمان", "المانجو", "التمر"],
+    optionsEn: ["Omani loomi", "Pomegranate", "Mango", "Dates"],
+    correctIndex: 0,
+    explanation: "اللومي ينتج من الليمون المجفف ويستخدم في أطباق عُمانية كثيرة.",
+    points: 120
+  },
+  {
+    id: "img-papaya",
+    gameType: "image_id",
+    question: "ما الفاكهة التي تُعرف محلياً في ظفار باسم الفافاي؟",
+    questionEn: "Which fruit is locally known in Dhofar as Fafay?",
+    imageUrl: "/assets/challenge/oman-papaya.svg",
+    options: ["البابايا", "الجوافة", "الأفوكادو", "البرتقال"],
+    optionsEn: ["Papaya", "Guava", "Avocado", "Orange"],
+    correctIndex: 0,
+    explanation: "الفافاي هو الاسم المحلي الشائع للبابايا في محافظة ظفار.",
+    points: 120
+  },
+
 ];

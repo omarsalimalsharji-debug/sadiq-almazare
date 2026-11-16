@@ -65,11 +65,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const menuItems: MenuItem[] = [
     { id: 'home', number: 1, labelAr: 'الصفحة الرئيسية', labelEn: 'Home Dashboard', icon: Home },
-    { id: 'virtual_farm', number: 2, labelAr: 'مزرعتي الافتراضية ثلاثية الأبعاد (3D)', labelEn: 'My Virtual Farm (3D)', icon: Sprout, badgeAr: '3D', badgeEn: '3D' },
+    { id: 'games', number: 2, labelAr: 'تحدي المزارع العماني', labelEn: 'Omani Farmer Challenge', icon: Gamepad2, badgeAr: 'جديد', badgeEn: 'New' },
     { id: 'plant_diagnosis', number: 3, labelAr: 'التشخيص الذكي لأمراض النباتات', labelEn: 'Smart Plant Disease Diagnosis', icon: Scan, badgeAr: 'ذكي', badgeEn: 'Smart' },
     { id: 'pest_diagnosis', number: 4, labelAr: 'تشخيص الحشرات والآفات الزراعية', labelEn: 'Insect & Pest Diagnosis', icon: Bug },
     { id: 'cartoon_videos', number: 5, labelAr: 'فيديوهات فليجان التوعوية (كرتون)', labelEn: 'Flijan Educational Cartoons', icon: Clapperboard },
-    { id: 'games', number: 6, labelAr: 'الألعاب الزراعية التفاعلية', labelEn: 'Interactive Agri Games', icon: Gamepad2, badgeAr: '6', badgeEn: '6' },
     { id: 'cultural_quiz', number: 7, labelAr: 'المسابقة الثقافية العمانية', labelEn: 'Omani Cultural Quiz', icon: Trophy },
     { id: 'leaderboard', number: 8, labelAr: 'لوحة المتصدرين والنقاط', labelEn: 'Leaderboards & Points', icon: Award },
     { id: 'library', number: 9, labelAr: 'المكتبة الزراعية الإلكترونية', labelEn: 'Digital Agricultural Library', icon: Library, badgeAr: '12', badgeEn: '12' },

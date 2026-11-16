@@ -159,12 +159,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
       accentBg: 'bg-emerald-500/12',
     },
     {
-      id: 'virtual_farm',
-      title: t.virtualFarm,
+      id: 'games',
+      title: lang === 'ar' ? 'تحدي المزارع العماني' : 'Omani Farmer Challenge',
       desc: lang === 'ar'
-        ? 'مزرعتك التفاعلية ثلاثية الأبعاد ببيئة النخيل والأفلاج العمانية'
-        : 'Interactive 3D Omani oasis farm with palms, irrigation, and harvests',
-      icon: Sprout,
+        ? 'جولات سريعة عن المحاصيل العمانية والآفات والري، مع صور ومؤقت ونقاط وإنجازات.'
+        : 'Fast rounds on Omani crops, pests, and irrigation with images, a timer, points, and achievements.',
+      icon: Gamepad2,
       accentText: 'text-teal-600 dark:text-teal-300',
       accentBg: 'bg-teal-500/12',
     },
@@ -280,11 +280,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <button
-                onClick={() => onNavigate('virtual_farm')}
+                onClick={() => onNavigate('games')}
                 className="min-h-[46px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0b1329] font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-950/40 transition-transform active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
               >
-                <Sprout className="w-4 h-4" />
-                <span>{t.enterFarmBtn}</span>
+                <Gamepad2 className="w-4 h-4" />
+                <span>{lang === 'ar' ? 'ابدأ التحدي' : 'Start challenge'}</span>
               </button>
 
               <button

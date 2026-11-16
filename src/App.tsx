@@ -41,7 +41,6 @@ const HelpSupportView = lazy(() => import('./components/HelpSupportView.tsx').th
 const AdminView = lazy(() => import('./components/AdminView.tsx').then(m => ({ default: m.AdminView })));
 const QuranPlayer = lazy(() => import('./components/QuranPlayer.tsx').then(m => ({ default: m.QuranPlayer })));
 const RadioPlayer = lazy(() => import('./components/RadioPlayer.tsx').then(m => ({ default: m.RadioPlayer })));
-const VirtualFarmView = lazy(() => import('./components/VirtualFarm/VirtualFarmView.tsx').then(m => ({ default: m.VirtualFarmView })));
 import {
   SeasonalConfig,
   DEFAULT_SEASONAL_CONFIG,
@@ -403,10 +402,6 @@ export default function App() {
           }
         >
 
-        {activePage === 'virtual_farm' && (
-          <VirtualFarmView user={user} />
-        )}
-
         {activePage === 'plant_diagnosis' && (
           <PlantDiagnosisView />
         )}
@@ -424,7 +419,6 @@ export default function App() {
             user={user}
             onScoreUpdated={handleScoreUpdated}
             onNavigateToLeaderboard={() => setActivePage('leaderboard')}
-            onOpenVirtualFarm={() => setActivePage('virtual_farm')}
           />
         )}
 
@@ -433,7 +427,6 @@ export default function App() {
             user={user}
             onScoreUpdated={handleScoreUpdated}
             onNavigateToLeaderboard={() => setActivePage('leaderboard')}
-            onOpenVirtualFarm={() => setActivePage('virtual_farm')}
             initialGameType="cultural"
           />
         )}
