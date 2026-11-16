@@ -30,9 +30,8 @@ await new Promise((resolve, reject) => {
 const { port } = portServer.address();
 await new Promise((resolve) => portServer.close(resolve));
 
-const child = spawn('npm', ['start'], {
+const child = spawn(process.execPath, [path.join(root, 'node_modules', 'tsx', 'dist', 'cli.mjs'), 'server.ts'], {
   cwd: root,
-  shell: process.platform === 'win32',
   env: {
     ...process.env,
     NODE_ENV: 'production',
@@ -55,25 +54,26 @@ try {
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error(`Server exited early.\n${childOutput}`);
     try {
-      const response = await fetch(baseUrl);
+      const response = await fetch(baseUrl, { signal: AbortSignal.timeout(1500) });
       if (response.ok) { started = true; break; }
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   assert.ok(started, `Server did not become ready.\n${childOutput}`);
 
-  const seasonal = await fetch(`${baseUrl}/api/seasonal/config`);
+  const seasonal = await fetch(`${baseUrl}/api/seasonal/config`, { signal: AbortSignal.timeout(5000) });
   assert.equal(seasonal.status, 200);
   assert.equal((await seasonal.json()).success, true);
 
-  const oldFarm = await fetch(`${baseUrl}/api/virtual-farm/state?userId=legacy-smoke-user`);
+  const oldFarm = await fetch(`${baseUrl}/api/virtual-farm/state?userId=legacy-smoke-user`, { signal: AbortSignal.timeout(5000) });
   assert.ok(!oldFarm.headers.get('content-type')?.includes('application/json'), 'Old farm API must not remain active.');
 
-  const illustration = await fetch(`${baseUrl}/assets/challenge/oman-date-palm.svg`);
+  const illustration = await fetch(`${baseUrl}/assets/challenge/oman-date-palm.svg`, { signal: AbortSignal.timeout(5000) });
   assert.equal(illustration.status, 200);
   assert.ok((await illustration.text()).includes('نخلة عمانية'));
 
   const score = await fetch(`${baseUrl}/api/scores/submit`, {
+    signal: AbortSignal.timeout(5000),
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -100,11 +100,13 @@ try {
 
   console.log('Server smoke test passed: API, image asset, score verification, legacy farm archive, and retired route.');
 } finally {
-  child.kill('SIGTERM');
-  await new Promise((resolve) => {
-    if (child.exitCode !== null) return resolve();
-    const timeout = setTimeout(resolve, 5000);
-    child.once('exit', () => { clearTimeout(timeout); resolve(); });
+  const exited = new Promise((resolve) => {
+    if (child.exitCode !== null) return resolve(true);
+    child.once('exit', () => resolve(true));
   });
+  child.kill('SIGTERM');
+  const graceful = await Promise.race([exited, new Promise((resolve) => setTimeout(() => resolve(false), 3000))]);
+  if (!graceful && child.exitCode === null) child.kill('SIGKILL');
+  await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 1000))]);
   await rm(tempRoot, { recursive: true, force: true });
 }
