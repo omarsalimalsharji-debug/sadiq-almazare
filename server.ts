@@ -2958,6 +2958,10 @@ app.post('/api/admin/questions', requireAdmin, (req, res) => {
   return res.json({ success: true, question: newQuestion });
 });
 
+function getMuscatDayKey(ts = Date.now()): string {
+  return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Muscat' });
+}
+
 // --- 12. Admin Stats & Audit Logs (Protected by Staff Auth) ---
 app.get('/api/admin/audit-logs', requireStaff, (_req, res) => {
   return res.json({ success: true, logs: storage.auditLogs });
