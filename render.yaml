@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: sadiq-almazare
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /tmp/data
+      - key: MEDIA_STORE_DIR
+        value: /tmp/media_store
+      - key: TRUST_RENDER_CF_IP
+        value: "true"
+      - key: ADMIN_BOOTSTRAP_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+
