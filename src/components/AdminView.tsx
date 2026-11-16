@@ -6,7 +6,6 @@ import {
   Plus,
   Lock,
   MoonStar,
-  Sprout,
   CheckCircle2,
   AlertTriangle,
   KeyRound,
@@ -50,7 +49,6 @@ type AdminTab =
   | 'support'
   | 'security'
   | 'seasonal'
-  | 'virtual_farm'
   | 'broadcast'
   | 'questions'
   | 'audit';
@@ -156,15 +154,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmNewPassword, setConfirmNewPassword] = useState<string>('');
 
-  // Virtual Farm Admin overview
-  const [vfOverview, setVfOverview] = useState<any>(null);
-  const [newCropName, setNewCropName] = useState<string>('');
-  const [newCropSeedCost, setNewCropSeedCost] = useState<number>(35);
-  const [newCropHarvestCoins, setNewCropHarvestCoins] = useState<number>(125);
-  const [newCropStageSec, setNewCropStageSec] = useState<number>(35);
-  const [compTitle, setCompTitle] = useState<string>('');
-  const [compPrize, setCompPrize] = useState<number>(150);
-
   const authHeaders = useCallback(
     (): Record<string, string> => ({
       'Content-Type': 'application/json',
@@ -233,11 +222,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
 
       if (role === 'admin') {
-        const [visRes, modsRes, bwRes, vfRes] = await Promise.all([
+        const [visRes, modsRes, bwRes] = await Promise.all([
           fetch('/api/admin/visitors', { headers: { 'x-admin-token': adminToken } }),
           fetch('/api/admin/moderators', { headers: { 'x-admin-token': adminToken } }),
           fetch('/api/admin/banned-words', { headers: { 'x-admin-token': adminToken } }),
-          fetch('/api/admin/virtual-farm/overview', { headers: { 'x-admin-token': adminToken } }),
         ]);
 
         if (visRes.ok) {
@@ -251,10 +239,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
         if (bwRes.ok) {
           const bwData = await bwRes.json();
           if (bwData.success) setBannedWords(bwData.words || []);
-        }
-        if (vfRes.ok) {
-          const vfData = await vfRes.json();
-          if (vfData.success) setVfOverview(vfData);
         }
       }
     } catch (e) {
@@ -567,106 +551,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setTestResults(results);
   };
 
-  const handleAddCrop = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCropName.trim()) return;
-    try {
-      const res = await fetch('/api/admin/virtual-farm/crops', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({
-          nameAr: newCropName.trim(),
-          seedCostCoins: newCropSeedCost,
-          harvestCoins: newCropHarvestCoins,
-          stageDurationSec: newCropStageSec,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setNewCropName('');
-        setStatusMsg({ ok: true, text: `تم إضافة محصول «${data.crop.nameAr}» للمزرعة الافتراضية!` });
-        fetchAdminData();
-      } else {
-        setStatusMsg({ ok: false, text: data.error || 'تعذر إضافة المحصول.' });
-      }
-    } catch {
-      setStatusMsg({ ok: false, text: 'خطأ في الخادم.' });
-    }
-  };
-
-  const handleUpdateCropDuration = async (cropId: string, sec: number) => {
-    try {
-      const res = await fetch(`/api/admin/virtual-farm/crops/${cropId}`, {
-        method: 'PUT',
-        headers: authHeaders(),
-        body: JSON.stringify({ stageDurationSec: sec }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStatusMsg({ ok: true, text: `تم تحديث مدة مراحل نمو ${data.crop.nameAr} إلى ${sec} ثانية.` });
-        fetchAdminData();
-      }
-    } catch {
-      setStatusMsg({ ok: false, text: 'تعذر تحديث المحصول.' });
-    }
-  };
-
-  const handleUpdatePointRules = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!vfOverview?.pointRules) return;
-    try {
-      const res = await fetch('/api/admin/virtual-farm/point-rules', {
-        method: 'PUT',
-        headers: authHeaders(),
-        body: JSON.stringify(vfOverview.pointRules),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStatusMsg({ ok: true, text: 'تم تحديث قواعد النقاط والحد اليومي بنجاح!' });
-        fetchAdminData();
-      }
-    } catch {
-      setStatusMsg({ ok: false, text: 'تعذر تحديث القواعد.' });
-    }
-  };
-
-  const handleCreateCompetition = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!compTitle.trim()) return;
-    try {
-      const res = await fetch('/api/admin/virtual-farm/competitions', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ title: compTitle.trim(), prizePoints: compPrize, days: 7 }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setCompTitle('');
-        setStatusMsg({ ok: true, text: 'تم إطلاق المسابقة الزراعية الجديدة بنجاح!' });
-        fetchAdminData();
-      }
-    } catch {
-      setStatusMsg({ ok: false, text: 'تعذر إطلاق المسابقة.' });
-    }
-  };
-
-  const handleBanToggle = async (targetUserId: string, ban: boolean, reportId?: string) => {
-    try {
-      const res = await fetch('/api/admin/virtual-farm/ban', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ targetUserId, ban, reportId }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStatusMsg({ ok: true, text: ban ? 'تم إيقاف الحساب المخالف.' : 'تم رفع الإيقاف وإغلاق البلاغ.' });
-        fetchAdminData();
-      }
-    } catch {
-      setStatusMsg({ ok: false, text: 'تعذر تحديث حالة الحساب.' });
-    }
-  };
-
   const liveHijri = computeOmaniHijriState(seasonForm);
   const scenarios = generateSeasonalTestScenarios(
     seasonForm.referenceCalendar,
@@ -705,7 +589,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     { id: 'support', label: `بلاغات ومقترحات المزارعين (${supportTickets.filter((t) => t.status !== 'resolved').length})` },
     { id: 'security', label: 'تغيير كلمة السر', adminOnly: true },
     { id: 'seasonal', label: 'المناسبات والتقويم', adminOnly: true },
-    { id: 'virtual_farm', label: 'مزرعتي الافتراضية', adminOnly: true },
     { id: 'broadcast', label: 'بث التنبيهات', adminOnly: true },
     { id: 'questions', label: 'بنك الأسئلة', adminOnly: true },
     { id: 'audit', label: 'سجل التدقيق' },
@@ -877,11 +760,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
-              <span className="text-stone-400 text-[11px] font-semibold block">المزارع الافتراضية 3D</span>
+              <span className="text-stone-400 text-[11px] font-semibold block">أسئلة التحدي الزراعي</span>
               <span className="text-2xl font-black text-stone-900 dark:text-white font-mono">
-                {stats?.totalVirtualFarms ?? 0}
+                {questionsList.length}
               </span>
-              <span className="text-[10px] text-stone-400 block mt-0.5">بنك الأسئلة: {questionsList.length}</span>
+              <span className="text-[10px] text-stone-400 block mt-0.5">أسئلة متاحة للتحديات</span>
             </div>
           </div>
 
@@ -1522,207 +1405,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   {sc.labelAr}
                 </button>
               ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 6: Virtual Farm Admin Console */}
-      {activeTab === 'virtual_farm' && !isModeratorOnly && !mustChangePassword && (
-        <div className="space-y-6 text-xs">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <form
-              onSubmit={handleAddCrop}
-              className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-3"
-            >
-              <h3 className="font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
-                <Sprout className="w-4 h-4 text-emerald-600" />
-                <span>إضافة محصول جديد في مزرعتي الافتراضية</span>
-              </h3>
-              <input
-                type="text"
-                required
-                value={newCropName}
-                onChange={(e) => setNewCropName(e.target.value)}
-                placeholder="اسم المحصول (مثال: الرمان الجبلي العُماني)"
-                className="min-h-[44px] w-full p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800"
-              />
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-[11px] mb-1">سعر البذور:</label>
-                  <input
-                    type="number"
-                    value={newCropSeedCost}
-                    onChange={(e) => setNewCropSeedCost(Number(e.target.value))}
-                    className="min-h-[44px] w-full p-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] mb-1">عائد الحصاد:</label>
-                  <input
-                    type="number"
-                    value={newCropHarvestCoins}
-                    onChange={(e) => setNewCropHarvestCoins(Number(e.target.value))}
-                    className="min-h-[44px] w-full p-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] mb-1">مدة المرحلة (ث):</label>
-                  <input
-                    type="number"
-                    value={newCropStageSec}
-                    onChange={(e) => setNewCropStageSec(Number(e.target.value))}
-                    className="min-h-[44px] w-full p-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800"
-                  />
-                </div>
-              </div>
-              <button type="submit" className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold">
-                إضافة المحصول واعتماده
-              </button>
-            </form>
-
-            {vfOverview?.pointRules && (
-              <form
-                onSubmit={handleUpdatePointRules}
-                className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-3"
-              >
-                <h3 className="font-bold text-sm text-stone-900 dark:text-white">
-                  ضبط النقاط والحد اليومي (مكافحة الغش)
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[11px] mb-1">الحد الأقصى اليومي للنقاط:</label>
-                    <input
-                      type="number"
-                      value={vfOverview.pointRules.dailyCap}
-                      onChange={(e) =>
-                        setVfOverview({
-                          ...vfOverview,
-                          pointRules: { ...vfOverview.pointRules, dailyCap: Number(e.target.value) },
-                        })
-                      }
-                      className="min-h-[44px] w-full p-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] mb-1">نقاط الحصاد الناجح:</label>
-                    <input
-                      type="number"
-                      value={vfOverview.pointRules.harvest}
-                      onChange={(e) =>
-                        setVfOverview({
-                          ...vfOverview,
-                          pointRules: { ...vfOverview.pointRules, harvest: Number(e.target.value) },
-                        })
-                      }
-                      className="min-h-[44px] w-full p-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800"
-                    />
-                  </div>
-                </div>
-                <button type="submit" className="min-h-[44px] px-4 py-2 rounded-xl bg-stone-900 dark:bg-emerald-700 text-white font-bold">
-                  حفظ قواعد النقاط
-                </button>
-              </form>
-            )}
-          </div>
-
-          {vfOverview?.crops && (
-            <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-3">
-              <h3 className="font-bold text-sm text-stone-900 dark:text-white">
-                المحاصيل المعتمدة ومدد مراحل النمو ({vfOverview.crops.length} محصول)
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {vfOverview.crops.map((c: any) => (
-                  <div key={c.id} className="p-3 rounded-xl border border-stone-200 dark:border-stone-800 flex items-center justify-between">
-                    <div>
-                      <div className="font-bold">{c.nameAr}</div>
-                      <div className="text-[11px] text-stone-500">مرحلة 1: {c.stages?.[0]?.durationSec}ث</div>
-                    </div>
-                    <button
-                      onClick={() => handleUpdateCropDuration(c.id, 20)}
-                      className="min-h-[38px] px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-emerald-600 hover:text-white font-bold"
-                    >
-                      ضبط 20ث
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <form
-              onSubmit={handleCreateCompetition}
-              className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-3"
-            >
-              <h3 className="font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-amber-500" />
-                <span>إطلاق مسابقة موسمية في سلطنة عُمان</span>
-              </h3>
-              <input
-                type="text"
-                required
-                value={compTitle}
-                onChange={(e) => setCompTitle(e.target.value)}
-                placeholder="عنوان المسابقة (مثال: سباق حصاد القمح العُماني)"
-                className="min-h-[44px] w-full p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800"
-              />
-              <input
-                type="number"
-                value={compPrize}
-                onChange={(e) => setCompPrize(Number(e.target.value))}
-                className="min-h-[44px] w-full p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800"
-                placeholder="جائزة النقاط"
-              />
-              <button type="submit" className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold">
-                نشر المسابقة
-              </button>
-            </form>
-
-            <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-3">
-              <h3 className="font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-500" />
-                <span>بلاغات الغش ومراقبة الحسابات ({vfOverview?.farms?.length || 0} مزرعة)</span>
-              </h3>
-              <div className="max-h-48 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800">
-                {(vfOverview?.farms || []).map((f: any) => (
-                  <div key={f.ownerId} className="py-2 flex items-center justify-between">
-                    <div>
-                      <div className="font-bold">{f.ownerName}</div>
-                      <div className="text-[11px] text-stone-500">
-                        {f.points} نقطة · {f.coins} عملة · {f.isBanned ? 'موقوف' : 'نشط'}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleBanToggle(f.ownerId, !f.isBanned)}
-                      className={`min-h-[38px] px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 ${
-                        f.isBanned ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-                      }`}
-                    >
-                      <Ban className="w-3 h-3" />
-                      <span>{f.isBanned ? 'رفع الحظر' : 'إيقاف'}</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
-              {(vfOverview?.reports || []).length > 0 && (
-                <div className="pt-2 border-t border-stone-200 dark:border-stone-800 space-y-1">
-                  <div className="font-bold text-red-600">بلاغات التلاعب المرصودة:</div>
-                  {vfOverview.reports.slice(0, 5).map((rep: any) => (
-                    <div key={rep.id} className="p-2 rounded-lg bg-red-50 dark:bg-red-950/30 flex items-center justify-between">
-                      <span>{rep.targetUserId}: {rep.reason}</span>
-                      {rep.status === 'open' && (
-                        <button
-                          onClick={() => handleBanToggle(rep.targetUserId, true, rep.id)}
-                          className="min-h-[36px] px-2 py-0.5 rounded bg-red-600 text-white font-bold"
-                        >
-                          حظر
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
