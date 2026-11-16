@@ -32,3 +32,19 @@ test('home and farmer challenge remain usable across phone and desktop widths', 
   await page.getByTestId('challenge-answer').first().click();
   await expect(page.getByText('الشرح والتوضيح الزراعي:')).toBeVisible();
 });
+
+test('image challenge displays a local SVG illustration', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: /ابدأ التحدي/ }).first().click();
+
+  const imageChallenge = page.getByRole('heading', { name: 'تعرّف على الصورة' });
+  await expect(imageChallenge).toBeVisible();
+  const card = imageChallenge.locator('xpath=../..');
+  await card.getByRole('button', { name: 'ابدأ التحدي' }).click();
+
+  const illustration = page.locator('figure img').first();
+  await expect(illustration).toBeVisible();
+  const imagePath = new URL(await illustration.getAttribute('src'), page.url()).pathname;
+  expect(imagePath).toMatch(/^\/assets\/challenge\/[^/]+\.svg$/);
+});
