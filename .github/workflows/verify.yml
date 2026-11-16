@@ -38,3 +38,7 @@ jobs:
         run: node scripts/smoke-server.mjs
         env:
           ADMIN_BOOTSTRAP_PASSWORD: Smoke-Only-Not-A-Real-Credential-123!
+      - name: Install Chromium for mobile UI checks
+        run: npx playwright install --with-deps chromium
+      - name: Browser and responsive UI smoke test
+        run: npm run test:ui

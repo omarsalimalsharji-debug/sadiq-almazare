@@ -777,7 +777,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
 
           {/* Question */}
           <div className="space-y-4">
-            <div className="text-base sm:text-lg font-bold text-stone-900 dark:text-white leading-relaxed">
+            <div data-testid="challenge-question" className="text-base sm:text-lg font-bold text-stone-900 dark:text-white leading-relaxed">
               {curQuestion.question}
             </div>
 
@@ -821,6 +821,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
                 return (
                   <button
                     key={optIdx}
+                    data-testid="challenge-answer"
                     disabled={isAnswerSubmitted || isEliminated}
                     onClick={() => handleAnswerOption(optIdx)}
                     className={`w-full p-3.5 rounded-xl border text-right text-xs sm:text-sm transition-all flex items-center justify-between ${optionClass}`}
