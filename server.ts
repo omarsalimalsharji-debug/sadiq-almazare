@@ -2135,19 +2135,40 @@ ${cleanFocus ? `- محور إضافي مطلوب: ${cleanFocus}` : ''}
   }
 });
 
-app.post('/api/scores/submit', (req, res) => {
-  try {
-    const { 
-      userId, 
-      userName, 
-      userGovernorate, 
-      gameType, 
-      answers, 
-      clientNonce 
-    } = req.body;
+async function verifyFirebaseIdToken(idToken: string): Promise<{ localId: string; displayName?: string }> {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8')) as { apiKey?: string };
+  if (!firebaseConfig.apiKey) throw new Error('Firebase web configuration is unavailable');
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseConfig.apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken }),
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!response.ok) throw new Error('Firebase rejected the sign-in token');
+  const result = await response.json() as { users?: Array<{ localId?: string; displayName?: string }> };
+  const identity = result.users?.[0];
+  if (!identity?.localId) throw new Error('Firebase identity is missing');
+  return { localId: identity.localId, displayName: identity.displayName };
+}
 
-    if (!userId || !userName || !answers || !Array.isArray(answers) || !clientNonce) {
+app.post('/api/scores/submit', async (req, res) => {
+  try {
+    const { gameType, answers, clientNonce } = req.body;
+    const authHeader = req.header('authorization') || '';
+    const bearerToken = authHeader.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!Array.isArray(answers) || answers.length < 1 || answers.length > 20 ||
+        typeof clientNonce !== 'string' || clientNonce.length < 8 || clientNonce.length > 120) {
       return res.status(400).json({ error: 'بيانات المشاركة غير مكتملة' });
+    }
+
+    let identity: { localId: string; displayName?: string } | null = null;
+    if (bearerToken) {
+      try {
+        identity = await verifyFirebaseIdToken(bearerToken);
+      } catch {
+        return res.status(401).json({ error: 'انتهت جلسة الدخول أو تعذر التحقق منها. سجّل الدخول مجدداً.' });
+      }
     }
 
     // Anti-cheat replay check
@@ -2162,7 +2183,10 @@ app.post('/api/scores/submit', (req, res) => {
     let maxStreak = 0;
     let streakBonus = 0;
 
+    const seenQuestionIds = new Set<string>();
     for (const ans of answers) {
+      if (!ans || typeof ans.questionId !== 'string' || !Number.isInteger(ans.selectedIndex) || seenQuestionIds.has(ans.questionId)) continue;
+      seenQuestionIds.add(ans.questionId);
       const q =
         aiQuizBank.get(ans.questionId) ||
         storage.questions.find(item => item.id === ans.questionId);
@@ -2191,12 +2215,13 @@ app.post('/api/scores/submit', (req, res) => {
     // Cap single-round verified score to 1200 to align with Firestore anti-cheat delta cap
     verifiedScore = Math.min(1200, verifiedScore);
 
-    const submission = {
+    const practiceOnly = !identity;
+    const submission = identity ? {
       id: `sub-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      userId,
-      userName: userName.trim() || 'مزارع عُماني',
-      userGovernorate: userGovernorate || 'سلطنة عُمان',
-      gameType: gameType || 'all',
+      userId: identity.localId,
+      userName: identity.displayName?.trim() || 'مزارع عُماني',
+      userGovernorate: 'سلطنة عُمان',
+      gameType: typeof gameType === 'string' ? gameType : 'all',
       score: verifiedScore,
       correctCount,
       totalQuestions: answers.length,
@@ -2204,13 +2229,16 @@ app.post('/api/scores/submit', (req, res) => {
       bestStreak: maxStreak,
       timestamp: Date.now(),
       clientNonce
-    };
+    } : null;
 
-    storage.scoreSubmissions.push(submission);
-    saveStorage();
+    if (submission) {
+      storage.scoreSubmissions.push(submission);
+      saveStorage();
+    }
 
     return res.json({
       success: true,
+      practiceOnly,
       verifiedScore,
       correctCount,
       totalQuestions: answers.length,

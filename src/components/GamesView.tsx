@@ -141,7 +141,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
     (initialGameType as GameKey) || null
   );
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
-  const [useAiQuestions, setUseAiQuestions] = useState<boolean>(true);
+  const [useAiQuestions, setUseAiQuestions] = useState<boolean>(false);
   const [topicFocus, setTopicFocus] = useState<string>('');
   const [loadingQuestions, setLoadingQuestions] = useState<boolean>(false);
   const [questionSource, setQuestionSource] = useState<'gemini' | 'bank'>('bank');
@@ -425,13 +425,14 @@ export const GamesView: React.FC<GamesViewProps> = ({
       .substring(2, 7)}`;
 
     try {
+      const authToken = fbUser ? await fbUser.getIdToken() : null;
       const response = await fetch('/api/scores/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
-          userId: user.id,
-          userName: user.name,
-          userGovernorate: `${user.governorate} (${user.wilayat})`,
           gameType: selectedGame,
           answers: answersLog,
           clientNonce,
@@ -477,7 +478,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
   };
 
   const handleConnectGoogleAndSync = async () => {
-    if (!verifiedResult || !selectedGame) return;
+    if (!verifiedResult || verifiedResult.practiceOnly || !selectedGame) return;
     setAuthBusy(true);
     try {
       const signedIn = await signInWithGoogleFarmer();
@@ -571,6 +572,9 @@ export const GamesView: React.FC<GamesViewProps> = ({
                 البنك المحلي السريع
               </button>
             </div>
+            <p className="mt-2 text-[11px] leading-5 text-stone-500 dark:text-stone-400">
+              بنك الأسئلة المحلي يعمل دون طلب توليد خارجي. Gemini اختياري وقد يخضع استخدامه للحصة أو الرسوم المفعّلة في مشروعك؛ يبدأ متوقفاً.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -703,7 +707,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
                   <span className="text-[11px] text-emerald-700 dark:text-emerald-400 block font-semibold">
-                    النقاط المعتمدة
+                    {verifiedResult.practiceOnly ? 'نقاط التدريب' : 'النقاط المعتمدة'}
                   </span>
                   <span className="text-2xl font-black text-emerald-800 dark:text-emerald-300 font-mono">
                     +{verifiedResult.verifiedScore}
@@ -742,9 +746,9 @@ export const GamesView: React.FC<GamesViewProps> = ({
               ) : (
                 <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2.5">
                   <div className="text-xs text-amber-900 dark:text-amber-200">
-                    سجّل الدخول بحساب Google لإدراج هذه الجولة في لوحة المتصدرين الدائمة على Firebase.
+                    {verifiedResult.practiceOnly ? 'هذه جولة تدريبية ولا تدخل لوحة المتصدرين. سجّل الدخول قبل بدء الجولة لتنافس على الترتيب.' : 'سجّل الدخول بحساب Google لإدراج هذه الجولة في لوحة المتصدرين الدائمة.'}
                   </div>
-                  <button
+                  {!verifiedResult.practiceOnly && <button
                     type="button"
                     onClick={handleConnectGoogleAndSync}
                     disabled={authBusy}
@@ -752,7 +756,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
                   >
                     <LogIn className="w-4 h-4" />
                     <span>{authBusy ? 'جاري الربط...' : 'ربط حساب Google وحفظ النقاط'}</span>
-                  </button>
+                  </button>}
                 </div>
               )}
             </div>

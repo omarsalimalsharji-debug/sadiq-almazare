@@ -88,7 +88,12 @@ try {
   assert.equal(score.status, 200);
   const scoreResult = await score.json();
   assert.equal(scoreResult.success, true);
+  assert.equal(scoreResult.practiceOnly, true);
   assert.equal(scoreResult.verifiedScore, 120);
+
+  const leaderboard = await fetch(`${baseUrl}/api/scores/leaderboard`, { signal: AbortSignal.timeout(3000) });
+  const leaderboardResult = await leaderboard.json();
+  assert.equal(leaderboardResult.totalSubmissions, 0, 'A guest result must never enter the public leaderboard');
 
   const persisted = JSON.parse(await readFile(path.join(dataDir, 'storage.json'), 'utf8'));
   assert.deepEqual(persisted.legacyFarmArchive.virtualFarms['legacy-smoke-user'], seedFarm);
