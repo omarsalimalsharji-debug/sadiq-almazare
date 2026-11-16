@@ -9,6 +9,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { spawnSync } from 'child_process';
+import { isIP } from 'node:net';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -52,6 +53,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+const trustedProxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+if (!Number.isInteger(trustedProxyHops) || trustedProxyHops < 0 || trustedProxyHops > 5) {
+  throw new Error('TRUST_PROXY_HOPS must be an integer from 0 to 5.');
+}
+app.set('trust proxy', trustedProxyHops);
+
 app.disable('x-powered-by');
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -62,15 +69,14 @@ app.use((_req, res, next) => {
 });
 
 // Body parser
-app.use(express.json({ limit: '30mb' }));
-app.use(express.urlencoded({ extended: true, limit: '30mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb', parameterLimit: 100 }));
 
 // Lightweight Sliding-Window Rate Limiter (Zero paid external dependencies)
 const apiRateBuckets = new Map<string, number[]>();
 function createRateLimiter(scope: string, maxRequests: number, windowMs: number, messageAr: string) {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const forwarded = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim();
-    const ip = forwarded || req.ip || 'local';
+    const ip = getClientIp(req);
     const key = `${scope}:${ip}`;
     const now = Date.now();
     const history = (apiRateBuckets.get(key) || []).filter((ts) => now - ts < windowMs);
@@ -84,6 +90,14 @@ function createRateLimiter(scope: string, maxRequests: number, windowMs: number,
     apiRateBuckets.set(key, history);
     next();
   };
+}
+
+function getClientIp(req: express.Request): string {
+  const cfConnectingIp = req.headers['cf-connecting-ip'];
+  if (process.env.TRUST_RENDER_CF_IP === 'true' && typeof cfConnectingIp === 'string' && isIP(cfConnectingIp)) {
+    return cfConnectingIp;
+  }
+  return req.ip || req.socket.remoteAddress || 'local';
 }
 
 const aiRateLimit = createRateLimiter(
@@ -110,7 +124,7 @@ const ai = new GoogleGenAI({
 });
 
 // Storage Directory for Persistent Database
-const DATA_DIR = path.resolve(__dirname, 'data');
+const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, 'data'));
 const STORAGE_FILE = path.resolve(DATA_DIR, 'storage.json');
 
 if (!fs.existsSync(DATA_DIR)) {
@@ -136,11 +150,14 @@ function verifyPassword(password: string, record?: { salt: string; hash: string 
   }
 }
 
-// One-time initial bootstrap credential (salted scrypt digest; cleared upon first password change)
-const BOOTSTRAP_ADMIN_CREDENTIAL = {
-  salt: '40ff2fc6b9c21dd12be781cada8d5d8d',
-  hash: '04ab1befeb39bbea7d37ffe18aab3db12d5e2eb17e2113630ba4c4340585111f06e2686907d6c8ca98856105a68be781df13f760107101feeb204fd0710169db',
-};
+// Initial admin access must come from a deployment secret, never a credential baked into a public repository.
+const bootstrapAdminPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+if (process.env.NODE_ENV === 'production' && !bootstrapAdminPassword) {
+  throw new Error('ADMIN_BOOTSTRAP_PASSWORD must be configured before production startup.');
+}
+const BOOTSTRAP_ADMIN_CREDENTIAL = hashPassword(
+  bootstrapAdminPassword || crypto.randomBytes(32).toString('hex')
+);
 
 export interface ModeratorRecord {
   id: string;
@@ -449,6 +466,14 @@ if (fs.existsSync(STORAGE_FILE)) {
       bannedUserIds: parsed.bannedUserIds || [],
       cartoonQaReviews: parsed.cartoonQaReviews && typeof parsed.cartoonQaReviews === 'object' ? parsed.cartoonQaReviews : {}
     };
+    if (!storage.adminAuth.bootstrapConsumed && bootstrapAdminPassword) {
+      storage.adminAuth = {
+        ...BOOTSTRAP_ADMIN_CREDENTIAL,
+        mustChangePassword: true,
+        bootstrapConsumed: false,
+        updatedAt: Date.now(),
+      };
+    }
     // Ensure built-in books (especially the new Samail book) and book crops stay synced
     for (const baseBook of [...INITIAL_BOOKS].reverse()) {
       const existingIdx = storage.books.findIndex((b) => b.id === baseBook.id);
@@ -494,8 +519,7 @@ const LOCKOUT_DURATION_MS = 5 * 60 * 1000;
 const loginAttemptTracker = new Map<string, { failures: number; lockedUntil: number }>();
 
 function getAttemptKey(req: express.Request, scope: string): string {
-  const forwarded = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim();
-  const ip = forwarded || req.ip || 'local';
+  const ip = getClientIp(req);
   return `${scope}:${ip}`;
 }
 
@@ -4281,7 +4305,7 @@ app.post('/api/admin/virtual-farm/ban', requireAdmin, (req, res) => {
 // --- Stage 2: Educational Cartoon Videos ("فليجان" - Flijan) ---
 const cartoonTtsCache = new Map<string, string>();
 
-const MEDIA_STORE_DIR = path.join(__dirname, 'media_store');
+const MEDIA_STORE_DIR = path.resolve(process.env.MEDIA_STORE_DIR || path.join(__dirname, 'media_store'));
 app.use('/media', express.static(MEDIA_STORE_DIR, { maxAge: '7d' }));
 
 function createDefaultQaReview(episodeId: string): EpisodeQaReviewState {
