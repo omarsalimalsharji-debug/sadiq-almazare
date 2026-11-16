@@ -189,7 +189,6 @@ export const GamesView: React.FC<GamesViewProps> = ({
     setVerifiedResult(null);
     setServerError(null);
     setFirebaseSyncStatus('idle');
-    setFirebaseSyncedRound(false);
     setFiftyUsed(false);
     setEliminatedOptions([]);
     setHintUsed(false);
