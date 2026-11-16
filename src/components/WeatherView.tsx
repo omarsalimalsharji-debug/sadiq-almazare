@@ -10,13 +10,16 @@ import {
   Sprout
 } from 'lucide-react';
 import { OMANI_GOVERNORATES } from '../data/agriculturalData.ts';
+import { useLocation } from '../context/LocationContext.tsx';
 
 interface WeatherViewProps {
   defaultGovernorateName?: string;
 }
 
 export const WeatherView: React.FC<WeatherViewProps> = ({ defaultGovernorateName }) => {
+  const { location, agroAdvice } = useLocation();
   const [selectedGovId, setSelectedGovId] = useState<string>(() => {
+    if (location.governorateId) return location.governorateId;
     if (defaultGovernorateName) {
       const match = OMANI_GOVERNORATES.find(
         (g) => g.name.includes(defaultGovernorateName) || defaultGovernorateName.includes(g.name)
@@ -25,6 +28,13 @@ export const WeatherView: React.FC<WeatherViewProps> = ({ defaultGovernorateName
     }
     return 'muscat';
   });
+
+  useEffect(() => {
+    if (location.governorateId) {
+      setSelectedGovId(location.governorateId);
+    }
+  }, [location.governorateId]);
+
   const [liveWeatherData, setLiveWeatherData] = useState<{
     temperature: number;
     humidity: number;
@@ -44,12 +54,21 @@ export const WeatherView: React.FC<WeatherViewProps> = ({ defaultGovernorateName
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const selectedGov = OMANI_GOVERNORATES.find(g => g.id === selectedGovId) || OMANI_GOVERNORATES[0];
+  const isActiveUserLocation = selectedGov.id === location.governorateId;
 
   const loadWeather = useCallback(async (govId: string) => {
     setLoading(true);
     setFetchError(null);
     try {
-      const res = await fetch(`/api/weather/live?govId=${encodeURIComponent(govId)}`);
+      const qs = new URLSearchParams({ govId });
+      if (govId === location.governorateId) {
+        qs.set('lat', String(location.lat));
+        qs.set('lon', String(location.lon));
+        qs.set('wilayatId', location.wilayatId);
+        qs.set('wilayatName', location.wilayat);
+        qs.set('villageName', location.village);
+      }
+      const res = await fetch(`/api/weather/live?${qs.toString()}`);
       const data = await res.json();
       if (res.ok && data.success && data.live) {
         setLiveWeatherData({
@@ -77,7 +96,7 @@ export const WeatherView: React.FC<WeatherViewProps> = ({ defaultGovernorateName
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [location.governorateId, location.lat, location.lon, location.wilayatId, location.wilayat, location.village]);
 
   useEffect(() => {
     loadWeather(selectedGov.id);
@@ -168,9 +187,19 @@ export const WeatherView: React.FC<WeatherViewProps> = ({ defaultGovernorateName
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5">
               {selectedGov.name}
+              {isActiveUserLocation ? ` · ولاية ${location.wilayat}` : ''}
             </h2>
-            <div className="text-xs text-slate-300 mt-1">
-              الولايات التابعة: {selectedGov.wilayat}
+            <div className="text-xs text-slate-300 mt-1 space-y-0.5">
+              <div>
+                {isActiveUserLocation
+                  ? `المنطقة / القرية المحددة: ${location.village} · إحداثيات (${location.lat.toFixed(4)}°N, ${location.lon.toFixed(4)}°E)`
+                  : `الولايات التابعة: ${selectedGov.wilayat}`}
+              </div>
+              {isActiveUserLocation && (
+                <div className="text-[11px] text-emerald-300">
+                  النطاق المناخي: {agroAdvice.labelAr}
+                </div>
+              )}
             </div>
           </div>
 

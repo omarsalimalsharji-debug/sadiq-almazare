@@ -35,6 +35,7 @@ import {
   computeOmaniHijriState
 } from '../utils/islamicCalendar.ts';
 import { TRANSLATIONS } from '../utils/i18n.ts';
+import { useLocation } from '../context/LocationContext.tsx';
 
 interface HomeViewProps {
   onNavigate: (page: ActivePage) => void;
@@ -67,6 +68,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   lang = 'ar'
 }) => {
   const t = TRANSLATIONS[lang];
+  const { location } = useLocation();
   const activeConfig = seasonalConfig || DEFAULT_SEASONAL_CONFIG;
   const activeHijri = hijriState || computeOmaniHijriState(activeConfig);
   const showRamadanTheme = activeHijri.occasion === 'ramadan';
@@ -96,7 +98,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   useEffect(() => {
     let active = true;
-    fetch('/api/weather/live?govId=dakhiliyah')
+    setLoadingWeather(true);
+    const params = new URLSearchParams({
+      govId: location.governorateId,
+      lat: String(location.lat),
+      lon: String(location.lon),
+      wilayatId: location.wilayatId,
+      wilayatName: location.wilayat,
+      villageName: location.village,
+    });
+    fetch(`/api/weather/live?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         if (!active) return;
@@ -116,7 +127,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
     return () => {
       active = false;
     };
-  }, []);
+  }, [
+    location.governorateId,
+    location.lat,
+    location.lon,
+    location.wilayatId,
+    location.wilayat,
+    location.village,
+  ]);
 
   const gregorianDate = lang === 'ar' ? `${activeHijri.gregorianAr} م` : activeHijri.gregorianEn;
   const hijriDate = lang === 'ar' ? activeHijri.formattedAr : activeHijri.formattedEn;
@@ -362,7 +380,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <div>
               <div className="text-[11px] text-slate-500 dark:text-slate-300/75 font-medium">
-                {t.liveWeatherLabel} · {lang === 'ar' ? user.governorate : 'Oman Forecast'}
+                {t.liveWeatherLabel} · {lang === 'ar' ? `${location.governorate} · ولاية ${location.wilayat}` : `${location.governorateEn} · ${location.wilayatEn}`}
               </div>
               {loadingWeather ? (
                 <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-0.5">

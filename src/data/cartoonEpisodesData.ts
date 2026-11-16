@@ -19,7 +19,11 @@ export type CartoonProp =
   | 'magnifying_glass'
   | 'bee'
   | 'sun_shield'
-  | 'fertilizer_bag';
+  | 'fertilizer_bag'
+  | 'dubas_bug';
+
+export type CameraPreset = 'wide' | 'flijan_close' | 'prop_focus' | 'pan_oasis';
+export type AmbientFxType = 'falaj_water' | 'oasis_birds' | 'wind_palms' | 'bees_buzz';
 
 export interface CartoonScene {
   id: string;
@@ -33,6 +37,8 @@ export interface CartoonScene {
   flijanPose: FlijanPose;
   flijanMood: FlijanMood;
   prop: CartoonProp;
+  cameraPreset?: CameraPreset;
+  ambientFx?: AmbientFxType;
 }
 
 export interface CartoonEpisode {
@@ -48,14 +54,8 @@ export interface CartoonEpisode {
   takeaway: string;
   /** 3 concise bullet takeaways displayed in the connected video's summary sequence */
   summaryPoints?: [string, string, string];
-  /** Artwork used for film card poster and connected video backdrop */
+  /** Artwork used for film card poster */
   heroArtwork?: string;
-  /** Produced connected MP4 streams (1080p standard + 480p low bandwidth) */
-  video1080pUrl?: string;
-  video480pUrl?: string;
-  /** Mastered -16 LUFS audio with -13 dB ducked CC0 music */
-  audioMasterUrl?: string;
-  subtitlesVttUrl?: string;
   musicAttribution?: string;
   isCustom?: boolean;
   scenes: CartoonScene[];
@@ -63,22 +63,98 @@ export interface CartoonEpisode {
 
 export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
   {
+    id: 'ep-palm-dubas',
+    title: 'دوباس النخيل: التشخيص المبكر والمكافحة الآمنة في عُمان',
+    category: 'وقاية النخيل',
+    durationLabel: '0:54 د · تفاعلي مباشر',
+    takeaway: 'تفقّد السعف والندوة العسلية مبكراً في الربيع والخريف، واعتمد التقليم والرش الآمن لحماية النخلة.',
+    summaryPoints: [
+      'افحص باطن السعف الحديث لاكتشاف حوريات الدوباس والندوة العسلية مبكراً',
+      'قلّم السعف الكثيف وأزل الحشائش لزيادة التهوية وأشعة الشمس بين النخيل',
+      'التزم بتوصيات المرشد الزراعي والمبيدات المصرّح بها وفق المرسوم 160/2023',
+    ],
+    heroArtwork: '/assets/aistudio/1794816965473_a524a589.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان المحدّثة وصوت استوديو بالذكاء الصوتي — صديق المزارع',
+    scenes: [
+      {
+        id: 'hook',
+        sceneHeading: 'مراقبة بساتين النخيل',
+        narration:
+          'حيّاكم الله يا أهل النخل والخير في عُمان! معكم فليجان، واليوم نتعرف معاً على عدوّ خفي يصيب السعف ويضعف الثمر: حشرة دوباس النخيل.',
+        vocalizedNarration:
+          'حَيَّاكُمُ اللَّهُ يَا أَهْلَ النَّخْلِ وَالْخَيْرِ فِي عُمَانَ! مَعَكُمْ فْلَيْجَانُ، وَالْيَوْمَ نَتَعَرَّفُ مَعاً عَلَى عَدُوٍّ خَفِيٍّ يُصِيبُ السَّعَفَ وَيُضْعِفُ الثَّمَرَ: حَشَرَةُ دُوبَاسِ النَّخِيلِ.',
+        subtitle:
+          'حيّاكم الله! اليوم يكشف فليجان كيف نكتشف دوباس النخيل مبكراً ونحمي مزارعنا.',
+        backdrop: 'palm_grove',
+        flijanPose: 'wave',
+        flijanMood: 'happy',
+        prop: 'dubas_bug',
+        cameraPreset: 'wide',
+        ambientFx: 'oasis_birds',
+      },
+      {
+        id: 'problem',
+        sceneHeading: 'علامات الندوة العسلية',
+        narration:
+          'تنشط حوريات الدوباس في الجيلين الربيعي والخريفي، وتمتص عصارة الخوص وتفرز ندوة عسلية لامعة تجذب الغبار والعفن الأسود وتُجهد النخلة.',
+        vocalizedNarration:
+          'تَنْشَطُ حُورِيَّاتُ الدُّوبَاسِ فِي الْجِيلَيْنِ الرَّبِيعِيِّ وَالْخَرِيفِيِّ، وَتَمْتَصُّ عُصَارَةَ الْخُوصِ وَتُفْرِزُ نَدْوَةً عَسَلِيَّةً لَامِعَةً تَجْذِبُ الْغُبَارَ وَالْعَفَنَ الْأَسْوَدَ وَتُجْهِدُ النَّخْلَةَ.',
+        subtitle:
+          'اللمعان اللزج والندوة العسلية أسفل السعف مؤشر واضح على بداية إصابة الدوباس.',
+        backdrop: 'palm_grove',
+        flijanPose: 'inspect',
+        flijanMood: 'warning',
+        prop: 'magnifying_glass',
+        cameraPreset: 'prop_focus',
+        ambientFx: 'wind_palms',
+      },
+      {
+        id: 'solution',
+        sceneHeading: 'الوقاية الزراعية والمكافحة الآمنة',
+        narration:
+          'تبدأ الوقاية بتقليم السعف اليابس وتوسيع المسافات لدخول الشمس والهواء، ومع الإصابات النشطة ننسق مع دائرة التنمية الزراعية لاستخدام المعاملات المصرح بها والمأمونة للنحل.',
+        vocalizedNarration:
+          'تَبْدَأُ الْوِقَايَةُ بِتَقْلِيمِ السَّعَفِ الْيَابِسِ وَتَوْسِيعِ الْمَسَافَاتِ لِدُخُولِ الشَّمْسِ وَالْهَوَاءِ، وَمَعَ الْإِصَابَاتِ النَّشِطَةِ نُنَسِّقُ مَعَ دَائِرَةِ التَّنْمِيَةِ الزِّرَاعِيَةِ لِاسْتِخْدَامِ الْمُعَامَلَاتِ الْمُصَرَّحِ بِهَا وَالْمَأْمُونَةِ لِلنَّحْلِ.',
+        subtitle:
+          'التقليم وفتح الإضاءة والرش الآمن حسب إرشادات الوزارة توقف انتشار الدوباس.',
+        backdrop: 'oasis_falaj',
+        flijanPose: 'explain',
+        flijanMood: 'curious',
+        prop: 'sun_shield',
+        cameraPreset: 'flijan_close',
+        ambientFx: 'falaj_water',
+      },
+      {
+        id: 'summary',
+        sceneHeading: 'نخيل نظيف ومحصول وفير',
+        narration:
+          'تذكّر يا مزارعنا البطل: فحص مبكر في الربيع والخريف، تهوية جيدة لقلب النخلة، وحماية كاملة للبيئة والنحل لموسم رطب وتمر وافر بإذن الله.',
+        vocalizedNarration:
+          'تَذَكَّرْ يَا مُزَارِعَنَا الْبَطَلُ: فَحْصٌ مُبَكِّرٌ فِي الرَّبِيعِ وَالْخَرِيفِ، تَهْوِيَةٌ جَيِّدَةٌ لِقَلْبِ النَّخْلَةِ، وَحِمَايَةٌ كَامِلَةٌ لِلْبِيئَةِ وَالنَّحْلِ لِمَوْسِمِ رُطَبٍ وَتَمْرٍ وَافِرٍ بِإِذْنِ اللَّهِ.',
+        subtitle:
+          'فحص مبكر، تقليم متوازن، ومكافحة مأمونة تضمن نخيلاً قوياً وإنتاجاً وفيراً.',
+        backdrop: 'palm_grove',
+        flijanPose: 'celebrate',
+        flijanMood: 'proud',
+        prop: 'palm_tree',
+        cameraPreset: 'pan_oasis',
+        ambientFx: 'oasis_birds',
+      },
+    ],
+  },
+  {
     id: 'ep-falaj-drip',
     title: 'حكاية الرّي بالتنقيط وأفلاج عُمان',
     category: 'الري والأفلاج',
-    durationLabel: '0:58 د',
+    durationLabel: '0:58 د · تفاعلي مباشر',
     takeaway: 'الري بالتنقيط في الصباح الباكر يوفر حتى 45% من الماء ويحمي الجذور.',
     summaryPoints: [
       'ارْوِ نباتاتك فجراً أو مساءً لتفادي التبخر الحار',
       'وجّه النقاطات مباشرة نحو منطقة الجذور لا الممرات',
       'وفّر قرابة 45% من مياه الفلج وحافظ على خضرة المزرعة',
     ],
-    heroArtwork: '/media/posters/oman_falaj_drip.jpg',
-    video1080pUrl: '/media/videos/ep-falaj-drip-1080p.mp4',
-    video480pUrl: '/media/videos/ep-falaj-drip-480p.mp4',
-    audioMasterUrl: '/media/audio/ep-falaj-drip-master.mp3',
-    subtitlesVttUrl: '/media/subtitles/ep-falaj-drip.vtt',
-    musicAttribution: 'موسيقى هادئة أصلية مرخّصة للمشاع الإبداعي (CC0 1.0) — صديق المزارع',
+    heroArtwork: '/assets/images/hero_oman_farm.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية ومؤثرات الفلج الطبيعية — صديق المزارع',
     scenes: [
       {
         id: 'hook',
@@ -93,6 +169,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         flijanPose: 'wave',
         flijanMood: 'happy',
         prop: 'water_drop',
+        cameraPreset: 'pan_oasis',
+        ambientFx: 'falaj_water',
       },
       {
         id: 'problem',
@@ -142,19 +220,15 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
     id: 'ep-palm-weevil',
     title: 'حماية النخيل من السوسة الحمراء',
     category: 'وقاية النخيل',
-    durationLabel: '1:02 د',
+    durationLabel: '1:02 د · تفاعلي مباشر',
     takeaway: 'افحص قاعدة الجذع أسبوعياً وعالج جروح التقليم فوراً لحماية النخلة.',
     summaryPoints: [
       'افحص قاعدة الجذع والفسائل كل أسبوع بحثاً عن نشارة رطبة',
       'أغلق جروح التقليم وفصل الفسائل فوراً بمادة مطهرة',
       'ثبّت المصائد الفيرمونية بعيداً وأبلغ المرشد عند الاشتباه',
     ],
-    heroArtwork: '/media/posters/oman_palm_weevil_care.jpg',
-    video1080pUrl: '/media/videos/ep-palm-weevil-1080p.mp4',
-    video480pUrl: '/media/videos/ep-palm-weevil-480p.mp4',
-    audioMasterUrl: '/media/audio/ep-palm-weevil-master.mp3',
-    subtitlesVttUrl: '/media/subtitles/ep-palm-weevil.vtt',
-    musicAttribution: 'موسيقى هادئة أصلية مرخّصة للمشاع الإبداعي (CC0 1.0) — صديق المزارع',
+    heroArtwork: '/assets/aistudio/1794816965473_a524a589.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية ومؤثرات بيئية حية — صديق المزارع',
     scenes: [
       {
         id: 'hook',
@@ -218,19 +292,15 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
     id: 'ep-powdery-mildew',
     title: 'وداعاً للبياض الدقيقي في البيوت المحمية',
     category: 'البيوت المحمية',
-    durationLabel: '0:56 د',
+    durationLabel: '0:56 د · تفاعلي مباشر',
     takeaway: 'التهوية الجيدة والرش العضوي بزيت النيم أو البيكربونات يوقفان البياض الدقيقي.',
     summaryPoints: [
       'افتح شبابيك التهوية يومياً لتقليل الرطوبة الراكدة',
       'قلّم الأوراق السفلية المتزاحمة لتنفس النباتات',
       'رش زيت النيم أو بيكربونات البوتاسيوم في الصباح الباكر',
     ],
-    heroArtwork: '/media/posters/oman_greenhouse_care.jpg',
-    video1080pUrl: '/media/videos/ep-powdery-mildew-1080p.mp4',
-    video480pUrl: '/media/videos/ep-powdery-mildew-480p.mp4',
-    audioMasterUrl: '/media/audio/ep-powdery-mildew-master.mp3',
-    subtitlesVttUrl: '/media/subtitles/ep-powdery-mildew.vtt',
-    musicAttribution: 'موسيقى هادئة أصلية مرخّصة للمشاع الإبداعي (CC0 1.0) — صديق المزارع',
+    heroArtwork: '/assets/images/plant_diagnosis_lab.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية ومؤثرات بيئية حية — صديق المزارع',
     scenes: [
       {
         id: 'hook',
@@ -294,19 +364,15 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
     id: 'ep-protect-bees',
     title: 'حماية نحل العسل العُماني عند مكافحة الآفات',
     category: 'مكافحة الآفات',
-    durationLabel: '0:59 د',
+    durationLabel: '0:59 د · تفاعلي مباشر',
     takeaway: 'تجنب الرش وقت تفتح الأزهار ونفذ الرش المسائي بعد غروب الشمس لحماية النحل.',
     summaryPoints: [
       'أوقف أي رش حشري نهاراً أثناء تفتح الأزهار ونشاط النحل',
       'اختر المكافحة الحيوية أولاً وتنسيق مواعيد الرش مع النحالين',
       'نفّذ الرش الضروري مساءً بعد غروب الشمس وعودة النحل للخلايا',
     ],
-    heroArtwork: '/media/posters/oman_honeybee_orchard.jpg',
-    video1080pUrl: '/media/videos/ep-protect-bees-1080p.mp4',
-    video480pUrl: '/media/videos/ep-protect-bees-480p.mp4',
-    audioMasterUrl: '/media/audio/ep-protect-bees-master.mp3',
-    subtitlesVttUrl: '/media/subtitles/ep-protect-bees.vtt',
-    musicAttribution: 'موسيقى هادئة أصلية مرخّصة للمشاع الإبداعي (CC0 1.0) — صديق المزارع',
+    heroArtwork: '/assets/images/hero_oman_farm.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية وصوت طنين المنحل العُماني — صديق المزارع',
     scenes: [
       {
         id: 'hook',
@@ -370,19 +436,15 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
     id: 'ep-summer-fertilizer',
     title: 'التسميد المتوازن وحماية الجذور في الحر',
     category: 'التسميد والتربة',
-    durationLabel: '0:57 د',
+    durationLabel: '0:57 د · تفاعلي مباشر',
     takeaway: 'قسّم السماد لجرعات صغيرة مع الري البارد وتجنب التسميد الكيميائي في ذروة الصيف.',
     summaryPoints: [
       'أضف السماد العضوي المتحلل لتحسين احتفاظ التربة بالرطوبة',
       'قسّم الجرعات إلى دفعات خفيفة أسبوعية بدل دفعة ثقيلة',
       'اروِ التربة بماء بارد أولاً في الصباح قبل التسميد',
     ],
-    heroArtwork: '/media/posters/oman_soil_compost.jpg',
-    video1080pUrl: '/media/videos/ep-summer-fertilizer-1080p.mp4',
-    video480pUrl: '/media/videos/ep-summer-fertilizer-480p.mp4',
-    audioMasterUrl: '/media/audio/ep-summer-fertilizer-master.mp3',
-    subtitlesVttUrl: '/media/subtitles/ep-summer-fertilizer.vtt',
-    musicAttribution: 'موسيقى هادئة أصلية مرخّصة للمشاع الإبداعي (CC0 1.0) — صديق المزارع',
+    heroArtwork: '/assets/images/plant_diagnosis_lab.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية ومؤثرات بيئية حية — صديق المزارع',
     scenes: [
       {
         id: 'hook',

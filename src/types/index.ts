@@ -34,6 +34,7 @@ export interface UserProfile {
   role: 'مزارع' | 'مهندس زراعي' | 'مرشد زراعي' | 'مشرف' | 'مدير التطبيق';
   governorate: string;
   wilayat: string;
+  village?: string;
   avatarSeed: string;
   totalScore: number;
   participations: number;

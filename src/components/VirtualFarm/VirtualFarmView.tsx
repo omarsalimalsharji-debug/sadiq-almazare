@@ -7,14 +7,8 @@ import {
   Trophy,
   BookOpen,
   Bot,
-  Bell,
-  BellOff,
-  RefreshCw,
-  Gift,
   ChevronDown,
   ChevronUp,
-  Volume2,
-  VolumeX,
   Thermometer,
   Wind,
   SunMedium,
@@ -34,9 +28,6 @@ import {
   Camera,
   Send,
   Award,
-  CalendarDays,
-  FastForward,
-  ShieldCheck,
   Gamepad2,
   Footprints,
   Store,
@@ -46,14 +37,18 @@ import {
   TrendingUp,
   Heart,
   Home,
+  Wrench,
+  BarChart3,
 } from 'lucide-react';
 import { UserProfile } from '../../types/index.ts';
+import { useLocation } from '../../context/LocationContext.tsx';
 import {
   VIRTUAL_CROPS,
   VIRTUAL_SHOP_ITEMS,
   FARM_ACHIEVEMENTS,
   FARM_LIVESTOCK_DEFS,
   FARM_BUILDING_DEFS,
+  FARM_TOOL_UPGRADES,
   VirtualCropDef,
   VirtualShopItem,
 } from '../../data/virtualFarmData.ts';
@@ -66,6 +61,9 @@ import {
   FarmVisualCommand,
 } from './FarmScene3D.tsx';
 import { FarmerAnimMode } from './OmaniModels3D.ts';
+import { FarmResourceHud } from './FarmResourceHud.tsx';
+import { FarmFlijanAdvisorBar } from './FarmFlijanAdvisorBar.tsx';
+import { playFarmSound } from '../../utils/farmSoundEffects.ts';
 
 interface VirtualFarmViewProps {
   user: UserProfile;
@@ -85,89 +83,37 @@ type ActiveModal =
   | 'market'
   | 'quests';
 
-type FarmSoundKind = 'action' | 'water' | 'plow' | 'plant' | 'harvest' | 'cow' | 'warn';
+const FLIJAN_AVATAR_URL = '/assets/aistudio/1794816965473_a524a589.jpg';
 
-// Rich procedural Web Audio API game SFX (Zero 404 external audio files)
-function playFarmTone(kind: FarmSoundKind, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined') return;
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+const CROP_EMOJIS: Record<string, string> = {
+  faradh_palm: '🌴',
+  omani_cucumber: '🥒',
+  tomato: '🍅',
+  onion: '🧅',
+  garlic: '🧄',
+  omani_wheat: '🌾',
+  sesame: '🌼',
+  potato: '🥔',
+  omani_lemon: '🍋',
+  omani_mango: '🥭',
+  omani_banana: '🍌',
+  watermelon: '🍉',
+  omani_alfalfa: '🌿',
+};
 
-    const now = ctx.currentTime;
-    if (kind === 'harvest') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(523.25, now);
-      osc.frequency.setValueAtTime(659.25, now + 0.08);
-      osc.frequency.setValueAtTime(783.99, now + 0.16);
-      osc.frequency.setValueAtTime(1046.5, now + 0.25);
-      gain.gain.setValueAtTime(0.13, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-      osc.start(now);
-      osc.stop(now + 0.46);
-    } else if (kind === 'water') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(320, now);
-      osc.frequency.linearRampToValueAtTime(640, now + 0.12);
-      osc.frequency.linearRampToValueAtTime(480, now + 0.24);
-      gain.gain.setValueAtTime(0.09, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
-      osc.start(now);
-      osc.stop(now + 0.29);
-    } else if (kind === 'plow') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(160, now);
-      osc.frequency.exponentialRampToValueAtTime(85, now + 0.16);
-      gain.gain.setValueAtTime(0.14, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-      osc.start(now);
-      osc.stop(now + 0.19);
-    } else if (kind === 'plant') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(410, now);
-      osc.frequency.setValueAtTime(590, now + 0.07);
-      gain.gain.setValueAtTime(0.09, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-      osc.start(now);
-      osc.stop(now + 0.21);
-    } else if (kind === 'cow') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(145, now);
-      osc.frequency.linearRampToValueAtTime(170, now + 0.14);
-      osc.frequency.linearRampToValueAtTime(128, now + 0.34);
-      gain.gain.setValueAtTime(0.055, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
-      osc.start(now);
-      osc.stop(now + 0.37);
-    } else if (kind === 'warn') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(220, now);
-      osc.frequency.setValueAtTime(180, now + 0.1);
-      gain.gain.setValueAtTime(0.06, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-      osc.start(now);
-      osc.stop(now + 0.26);
-    } else {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(440, now);
-      osc.frequency.exponentialRampToValueAtTime(640, now + 0.09);
-      gain.gain.setValueAtTime(0.075, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
-      osc.start(now);
-      osc.stop(now + 0.14);
-    }
-    setTimeout(() => ctx.close().catch(() => {}), 550);
-  } catch {
-    // Ignore audio context restrictions
-  }
-}
+const CAMERA_LABELS: Array<[FarmCameraPreset, string]> = [
+  ['overview', 'شامل'],
+  ['farmer', 'المزارع'],
+  ['field', 'الحقل'],
+  ['pasture', 'الحظيرة'],
+  ['greenhouse', 'المحمي'],
+  ['falaj', 'الفلج'],
+  ['apiary', 'المنحل'],
+  ['market', 'السوق'],
+];
 
-export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
+export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user, onPointsChanged }) => {
+  const { location } = useLocation();
   const [farm, setFarm] = useState<any>(null);
   const [crops, setCrops] = useState<VirtualCropDef[]>(VIRTUAL_CROPS);
   const [selectedPlotId, setSelectedPlotId] = useState<string>('plot-0');
@@ -179,12 +125,16 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(true);
   const [joystickEnabled, setJoystickEnabled] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [flijanOpen, setFlijanOpen] = useState<boolean>(true);
+  const [flijanSpeaking, setFlijanSpeaking] = useState<boolean>(false);
+  const [flijanCustomMsg, setFlijanCustomMsg] = useState<string | null>(null);
   const [fertChoice, setFertChoice] = useState<'fert_organic' | 'fert_npk'>('fert_organic');
   const [nearbyTarget, setNearbyTarget] = useState<NearbyFarmTarget | null>(null);
   const [visualCommand, setVisualCommand] = useState<FarmVisualCommand | null>(null);
   const cmdNonceRef = useRef<number>(1);
+  const flijanAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 60fps Virtual Thumb Joystick refs (mutated directly without React re-renders)
+  // 60fps Virtual Thumb Joystick refs
   const moveInputRef = useRef<MoveVector2>({ x: 0, y: 0 });
   const joyPadRef = useRef<HTMLDivElement | null>(null);
   const thumbKnobRef = useRef<HTMLDivElement | null>(null);
@@ -193,11 +143,13 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
   const [toast, setToast] = useState<{ type: 'ok' | 'warn' | 'err'; text: string } | null>(null);
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
-  // Server time offset for exact real-time stage countdowns
+  // Server time offset
   const [serverOffsetMs, setServerOffsetMs] = useState<number>(0);
   const [tickNow, setTickNow] = useState<number>(Date.now());
 
   // Sub-modals state
+  const [seedCategoryFilter, setSeedCategoryFilter] = useState<string>('all');
+  const [shopTab, setShopTab] = useState<'supplies' | 'tools'>('supplies');
   const [guideCropId, setGuideCropId] = useState<string>('faradh_palm');
   const [advisorPrompt, setAdvisorPrompt] = useState<string>('');
   const [advisorReply, setAdvisorReply] = useState<string | null>(null);
@@ -209,7 +161,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
     competitions: any[];
   }>({ leaderboard: [], friendships: [], competitions: [] });
   const [boardTab, setBoardTab] = useState<'all' | 'weekly' | 'monthly'>('all');
-  const [marketTab, setMarketTab] = useState<'sell' | 'buildings'>('sell');
+  const [marketTab, setMarketTab] = useState<'sell' | 'buildings' | 'stats'>('sell');
 
   const showToast = useCallback((type: 'ok' | 'warn' | 'err', text: string) => {
     setToast({ type, text });
@@ -218,13 +170,80 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
     }, 4500);
   }, []);
 
+  const stopFlijanVoice = useCallback(() => {
+    if (flijanAudioRef.current) {
+      flijanAudioRef.current.pause();
+      flijanAudioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setFlijanSpeaking(false);
+  }, []);
+
+  const speakFlijanTip = useCallback(
+    async (text: string) => {
+      stopFlijanVoice();
+      if (!text.trim()) return;
+      setFlijanSpeaking(true);
+      try {
+        const res = await fetch('/api/cartoon/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            mood: 'cheerful',
+          }),
+        });
+        if (!res.ok) throw new Error('TTS unavailable');
+        const data = await res.json();
+        const audioSrc = data?.audioBase64
+          ? `data:${data.mimeType || 'audio/wav'};base64,${data.audioBase64}`
+          : data?.audioUrl;
+        if (audioSrc) {
+          const audio = new Audio(audioSrc);
+          flijanAudioRef.current = audio;
+          audio.onended = () => {
+            setFlijanSpeaking(false);
+            flijanAudioRef.current = null;
+          };
+          audio.onerror = () => {
+            setFlijanSpeaking(false);
+            flijanAudioRef.current = null;
+          };
+          await audio.play();
+          return;
+        }
+      } catch {
+        // Fallback to browser Arabic speech synthesis if available
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = 'ar-OM';
+          utter.rate = 0.96;
+          utter.onend = () => setFlijanSpeaking(false);
+          utter.onerror = () => setFlijanSpeaking(false);
+          window.speechSynthesis.speak(utter);
+          return;
+        }
+      }
+      setFlijanSpeaking(false);
+    },
+    [stopFlijanVoice]
+  );
+
+  useEffect(() => {
+    return () => {
+      stopFlijanVoice();
+    };
+  }, [stopFlijanVoice]);
+
   const updateJoystickFromPointer = (clientX: number, clientY: number) => {
     const pad = joyPadRef.current;
     if (!pad) return;
     const rect = pad.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const maxR = Math.max(24, rect.width * 0.36);
+    const maxR = Math.max(20, rect.width * 0.36);
 
     let dx = clientX - cx;
     let dy = clientY - cy;
@@ -256,7 +275,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
       const qs = new URLSearchParams({
         userId: user.id,
         userName: user.name,
-        governorate: user.governorate,
+        governorate: location.governorate || user.governorate,
       });
       const res = await fetch(`/api/virtual-farm/state?${qs.toString()}`);
       const data = await res.json();
@@ -268,11 +287,11 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
         showToast('err', data.error);
       }
     } catch {
-      showToast('err', 'تعذر مزامنة بيانات المزرعة مع الخادم.');
+      if (!silent) showToast('err', 'تعذر مزامنة بيانات المزرعة مع الخادم.');
     } finally {
       setLoading(false);
     }
-  }, [user.id, user.name, user.governorate]);
+  }, [user.id, user.name, user.governorate, location.governorate, showToast]);
 
   const fetchSocial = useCallback(async () => {
     try {
@@ -310,7 +329,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
         body: JSON.stringify({
           userId: user.id,
           userName: user.name,
-          governorate: user.governorate,
+          governorate: location.governorate || user.governorate,
           action,
           plotId,
           payload,
@@ -318,25 +337,54 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        playFarmTone('warn', soundEnabled);
+        playFarmSound('warn', soundEnabled);
         showToast('err', data.error || 'تعذر تنفيذ العملية.');
         return false;
       }
 
       setFarm(data.farm);
       if (data.serverTime) setServerOffsetMs(data.serverTime - Date.now());
+      if (onPointsChanged) onPointsChanged();
 
       if (data.warning) {
-        playFarmTone('warn', soundEnabled);
+        playFarmSound('warn', soundEnabled);
         showToast('warn', data.warning);
+        setFlijanCustomMsg(data.warning);
       } else if (data.feedback) {
-        if (action === 'harvest' || action === 'claim_quest' || action === 'sell_market') playFarmTone('harvest', soundEnabled);
-        else if (action === 'irrigate' || action === 'collect_falaj') playFarmTone('water', soundEnabled);
-        else if (action === 'plow' || action === 'level_soil' || action === 'upgrade_building') playFarmTone('plow', soundEnabled);
-        else if (action === 'plant') playFarmTone('plant', soundEnabled);
-        else if (action === 'feed_livestock' || action === 'collect_livestock') playFarmTone('cow', soundEnabled);
-        else playFarmTone('action', soundEnabled);
+        if (action === 'harvest' || action === 'claim_quest') {
+          playFarmSound('harvest', soundEnabled);
+        } else if (action === 'sell_market' || action === 'daily_login') {
+          playFarmSound('coin', soundEnabled);
+        } else if (action === 'upgrade_tool' || action === 'upgrade_building' || action === 'buy_item') {
+          playFarmSound('upgrade', soundEnabled);
+        } else if (action === 'irrigate' || action === 'collect_falaj') {
+          playFarmSound('water', soundEnabled);
+        } else if (action === 'plow') {
+          playFarmSound('plow', soundEnabled);
+        } else if (action === 'level_soil') {
+          playFarmSound('level_soil', soundEnabled);
+        } else if (action === 'plant') {
+          playFarmSound('plant', soundEnabled);
+        } else if (action === 'fertilize') {
+          playFarmSound('fertilize', soundEnabled);
+        } else if (action === 'weed' || action === 'prune') {
+          playFarmSound('weed', soundEnabled);
+        } else if (action === 'pest_control') {
+          playFarmSound('pest_control', soundEnabled);
+        } else if (action === 'feed_livestock' || action === 'collect_livestock') {
+          playFarmSound('cow', soundEnabled);
+        } else {
+          playFarmSound('action', soundEnabled);
+        }
+
         showToast('ok', data.feedback);
+        if (action === 'harvest') {
+          setFlijanCustomMsg('ما شاء الله! مبارك لك الحصاد الوفير يا بطل — تقدر تبيع المحصول الآن في السوق!');
+        } else if (action === 'upgrade_tool') {
+          setFlijanCustomMsg('تطوير ممتاز للمعدات! ستلاحظ سرعة وتوفيراً أكبر في مزرعتك.');
+        } else {
+          setFlijanCustomMsg(null);
+        }
       }
 
       const animMap: Record<string, FarmerAnimMode> = {
@@ -353,6 +401,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
         collect_livestock: 'collect_livestock',
         sell_market: 'sell_market',
         upgrade_building: 'upgrade_building',
+        upgrade_tool: 'upgrade_building',
       };
       const animMode = animMap[action];
       if (animMode) {
@@ -389,6 +438,10 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
           health: plot?.health,
           pestType: plot?.pestType,
           greenhouseTemp: farm?.greenhouseTemp,
+          governorate: location.governorate,
+          wilayat: location.wilayat,
+          village: location.village,
+          agroZone: location.agroZone,
           userQuestion: customQ || advisorPrompt || 'ما هي أفضل خطوة أعملها الآن لهذا المحصول؟',
         }),
       });
@@ -426,12 +479,14 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
   if (loading && !farm) {
     return (
-      <div className="max-w-5xl mx-auto p-10 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-center space-y-3">
-        <Sprout className="w-10 h-10 text-emerald-600 mx-auto" />
-        <div className="font-bold text-base text-stone-900 dark:text-white">
-          جاري تجهيز مزرعتك العُمانية ثلاثية الأبعاد...
-        </div>
-        <p className="text-xs text-stone-500">مزامنة النمو الحقيقي للتربة والمحاصيل من الخادم</p>
+      <div className="max-w-4xl mx-auto p-8 rounded-3xl bg-[#132247] border border-sky-400/20 text-center space-y-3 text-white">
+        <img
+          src={FLIJAN_AVATAR_URL}
+          alt="فليجان"
+          className="w-16 h-16 rounded-full object-cover object-top mx-auto border-2 border-emerald-400"
+        />
+        <div className="font-bold text-base">جاري تجهيز مزرعتك العُمانية ثلاثية الأبعاد...</div>
+        <p className="text-xs text-sky-200/80">مزامنة النمو الحقيقي للتربة والمحاصيل من الخادم</p>
       </div>
     );
   }
@@ -477,10 +532,13 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
     !!selectedCrop && selectedPlot.stageIndex >= selectedCrop.stages.length - 1;
 
   const unreadNotifs = (farm.notifications || []).filter((n: any) => !n.isRead).length;
-  const claimableQuestsCount = (farm.quests || []).filter((q: any) => !q.claimed && (q.progress || 0) >= (q.target || 1)).length;
+  const claimableQuestsCount = (farm.quests || []).filter(
+    (q: any) => !q.claimed && (q.progress || 0) >= (q.target || 1)
+  ).length;
   const totalWarehouseCount =
     Object.values(farm.warehouse?.crops || {}).reduce((s: number, v: any) => s + Number(v || 0), 0) +
     Object.values(farm.warehouse?.goods || {}).reduce((s: number, v: any) => s + Number(v || 0), 0);
+  const waterPct = Math.min(100, Math.round(((farm.waterLiters || 0) / Math.max(1, farm.maxWaterLiters || 300)) * 100));
   const todayKey = new Date(estServerNow).toLocaleDateString('en-CA', { timeZone: 'Asia/Muscat' });
   const canClaimDaily = farm.lastDailyLoginKey !== todayKey;
 
@@ -491,291 +549,119 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
   });
 
   const guideCrop = crops.find((c) => c.id === guideCropId) || crops[0];
+  const filteredSeedCrops =
+    seedCategoryFilter === 'all'
+      ? crops
+      : crops.filter((c) => c.category === seedCategoryFilter);
+
+  // Live contextual Omani guide dialogue for Flijan
+  const computeFlijanTip = (): string => {
+    if (flijanCustomMsg) return flijanCustomMsg;
+    if (!selectedPlot.isUnlocked) {
+      return `يا هلا ${farm.ownerName.split(' ')[0]}! القطعة #${selectedPlot.plotIndex + 1} مقفلة حالياً، افتحها لزيادة دخلك وإنتاجك.`;
+    }
+    if (!selectedPlot.cropId) {
+      if (!selectedPlot.soilPrepared) {
+        return `القطعة #${selectedPlot.plotIndex + 1} جاهزة للتجهيز! اضغط زر «حرث» لتقليب التربة وتهويتها.`;
+      }
+      if (!selectedPlot.soilLeveled) {
+        return 'أحسنت في الحرث! الخطوة التالية هي «تسوية التربة» قبل وضع البذور.';
+      }
+      return 'التربة مستوية ومثالية الآن! افتح «متجر البذور» واختر محصولاً عُمانياً لزراعته.';
+    }
+    if (isHarvestReady) {
+      return `بشائر الخير! محصول ${selectedCrop?.nameAr} نضج بالكامل — اضغط «حصاد» واجمع أرباحك!`;
+    }
+    if (selectedPlot.pestType) {
+      return `انتبه! ظهرت آفة «${selectedPlot.pestType}» — عالجها فوراً بمستخلص النيم الآمن للنحل!`;
+    }
+    if (selectedPlot.moisture > 90) {
+      return 'تحذير! الرطوبة مرتفعة جداً (>90%)، أوقف الري مؤقتاً حتى لا تختنق الجذور.';
+    }
+    if (selectedPlot.moisture < 35) {
+      return 'التربة عطشى يا بطل! اسقِ المحصول بالماء المتوازن من خزان الفلج.';
+    }
+    if (selectedPlot.nutrients < 35) {
+      return 'المحصول يحتاج غذاءً! أضف دفعة سماد عضوي أو مركب لدعم النمو.';
+    }
+    if (selectedPlot.weedsLevel >= 20) {
+      return 'الأعشاب الضارة بدأت تنافس النبات، اضغط «تعشيب» لتنظيف القطعة.';
+    }
+    return (
+      selectedCrop?.dailyTipsByStage?.[selectedPlot.stageIndex] ||
+      farm.dailyBookTip ||
+      'مزرعتك تسير بشكل ممتاز! استمر بمتابعة الرطوبة والتسميد والمكافحة الآمنة.'
+    );
+  };
+  const flijanTip = computeFlijanTip();
+
+  const cycleCameraPreset = () => {
+    const idx = CAMERA_LABELS.findIndex(([k]) => k === cameraPreset);
+    const next = CAMERA_LABELS[(idx + 1) % CAMERA_LABELS.length][0];
+    setCameraPreset(next);
+    setPresetTrigger((n) => n + 1);
+  };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4">
-      {/* Top Status & Controls Header */}
-      <div className="rounded-2xl bg-[#132247] text-white p-4 border border-sky-400/20 shadow-lg flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-emerald-600 flex items-center justify-center text-2xl shrink-0">
-            🌴
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg font-extrabold text-white">{farm.farmName}</h1>
-              <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold">
-                المستوى {farm.level}
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-md bg-[#0b1329]/80 border border-sky-400/20 text-sky-200">
-                {farm.governorate}
-              </span>
-            </div>
-            <div className="text-[11px] text-sky-200/75 mt-0.5">
-              المزارع: {farm.ownerName} · تحرّك بالمزرعة عبر عصا التحكم أو WASD · لعبة مجانية 100%
-            </div>
-          </div>
-        </div>
+    <div className="w-full max-w-7xl mx-auto space-y-2 overflow-x-hidden pb-2">
+      {/* 1. Modular Mobile-First FS-Style Top Status Strip */}
+      <FarmResourceHud
+        level={farm.level}
+        farmDay={farm.farmDay || 1}
+        ambientTemp={farm.ambientTemp ?? 26}
+        coins={farm.coins}
+        points={farm.points}
+        waterLiters={farm.waterLiters}
+        maxWaterLiters={farm.maxWaterLiters}
+        waterPct={waterPct}
+        wilayatName={location.wilayat}
+        falajReady={Boolean(farm.falajTurnActive && farm.falajCollectedDay !== farm.farmDay)}
+        canClaimDaily={canClaimDaily}
+        busyAction={busyAction}
+        flijanOpen={flijanOpen}
+        flijanAvatarUrl={FLIJAN_AVATAR_URL}
+        soundEnabled={soundEnabled}
+        notificationsEnabled={Boolean(farm.notificationsEnabled)}
+        unreadNotifs={unreadNotifs}
+        onCollectFalaj={() => performAction('collect_falaj')}
+        onClaimDaily={() => performAction('daily_login')}
+        onAdvanceDay={() => performAction('advance_day')}
+        onToggleFlijan={() => setFlijanOpen((v) => !v)}
+        onToggleSound={() => setSoundEnabled((s) => !s)}
+        onOpenNotifications={() => setActiveModal('notifications')}
+        onSync={() => fetchFarmState(true)}
+      />
 
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold">
-            🪙 {farm.coins} عملة
-          </div>
-          <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold">
-            ⭐ {farm.points} نقطة ({farm.dailyPointsEarned || 0}/{350} اليوم)
-          </div>
-          <div className="px-3 py-1.5 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-300 font-bold flex items-center gap-1">
-            <Droplets className="w-3.5 h-3.5" />
-            <span>{farm.waterLiters}/{farm.maxWaterLiters} لتر</span>
-          </div>
-
-          {canClaimDaily && (
-            <button
-              onClick={() => performAction('daily_login')}
-              disabled={busyAction}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold flex items-center gap-1.5"
-            >
-              <Gift className="w-3.5 h-3.5" />
-              <span>مكافأة اليوم</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => fetchFarmState(true)}
-            className="p-2 rounded-xl bg-[#0b1329]/80 hover:bg-sky-950 text-sky-100 border border-sky-400/20"
-            title="مزامنة الوقت الحقيقي من الخادم"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => setSoundEnabled((s) => !s)}
-            className="p-2 rounded-xl bg-[#0b1329]/80 hover:bg-sky-950 text-sky-100 border border-sky-400/20"
-            title={soundEnabled ? 'كتم مؤثرات اللعبة' : 'تفعيل مؤثرات اللعبة'}
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-stone-400" />}
-          </button>
-
-          <button
-            onClick={() => setActiveModal('notifications')}
-            className="relative p-2 rounded-xl bg-[#0b1329]/80 hover:bg-sky-950 text-sky-100 border border-sky-400/20"
-            title="تنبيهات المزرعة"
-          >
-            {farm.notificationsEnabled ? <Bell className="w-4 h-4 text-amber-400" /> : <BellOff className="w-4 h-4 text-stone-400" />}
-            {unreadNotifs > 0 && farm.notificationsEnabled && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-[10px] font-bold flex items-center justify-center text-white">
-                {unreadNotifs}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Quick Feature Bar above 3D Canvas (no clutter over canvas) */}
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#132247] p-2.5 rounded-2xl border border-stone-200 dark:border-sky-400/20 shadow-sm text-xs">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            onClick={() => setActiveModal('livestock')}
-            className="px-3 py-1.5 rounded-xl bg-lime-50 dark:bg-lime-950/40 text-lime-800 dark:text-lime-300 border border-lime-200 dark:border-lime-800 font-bold flex items-center gap-1.5"
-          >
-            <Home className="w-3.5 h-3.5" />
-            <span>الحظيرة والمنحل 🐄</span>
-          </button>
-          <button
-            onClick={() => {
-              setMarketTab('sell');
-              setActiveModal('market');
-            }}
-            className="px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold flex items-center gap-1.5"
-          >
-            <Store className="w-3.5 h-3.5" />
-            <span>السوق والمباني ({totalWarehouseCount})</span>
-          </button>
-          <button
-            onClick={() => setActiveModal('quests')}
-            className="relative px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 font-bold flex items-center gap-1.5"
-          >
-            <ClipboardCheck className="w-3.5 h-3.5" />
-            <span>المهام اليومية</span>
-            {claimableQuestsCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-stone-950 text-[10px] font-black tabular-nums">
-                {claimableQuestsCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveModal('shop')}
-            className="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold flex items-center gap-1.5"
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>المتجر والإمدادات</span>
-          </button>
-          <button
-            onClick={() => setActiveModal('greenhouse')}
-            className="px-3 py-1.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 font-bold flex items-center gap-1.5"
-          >
-            <Thermometer className="w-3.5 h-3.5" />
-            <span>البيت المحمي ({farm.greenhouseTemp}°م)</span>
-          </button>
-          <button
-            onClick={() => setActiveModal('crops_guide')}
-            className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold flex items-center gap-1.5"
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>ملف المحاصيل</span>
-          </button>
-          <button
-            onClick={() => {
-              setActiveModal('advisor');
-              if (!advisorReply) handleAskAdvisor();
-            }}
-            className="px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-bold flex items-center gap-1.5"
-          >
-            <Bot className="w-3.5 h-3.5" />
-            <span>المستشار AI</span>
-          </button>
-          <button
-            onClick={() => {
-              fetchSocial();
-              setActiveModal('social');
-            }}
-            className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold flex items-center gap-1.5"
-          >
-            <Trophy className="w-3.5 h-3.5" />
-            <span>المنافسات</span>
-          </button>
-        </div>
-
-        {/* Camera Presets */}
-        <div className="flex flex-wrap items-center gap-1 text-[11px]">
-          <Camera className="w-3.5 h-3.5 text-sky-400 ml-1" />
-          {(
-            [
-              ['overview', 'شامل'],
-              ['farmer', 'المزارع 🚶'],
-              ['pasture', 'الأبقار والماعز'],
-              ['field', 'الحقل'],
-              ['greenhouse', 'البيت المحمي'],
-              ['falaj', 'الفلج'],
-              ['apiary', 'المنحل 🍯'],
-              ['market', 'السوق 🏪'],
-            ] as Array<[FarmCameraPreset, string]>
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => {
-                setCameraPreset(key);
-                setPresetTrigger((n) => n + 1);
-                if (key === 'farmer') setDockCollapsed(true);
-              }}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
-                cameraPreset === key
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-stone-100 dark:bg-[#0b1329]/80 text-stone-700 dark:text-sky-200 border border-transparent dark:border-sky-400/20 hover:bg-stone-200 dark:hover:bg-sky-950'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Samail Daily Almanac, Weather, Falaj Turn & Book Advice Bar */}
-      <div className="rounded-2xl bg-gradient-to-l from-emerald-50 via-stone-50 to-sky-50 dark:from-[#132247] dark:via-[#101c3b] dark:to-[#132247] border border-emerald-200/80 dark:border-sky-400/20 p-3 shadow-sm space-y-2 text-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="px-2.5 py-1 rounded-xl bg-emerald-700 text-white font-bold flex items-center gap-1.5">
-              <CalendarDays className="w-3.5 h-3.5" />
-              <span>اليوم الزراعي {farm.farmDay || 1}</span>
-            </span>
-            <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-[#0b1329]/80 border border-stone-200 dark:border-sky-400/20 text-stone-800 dark:text-sky-100 font-bold">
-              🌦️ {farm.seasonName || 'الموسم العُماني المعتدل'} · {farm.ambientTemp ?? 26}°م
-            </span>
-            {farm.falajTurnActive ? (
-              farm.falajCollectedDay === farm.farmDay ? (
-                <span className="px-2.5 py-1 rounded-xl bg-sky-100 dark:bg-sky-900/50 border border-sky-300 dark:border-sky-700 text-sky-800 dark:text-sky-200 font-bold flex items-center gap-1">
-                  <Droplets className="w-3.5 h-3.5" />
-                  <span>تم استلام نوبة الفلج اليوم ✓</span>
-                </span>
-              ) : (
-                <button
-                  onClick={() => performAction('collect_falaj')}
-                  disabled={busyAction}
-                  className="px-3 py-1 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-bold flex items-center gap-1.5 shadow-sm"
-                >
-                  <Droplets className="w-3.5 h-3.5" />
-                  <span>استلام نوبة الفلج (+120 لتر مجاناً)</span>
-                </button>
-              )
-            ) : (
-              <span className="px-2.5 py-1 rounded-xl bg-stone-100 dark:bg-[#0b1329]/70 text-stone-600 dark:text-sky-200 font-semibold">
-                💧 نوبة الفلج القادمة بعد {(farm.farmDay || 1) % 3 === 2 ? 2 : 1} يوم
-              </span>
-            )}
-          </div>
-
-          <button
-            onClick={() => performAction('advance_day')}
-            disabled={busyAction}
-            className="px-3 py-1.5 rounded-xl bg-stone-900 dark:bg-stone-700 hover:bg-stone-800 disabled:opacity-50 text-white font-bold flex items-center gap-1.5 shrink-0"
-            title="محاكاة الانتقال إلى اليوم الزراعي التالي"
-          >
-            <FastForward className="w-3.5 h-3.5" />
-            <span>يوم تالٍ</span>
-          </button>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-stone-700 dark:text-stone-300 pt-1 border-t border-emerald-200/60 dark:border-stone-800">
-          <div className="flex items-start gap-1.5">
-            <BookOpen className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-            <span>
-              <strong className="text-emerald-800 dark:text-emerald-300">إرشاد اليوم (دليل سمائل): </strong>
-              {selectedCrop?.dailyTipsByStage?.[selectedPlot?.stageIndex || 0] ||
-                farm.dailyBookTip ||
-                farm.seasonHint}
-            </span>
-          </div>
-          {selectedCrop?.safeControlHint && (
-            <div className="flex items-start gap-1.5 text-amber-800 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/30 px-2.5 py-1 rounded-lg border border-amber-200/70 dark:border-amber-800/50 shrink-0 sm:max-w-md">
-              <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-              <span>
-                <strong>المكافحة الآمنة (160/2023): </strong>
-                {selectedCrop.safeControlHint}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Feedback Toast Banner */}
+      {/* Feedback Toast Banner (Floating crisp bar above or over top edge, non-cluttering) */}
       {toast && (
         <div
-          className={`p-3 rounded-xl text-xs font-bold flex items-center justify-between border ${
+          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between border ${
             toast.type === 'ok'
-              ? 'bg-emerald-50 dark:bg-emerald-950 border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200'
+              ? 'bg-emerald-950/95 border-emerald-500/60 text-emerald-200'
               : toast.type === 'warn'
-                ? 'bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200'
-                : 'bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700 text-red-900 dark:text-red-200'
+                ? 'bg-amber-950/95 border-amber-500/60 text-amber-200'
+                : 'bg-red-950/95 border-red-500/60 text-red-200'
           }`}
         >
-          <span className="flex items-center gap-2">
-            {toast.type === 'ok' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
-            {toast.text}
+          <span className="flex items-center gap-2 leading-snug">
+            {toast.type === 'ok' ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />}
+            <span>{toast.text}</span>
           </span>
-          <button onClick={() => setToast(null)} className="px-2">×</button>
+          <button onClick={() => setToast(null)} className="px-2 text-base leading-none">×</button>
         </div>
       )}
 
-      {/* 3D Interactive Game World Viewport (85%+ unobstructed view, ZERO backdrop-blur over WebGL) */}
-      <div className="relative rounded-3xl overflow-hidden border border-stone-200 dark:border-sky-400/25 bg-[#0b1329] shadow-2xl h-[560px] sm:h-[640px]">
+      {/* 2. Full-Bleed Mobile-First 3D Interactive Game Viewport */}
+      <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-sky-400/25 bg-[#0b1329] shadow-2xl h-[66dvh] min-h-[440px] sm:h-[620px] lg:h-[660px]">
         <FarmScene3D
           farm={farm}
           crops={crops}
           selectedPlotId={selectedPlotId}
           onSelectPlot={setSelectedPlotId}
           onInspectFeature={(msg, kind) => {
-            if (kind === 'cow' || kind === 'goat') playFarmTone('cow', soundEnabled);
-            else if (kind === 'tractor') playFarmTone('plow', soundEnabled);
-            else playFarmTone('action', soundEnabled);
+            if (kind === 'cow' || kind === 'goat') playFarmSound('cow', soundEnabled);
+            else if (kind === 'tractor') playFarmSound('plow', soundEnabled);
+            else playFarmSound('action', soundEnabled);
             if (kind === 'market') {
               setMarketTab('sell');
               setActiveModal('market');
@@ -794,113 +680,147 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
           presetTrigger={presetTrigger}
           moveInputRef={moveInputRef}
           visualCommand={visualCommand}
+          flijanSpeaking={flijanSpeaking}
         />
 
-        {/* Top-Left Game Controls + Active Plot Telemetry Pill (Solid/High-Opacity, ZERO backdrop-blur) */}
-        <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5 z-20 pointer-events-auto max-w-[54%]">
-          <div className="flex flex-wrap items-center gap-1.5">
+        {/* Top-Left: Camera & Plot Telemetry Pill (Solid/Translucent, ZERO backdrop-blur) */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col items-start gap-1.5 z-20 pointer-events-auto max-w-[50%] sm:max-w-[44%]">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={cycleCameraPreset}
+              className="px-2 py-1.5 rounded-xl bg-[#0b1329]/92 hover:bg-[#132247] text-sky-100 border border-sky-400/30 text-[10px] font-bold flex items-center gap-1"
+              title="تغيير زاوية الكاميرا"
+            >
+              <Camera className="w-3 h-3 text-sky-300" />
+              <span>{CAMERA_LABELS.find(([k]) => k === cameraPreset)?.[1] || 'شامل'}</span>
+            </button>
+
             <button
               onClick={() => {
-                setCameraPreset('farmer');
+                setCameraPreset((prev) => (prev === 'farmer' ? 'overview' : 'farmer'));
                 setPresetTrigger((n) => n + 1);
                 setDockCollapsed(true);
                 setJoystickEnabled(true);
               }}
-              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold border flex items-center gap-1.5 transition-colors ${
+              className={`p-1.5 rounded-xl border text-[10px] font-bold flex items-center gap-1 ${
                 cameraPreset === 'farmer'
                   ? 'bg-emerald-600 text-white border-emerald-400'
-                  : 'bg-[#132247]/95 text-sky-100 border-sky-400/30 hover:bg-[#192d5c]'
+                  : 'bg-[#0b1329]/92 text-sky-100 border-sky-400/30'
               }`}
-              title="وضع التجول ومتابعة المزارع العماني"
+              title="متابعة المزارع"
             >
               <Footprints className="w-3.5 h-3.5" />
-              <span>تجول بالمزارع</span>
             </button>
 
             <button
               onClick={() => setJoystickEnabled((v) => !v)}
-              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold border flex items-center gap-1 transition-colors ${
+              className={`p-1.5 rounded-xl border text-[10px] font-bold ${
                 joystickEnabled
-                  ? 'bg-[#132247]/95 text-emerald-300 border-emerald-400/40'
-                  : 'bg-[#132247]/85 text-sky-300/70 border-sky-400/20'
+                  ? 'bg-[#0b1329]/92 text-emerald-300 border-emerald-400/40'
+                  : 'bg-[#0b1329]/85 text-sky-300/60 border-sky-400/20'
               }`}
-              title="إظهار أو إخفاء عصا الحركة باللمس"
+              title={joystickEnabled ? 'إخفاء عصا الحركة' : 'إظهار عصا الحركة'}
             >
               <Gamepad2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{joystickEnabled ? 'إخفاء العصا' : 'عصا الحركة'}</span>
             </button>
           </div>
 
-          {/* Compact Telemetry Pill when docked/exploring */}
+          {/* Active Plot Telemetry Card */}
           {dockCollapsed && (
-            <div className="px-2.5 py-1.5 rounded-xl bg-[#0b1329]/90 border border-sky-400/25 text-[10px] sm:text-[11px] text-white space-y-0.5 shadow-lg">
-              <div className="flex flex-wrap items-center gap-1.5 font-bold">
-                <span className="text-emerald-400">
-                  القطعة #{selectedPlot.plotIndex + 1}
-                </span>
+            <div className="px-2.5 py-1.5 rounded-xl bg-[#0b1329]/92 border border-sky-400/25 text-[10px] sm:text-[11px] text-white space-y-0.5 shadow-lg">
+              <div className="flex flex-wrap items-center gap-1 font-bold leading-tight">
+                <span className="text-emerald-400">#{selectedPlot.plotIndex + 1}</span>
                 {!selectedPlot.isUnlocked ? (
                   <span className="text-amber-300">🔒 مقفلة</span>
                 ) : selectedCrop && currentStage ? (
                   <>
-                    <span>· {selectedCrop.nameAr}</span>
-                    <span className="text-sky-300">({currentStage.name})</span>
+                    <span>{CROP_EMOJIS[selectedCrop.id] || '🌱'} {selectedCrop.nameAr.split(' ')[0]}</span>
+                    <span className="text-sky-300">· {currentStage.name.split(' ')[0]}</span>
                     {!isHarvestReady && remainingSec > 0 && !selectedPlot.blockedReason && (
                       <span className="text-amber-300 font-mono">{remainingSec}ث</span>
                     )}
                   </>
                 ) : (
                   <span className="text-sky-200">
-                    {selectedPlot.soilLeveled ? '· جاهزة للزراعة' : selectedPlot.soilPrepared ? '· جاهزة للتسوية' : '· بكر'}
+                    {selectedPlot.soilLeveled ? 'جاهزة للزراعة' : selectedPlot.soilPrepared ? 'تحتاج تسوية' : 'أرض بكر'}
                   </span>
                 )}
               </div>
               {selectedPlot.isUnlocked && (
-                <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                <div className="flex flex-wrap items-center gap-2 text-[10px] tabular-nums">
                   <span className={selectedPlot.moisture < 30 || selectedPlot.moisture > 90 ? 'text-amber-300 font-bold' : 'text-sky-300'}>
-                    💧 {Math.round(selectedPlot.moisture)}%
+                    💧{Math.round(selectedPlot.moisture)}%
                   </span>
                   <span className={selectedPlot.nutrients < 30 || selectedPlot.nutrients > 94 ? 'text-amber-300 font-bold' : 'text-emerald-300'}>
-                    🧪 {Math.round(selectedPlot.nutrients)}%
+                    🧪{Math.round(selectedPlot.nutrients)}%
                   </span>
                   <span className={selectedPlot.health < 60 ? 'text-red-400 font-bold' : 'text-lime-300'}>
-                    ❤️ {Math.round(selectedPlot.health)}%
+                    ❤️{Math.round(selectedPlot.health)}%
                   </span>
-                  {selectedPlot.weedsLevel >= 15 && <span className="text-yellow-300 font-bold">🌿 {Math.round(selectedPlot.weedsLevel)}%</span>}
-                  {selectedPlot.pestType && <span className="text-red-400 font-bold">🐛 آفة!</span>}
+                  {selectedPlot.weedsLevel >= 15 && <span className="text-yellow-300 font-bold">🌿</span>}
+                  {selectedPlot.pestType && <span className="text-red-400 font-bold">🐛</span>}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Top-Right Plot Selector Pills */}
-        <div className="absolute top-3 right-3 flex flex-wrap justify-end gap-1 max-w-[190px] sm:max-w-md z-20 pointer-events-auto">
-          {farm.plots.map((p: FarmPlotState) => {
-            const c = p.cropId ? crops.find((x) => x.id === p.cropId) : null;
-            return (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPlotId(p.id)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
-                  selectedPlotId === p.id
-                    ? 'bg-emerald-600 text-white border-emerald-400'
-                    : p.isUnlocked
-                      ? 'bg-[#132247]/92 text-sky-100 border-sky-400/30 hover:bg-[#192d5c]'
-                      : 'bg-[#0b1329]/85 text-sky-300/60 border-sky-400/15'
-                }`}
-              >
-                {p.isGreenhouse ? '🏡' : '🌱'} {p.plotIndex + 1}
-                {!p.isUnlocked ? '🔒' : c ? `·${c.nameAr.split(' ')[0]}` : ''}
-              </button>
-            );
-          })}
+        {/* Top-Right: Single-Row Compact Plot Switcher Strip */}
+        <div className="absolute top-2.5 right-2.5 z-20 pointer-events-auto max-w-[46%] sm:max-w-[50%]">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar bg-[#0b1329]/88 p-1 rounded-xl border border-sky-400/20">
+            {farm.plots.map((p: FarmPlotState) => {
+              const ready =
+                p.cropId &&
+                (() => {
+                  const cr = crops.find((x) => x.id === p.cropId);
+                  return cr ? p.stageIndex >= cr.stages.length - 1 : false;
+                })();
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPlotId(p.id)}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 border transition-colors ${
+                    selectedPlotId === p.id
+                      ? 'bg-emerald-600 text-white border-emerald-300'
+                      : ready
+                        ? 'bg-amber-500 text-stone-950 border-amber-300'
+                        : p.isUnlocked
+                          ? 'bg-[#132247] text-sky-100 border-sky-400/25'
+                          : 'bg-[#0b1329] text-sky-300/50 border-sky-400/15'
+                  }`}
+                >
+                  {!p.isUnlocked ? '🔒' : p.cropId ? (CROP_EMOJIS[p.cropId] || '🌱') : p.isGreenhouse ? '🏡' : '🟫'}
+                  {p.plotIndex + 1}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Left Thumb: Virtual Thumb Joystick (ZERO re-renders during movement) */}
+        {/* Flijan In-Game Companion Bar (Modular, collapsible, zero pulse/blur) */}
+        {flijanOpen && dockCollapsed && (
+          <FarmFlijanAdvisorBar
+            flijanAvatarUrl={FLIJAN_AVATAR_URL}
+            flijanSpeaking={flijanSpeaking}
+            flijanTip={flijanTip}
+            regionLabel={`${location.wilayat} · ${location.village}`}
+            onToggleSpeak={() => (flijanSpeaking ? stopFlijanVoice() : speakFlijanTip(flijanTip))}
+            onOpenAdvisor={() => {
+              setActiveModal('advisor');
+              handleAskAdvisor();
+            }}
+            onClose={() => {
+              stopFlijanVoice();
+              setFlijanOpen(false);
+            }}
+          />
+        )}
+
+        {/* Left Thumb: Touch Thumb Joystick */}
         {joystickEnabled && (
           <div
             className={`absolute z-20 pointer-events-auto transition-all ${
-              dockCollapsed ? 'bottom-4 left-4' : 'top-14 left-3'
+              dockCollapsed ? 'bottom-3 left-3' : 'top-14 left-2.5'
             }`}
           >
             <div
@@ -925,63 +845,52 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                 resetJoystick();
               }}
               onPointerCancel={resetJoystick}
-              className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-[#132247]/92 border-2 border-sky-400/45 shadow-2xl flex items-center justify-center relative touch-none select-none cursor-grab active:cursor-grabbing"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#0b1329]/90 border-2 border-sky-400/45 shadow-2xl flex items-center justify-center relative touch-none select-none cursor-grab active:cursor-grabbing"
               aria-label="عصا التحكم لحركة المزارع العماني"
             >
-              <span className="absolute top-1.5 text-[9px] text-sky-300/60 font-bold pointer-events-none">▲</span>
-              <span className="absolute bottom-1.5 text-[9px] text-sky-300/60 font-bold pointer-events-none">▼</span>
-              <span className="absolute left-2 text-[9px] text-sky-300/60 font-bold pointer-events-none">◀</span>
-              <span className="absolute right-2 text-[9px] text-sky-300/60 font-bold pointer-events-none">▶</span>
+              <span className="absolute top-1 text-[8px] text-sky-300/60 font-bold pointer-events-none">▲</span>
+              <span className="absolute bottom-1 text-[8px] text-sky-300/60 font-bold pointer-events-none">▼</span>
+              <span className="absolute left-1.5 text-[8px] text-sky-300/60 font-bold pointer-events-none">◀</span>
+              <span className="absolute right-1.5 text-[8px] text-sky-300/60 font-bold pointer-events-none">▶</span>
               <div
                 ref={thumbKnobRef}
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-500 border-2 border-emerald-200 shadow-lg pointer-events-none flex items-center justify-center text-white text-xs font-extrabold"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-500 border-2 border-emerald-200 shadow-lg pointer-events-none flex items-center justify-center text-white text-xs font-extrabold"
               >
                 🚶
               </div>
             </div>
-            <div className="text-[10px] text-center font-bold text-white/95 bg-[#0b1329]/85 rounded-lg px-2 py-0.5 mt-1 border border-sky-400/20">
-              حرّك المزارع
-            </div>
           </div>
         )}
 
-        {/* Right Thumb: Smart Contextual Game Action Wheel (when 10-tool drawer is collapsed) */}
+        {/* Right Thumb: Compact Contextual Touch Action Controls */}
         {dockCollapsed && (
-          <div className="absolute bottom-4 right-4 z-20 pointer-events-auto flex flex-col items-end gap-2 max-w-[60%]">
-            {/* Nearby Landmark Quick Prompts */}
+          <div className="absolute bottom-3 right-3 z-20 pointer-events-auto flex flex-col items-end gap-1.5 max-w-[64%]">
+            {/* Contextual Proximity Prompt */}
             {nearbyTarget?.type === 'falaj' && farm.falajTurnActive && farm.falajCollectedDay !== farm.farmDay && (
               <button
                 onClick={() => performAction('collect_falaj')}
                 disabled={busyAction}
-                className="px-3.5 py-2 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-extrabold text-xs shadow-xl border border-sky-200 flex items-center gap-1.5"
+                className="px-3 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-extrabold text-[11px] shadow-xl border border-sky-200 flex items-center gap-1"
               >
-                <Droplets className="w-4 h-4" />
-                <span>استلام نوبة الفلج (+120 لتر)</span>
+                <Droplets className="w-3.5 h-3.5" />
+                <span>نوبة الفلج (+120ل)</span>
               </button>
             )}
             {nearbyTarget?.type === 'greenhouse' && (
               <button
                 onClick={() => setActiveModal('greenhouse')}
-                className="px-3.5 py-2 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold text-xs shadow-xl border border-cyan-300 flex items-center gap-1.5"
+                className="px-3 py-2 rounded-xl bg-cyan-600 text-white font-extrabold text-[11px] shadow-xl border border-cyan-300 flex items-center gap-1"
               >
-                <Thermometer className="w-4 h-4" />
-                <span>تحكم البيت المحمي ({farm.greenhouseTemp}°م)</span>
+                <Thermometer className="w-3.5 h-3.5" />
+                <span>البيت المحمي</span>
               </button>
             )}
-            {nearbyTarget?.type === 'cows' && (
+            {(nearbyTarget?.type === 'cows' || nearbyTarget?.type === 'apiary') && (
               <button
                 onClick={() => setActiveModal('livestock')}
-                className="px-3.5 py-2 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs shadow-xl border border-amber-300 flex items-center gap-1.5"
+                className="px-3 py-2 rounded-xl bg-amber-500 text-stone-950 font-extrabold text-[11px] shadow-xl border border-amber-200"
               >
-                <span>🐄 فتح الحظيرة وجمع الإنتاج</span>
-              </button>
-            )}
-            {nearbyTarget?.type === 'apiary' && (
-              <button
-                onClick={() => setActiveModal('livestock')}
-                className="px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow-xl border border-amber-200 flex items-center gap-1.5"
-              >
-                <span>🍯 فحص المنحل وجني العسل</span>
+                {nearbyTarget.type === 'apiary' ? '🍯 فحص المنحل' : '🐄 فتح الحظيرة'}
               </button>
             )}
             {(nearbyTarget?.type === 'market' || nearbyTarget?.type === 'barn') && (
@@ -990,15 +899,15 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                   setMarketTab(nearbyTarget?.type === 'barn' ? 'buildings' : 'sell');
                   setActiveModal('market');
                 }}
-                className="px-3.5 py-2 rounded-2xl bg-teal-600 hover:bg-teal-500 text-white font-extrabold text-xs shadow-xl border border-teal-200 flex items-center gap-1.5"
+                className="px-3 py-2 rounded-xl bg-teal-600 text-white font-extrabold text-[11px] shadow-xl border border-teal-200 flex items-center gap-1"
               >
-                <Store className="w-4 h-4" />
-                <span>{nearbyTarget.type === 'barn' ? 'تطوير مباني المزرعة' : 'دخول سوق المزرعة'}</span>
+                <Store className="w-3.5 h-3.5" />
+                <span>{nearbyTarget.type === 'barn' ? 'تطوير المباني' : 'دخول السوق'}</span>
               </button>
             )}
 
-            {/* Primary Plot Game Buttons */}
-            <div className="flex flex-wrap justify-end gap-2">
+            {/* Primary Smart Action Buttons */}
+            <div className="flex flex-wrap justify-end gap-1.5">
               {!selectedPlot.isUnlocked ? (
                 <button
                   onClick={() =>
@@ -1007,38 +916,38 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                     })
                   }
                   disabled={busyAction}
-                  className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow-2xl border-2 border-amber-200 flex items-center gap-1.5"
+                  className="min-h-[44px] px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow-2xl border-2 border-amber-200 flex items-center gap-1.5"
                 >
                   <Lock className="w-4 h-4" />
-                  <span>فتح القطعة ({selectedPlot.isGreenhouse ? 180 : 120} 🪙)</span>
+                  <span>فتح ({selectedPlot.isGreenhouse ? 180 : 120} 🪙)</span>
                 </button>
               ) : !selectedPlot.cropId ? (
                 !selectedPlot.soilPrepared ? (
                   <button
                     onClick={() => performAction('plow', selectedPlot.id)}
                     disabled={busyAction}
-                    className="px-4 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs sm:text-sm shadow-2xl border-2 border-amber-300 flex items-center gap-2"
+                    className="min-h-[44px] px-4 py-2 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs shadow-2xl border-2 border-amber-300 flex items-center gap-1.5"
                   >
                     <Shovel className="w-4 h-4" />
-                    <span>حرث القطعة #{selectedPlot.plotIndex + 1}</span>
+                    <span>{(farm.tools?.plow || 1) >= 2 ? 'حرث وتسوية 🚜' : `حرث #${selectedPlot.plotIndex + 1}`}</span>
                   </button>
                 ) : !selectedPlot.soilLeveled ? (
                   <button
                     onClick={() => performAction('level_soil', selectedPlot.id)}
                     disabled={busyAction}
-                    className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs sm:text-sm shadow-2xl border-2 border-amber-200 flex items-center gap-2"
+                    className="min-h-[44px] px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow-2xl border-2 border-amber-200 flex items-center gap-1.5"
                   >
                     <Layers className="w-4 h-4" />
-                    <span>تسوية التربة #{selectedPlot.plotIndex + 1}</span>
+                    <span>تسوية #{selectedPlot.plotIndex + 1}</span>
                   </button>
                 ) : (
                   <button
                     onClick={() => setActiveModal('seeds')}
                     disabled={busyAction}
-                    className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm shadow-2xl border-2 border-emerald-300 flex items-center gap-2"
+                    className="min-h-[44px] px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-2xl border-2 border-emerald-300 flex items-center gap-1.5"
                   >
                     <Sprout className="w-4 h-4" />
-                    <span>ازرع المحصول #{selectedPlot.plotIndex + 1}</span>
+                    <span>زراعة بذور #{selectedPlot.plotIndex + 1}</span>
                   </button>
                 )
               ) : (
@@ -1047,27 +956,27 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                     <button
                       onClick={() => performAction('harvest', selectedPlot.id)}
                       disabled={busyAction}
-                      className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs sm:text-sm shadow-2xl border-2 border-amber-200 flex items-center gap-1.5"
+                      className="min-h-[44px] px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow-2xl border-2 border-amber-200 flex items-center gap-1"
                     >
                       <Wheat className="w-4 h-4" />
-                      <span>حصاد #{selectedPlot.plotIndex + 1}!</span>
+                      <span>حصاد!</span>
                     </button>
                   )}
                   {selectedPlot.pestType && (
                     <button
                       onClick={() => performAction('pest_control', selectedPlot.id)}
                       disabled={busyAction}
-                      className="px-3.5 py-2.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs shadow-2xl border-2 border-red-300 flex items-center gap-1.5"
+                      className="min-h-[44px] px-3 py-2 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs shadow-2xl border-2 border-red-300 flex items-center gap-1"
                     >
                       <Bug className="w-4 h-4" />
-                      <span>علاج الآفة</span>
+                      <span>علاج</span>
                     </button>
                   )}
                   {selectedPlot.weedsLevel >= 10 && (
                     <button
                       onClick={() => performAction('weed', selectedPlot.id)}
                       disabled={busyAction}
-                      className="px-3.5 py-2.5 rounded-2xl bg-yellow-600 hover:bg-yellow-500 text-white font-extrabold text-xs shadow-2xl border-2 border-yellow-300 flex items-center gap-1.5"
+                      className="min-h-[44px] px-3 py-2 rounded-2xl bg-yellow-600 hover:bg-yellow-500 text-white font-extrabold text-xs shadow-2xl border-2 border-yellow-300 flex items-center gap-1"
                     >
                       <Sprout className="w-4 h-4" />
                       <span>تعشيب</span>
@@ -1076,7 +985,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                   <button
                     onClick={() => performAction('irrigate', selectedPlot.id)}
                     disabled={busyAction}
-                    className="px-3.5 py-2.5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs shadow-2xl border-2 border-sky-300 flex items-center gap-1.5"
+                    className="min-h-[44px] px-3 py-2 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs shadow-2xl border-2 border-sky-300 flex items-center gap-1"
                   >
                     <Droplets className="w-4 h-4" />
                     <span>ري</span>
@@ -1084,7 +993,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                   <button
                     onClick={() => performAction('fertilize', selectedPlot.id, { fertType: fertChoice })}
                     disabled={busyAction}
-                    className="px-3.5 py-2.5 rounded-2xl bg-lime-700 hover:bg-lime-600 text-white font-extrabold text-xs shadow-2xl border-2 border-lime-300 flex items-center gap-1.5"
+                    className="min-h-[44px] px-3 py-2 rounded-2xl bg-lime-700 hover:bg-lime-600 text-white font-extrabold text-xs shadow-2xl border-2 border-lime-300 flex items-center gap-1"
                   >
                     <Sparkles className="w-4 h-4" />
                     <span>تسميد</span>
@@ -1094,244 +1003,190 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
               <button
                 onClick={() => setDockCollapsed(false)}
-                className="px-3 py-2.5 rounded-2xl bg-[#132247]/95 hover:bg-[#192d5c] text-sky-100 border border-sky-400/35 text-xs font-bold shadow-xl flex items-center gap-1"
-                title="فتح لوحة الأدوات الكاملة (10 عمليات زراعية)"
+                className="min-h-[44px] px-2.5 py-2 rounded-2xl bg-[#0b1329]/95 hover:bg-[#132247] text-sky-100 border border-sky-400/35 text-[11px] font-bold shadow-xl flex items-center gap-1"
+                title="فتح جميع الأدوات الزراعية"
               >
                 <ChevronUp className="w-4 h-4" />
-                <span>كل الأدوات (10)</span>
+                <span>أدوات</span>
               </button>
             </div>
           </div>
         )}
 
-        {/* Full 10-Operation Drawer (when expanded by player) */}
+        {/* Full 10-Operation Drawer */}
         {!dockCollapsed && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[96%] max-w-4xl pointer-events-auto z-20">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[96%] max-w-4xl pointer-events-auto z-20">
             <div className="flex justify-center mb-1">
               <button
                 onClick={() => setDockCollapsed(true)}
-                className="px-3.5 py-1 rounded-t-xl bg-[#132247] text-sky-100 border border-b-0 border-sky-400/30 text-[11px] font-bold flex items-center gap-1"
+                className="px-3.5 py-1 rounded-t-xl bg-[#0b1329] text-sky-100 border border-b-0 border-sky-400/30 text-[11px] font-bold flex items-center gap-1"
               >
                 <ChevronDown className="w-3.5 h-3.5" />
-                <span>إغلاق اللوحة والعودة لوضع اللعب الحر</span>
+                <span>إغلاق اللوحة</span>
               </button>
             </div>
 
-            <div className="rounded-2xl bg-[#132247]/95 text-white border border-sky-400/25 p-3 sm:p-4 shadow-2xl space-y-3">
+            <div className="rounded-2xl bg-[#0b1329]/95 text-white border border-sky-400/30 p-3 shadow-2xl space-y-2.5">
               {/* Plot Telemetry Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-800 pb-2 text-xs">
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-400/15 pb-2 text-[11px]">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span className="font-extrabold text-emerald-400">
-                    القطعة #{selectedPlot.plotIndex + 1} {selectedPlot.isGreenhouse ? '(داخل البيت المحمي)' : '(الحقل المكشوف)'}
+                    قطعة #{selectedPlot.plotIndex + 1} {selectedPlot.isGreenhouse ? '(بيت محمي)' : '(حقل)'}
                   </span>
-                  {!selectedPlot.isUnlocked ? (
-                    <span className="px-2 py-0.5 rounded bg-amber-900/60 text-amber-300 text-[11px]">
-                      قطعة مقفلة — افتحها من المتجر
-                    </span>
-                  ) : selectedCrop && currentStage ? (
+                  {selectedCrop && currentStage && (
                     <>
-                      <span className="font-bold text-white">{selectedCrop.nameAr}</span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-900/70 text-emerald-200 text-[11px]">
-                        المرحلة {selectedPlot.stageIndex + 1}/{selectedCrop.stages.length}: {currentStage.name}
+                      <span className="font-bold">{selectedCrop.nameAr}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-900/70 text-emerald-200">
+                        {currentStage.name}
                       </span>
-                      {!isHarvestReady && (
-                        <span className="text-[11px] font-mono text-amber-300">
-                          {selectedPlot.blockedReason
-                            ? 'متوقف النمو'
-                            : remainingSec > 0
-                              ? `المرحلة التالية خلال ${remainingSec}ث (${stagePct}%)`
-                              : 'جاري التحديث...'}
-                        </span>
+                      {!isHarvestReady && remainingSec > 0 && !selectedPlot.blockedReason && (
+                        <span className="font-mono text-amber-300">{remainingSec}ث ({stagePct}%)</span>
                       )}
                     </>
-                  ) : (
-                    <span className="text-stone-300 text-[11px]">
-                      {selectedPlot.soilLeveled
-                        ? 'التربة محروثة ومسواة — جاهزة للزراعة!'
-                        : selectedPlot.soilPrepared
-                          ? 'التربة محروثة — تحتاج للتسوية الآن'
-                          : 'أرض بكر — تحتاج إلى الحرث ثم التسوية'}
-                    </span>
                   )}
                 </div>
 
-                {/* Plot Meters */}
                 {selectedPlot.isUnlocked && (
-                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                    <span className={selectedPlot.moisture > 90 || selectedPlot.moisture < 30 ? 'text-amber-300 font-bold' : 'text-sky-300'}>
-                      💧 رطوبة {Math.round(selectedPlot.moisture)}%
-                    </span>
-                    <span className={selectedPlot.nutrients > 94 || selectedPlot.nutrients < 30 ? 'text-amber-300 font-bold' : 'text-emerald-300'}>
-                      🧪 غذاء {Math.round(selectedPlot.nutrients)}%
-                    </span>
-                    <span className={selectedPlot.health < 60 ? 'text-red-400 font-bold' : 'text-lime-300'}>
-                      ❤️ صحة {Math.round(selectedPlot.health)}%
-                    </span>
-                    {selectedPlot.weedsLevel >= 15 && (
-                      <span className="text-yellow-300 font-bold">🌿 أعشاب {Math.round(selectedPlot.weedsLevel)}%</span>
-                    )}
-                    {selectedPlot.pestType && (
-                      <span className="text-red-400 font-bold">🐛 {selectedPlot.pestType}</span>
-                    )}
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <span className="text-sky-300">💧{Math.round(selectedPlot.moisture)}%</span>
+                    <span className="text-emerald-300">🧪{Math.round(selectedPlot.nutrients)}%</span>
+                    <span className="text-lime-300">❤️{Math.round(selectedPlot.health)}%</span>
+                    {selectedPlot.weedsLevel >= 15 && <span className="text-yellow-300">🌿{Math.round(selectedPlot.weedsLevel)}%</span>}
+                    {selectedPlot.pestType && <span className="text-red-400">🐛 {selectedPlot.pestType}</span>}
                   </div>
                 )}
               </div>
 
-              {/* Educational Blocker / Warning */}
               {selectedPlot.blockedReason && (
-                <div className="px-3 py-1.5 rounded-lg bg-amber-950 border border-amber-700 text-amber-200 text-[11px] flex items-center gap-2">
+                <div className="px-2.5 py-1.5 rounded-lg bg-amber-950 border border-amber-700 text-amber-200 text-[10px] flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
                   <span>{selectedPlot.blockedReason}</span>
                 </div>
               )}
 
-              {/* The 10 Interactive Agricultural Operations */}
               {selectedPlot.isUnlocked ? (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5 text-[11px]">
+                  <div className="grid grid-cols-5 sm:grid-cols-10 gap-1 text-[10px]">
                     <button
                       onClick={() => performAction('plow', selectedPlot.id)}
                       disabled={busyAction || !!selectedPlot.cropId || selectedPlot.soilPrepared}
-                      className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 disabled:opacity-40 flex flex-col items-center gap-1"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-[#132247] hover:bg-sky-900 disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                     >
-                      <Shovel className="w-4 h-4 text-amber-400" />
-                      <span>1. حرث</span>
+                      <Shovel className="w-3.5 h-3.5 text-amber-400" />
+                      <span>حرث</span>
                     </button>
-
                     <button
                       onClick={() => performAction('level_soil', selectedPlot.id)}
                       disabled={busyAction || !!selectedPlot.cropId || !selectedPlot.soilPrepared || selectedPlot.soilLeveled}
-                      className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 disabled:opacity-40 flex flex-col items-center gap-1"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-[#132247] hover:bg-sky-900 disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                     >
-                      <Layers className="w-4 h-4 text-amber-300" />
-                      <span>2. تسوية</span>
+                      <Layers className="w-3.5 h-3.5 text-amber-300" />
+                      <span>تسوية</span>
                     </button>
-
                     <button
                       onClick={() => setActiveModal('seeds')}
                       disabled={busyAction || !!selectedPlot.cropId || !selectedPlot.soilLeveled}
-                      className="p-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 flex flex-col items-center gap-1 font-bold"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 flex flex-col items-center justify-center gap-0.5 font-bold"
                     >
-                      <Sprout className="w-4 h-4 text-white" />
-                      <span>3. زراعة</span>
+                      <Sprout className="w-3.5 h-3.5 text-white" />
+                      <span>زراعة</span>
                     </button>
-
                     <button
                       onClick={() => performAction('irrigate', selectedPlot.id)}
                       disabled={busyAction || !selectedPlot.cropId}
-                      className="p-2 rounded-xl bg-sky-700 hover:bg-sky-600 disabled:opacity-40 flex flex-col items-center gap-1"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-sky-700 hover:bg-sky-600 disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                     >
-                      <Droplets className="w-4 h-4 text-sky-200" />
-                      <span>4. ري</span>
+                      <Droplets className="w-3.5 h-3.5 text-sky-200" />
+                      <span>ري</span>
                     </button>
-
                     <button
                       onClick={() => performAction('fertilize', selectedPlot.id, { fertType: fertChoice })}
                       disabled={busyAction || !selectedPlot.cropId}
-                      className="p-2 rounded-xl bg-lime-800 hover:bg-lime-700 disabled:opacity-40 flex flex-col items-center gap-1"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-lime-800 hover:bg-lime-700 disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                     >
-                      <Sparkles className="w-4 h-4 text-lime-200" />
-                      <span>5. تسميد</span>
+                      <Sparkles className="w-3.5 h-3.5 text-lime-200" />
+                      <span>تسميد</span>
                     </button>
-
                     <button
                       onClick={() => performAction('weed', selectedPlot.id)}
                       disabled={busyAction || selectedPlot.weedsLevel < 10}
-                      className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 disabled:opacity-40 flex flex-col items-center gap-1"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-[#132247] hover:bg-sky-900 disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                     >
-                      <Sprout className="w-4 h-4 text-yellow-400" />
-                      <span>6. أعشاب</span>
+                      <Sprout className="w-3.5 h-3.5 text-yellow-400" />
+                      <span>تعشيب</span>
                     </button>
-
                     <button
                       onClick={() => performAction('prune', selectedPlot.id)}
                       disabled={busyAction || !selectedPlot.cropId || selectedPlot.pruned}
-                      className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 disabled:opacity-40 flex flex-col items-center gap-1"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-[#132247] hover:bg-sky-900 disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                     >
-                      <Scissors className="w-4 h-4 text-teal-300" />
-                      <span>7. تقليم</span>
+                      <Scissors className="w-3.5 h-3.5 text-teal-300" />
+                      <span>تقليم</span>
                     </button>
-
                     <button
                       onClick={() => performAction('pest_control', selectedPlot.id)}
                       disabled={busyAction || !selectedPlot.pestType}
-                      className="p-2 rounded-xl bg-red-800 hover:bg-red-700 disabled:opacity-40 flex flex-col items-center gap-1"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-red-800 hover:bg-red-700 disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                     >
-                      <Bug className="w-4 h-4 text-red-200" />
-                      <span>8. مكافحة</span>
+                      <Bug className="w-3.5 h-3.5 text-red-200" />
+                      <span>مكافحة</span>
                     </button>
-
                     <button
                       onClick={() => performAction('harvest', selectedPlot.id)}
                       disabled={busyAction || !isHarvestReady}
-                      className="p-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 disabled:opacity-40 disabled:bg-stone-800 disabled:text-stone-400 flex flex-col items-center gap-1 font-extrabold"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 disabled:opacity-40 disabled:bg-[#132247] disabled:text-stone-400 flex flex-col items-center justify-center gap-0.5 font-extrabold"
                     >
-                      <Wheat className="w-4 h-4" />
-                      <span>9. حصاد</span>
+                      <Wheat className="w-3.5 h-3.5" />
+                      <span>حصاد</span>
                     </button>
-
                     <button
                       onClick={() => performAction('clear_reset', selectedPlot.id)}
                       disabled={busyAction}
-                      className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 disabled:opacity-40 flex flex-col items-center gap-1"
+                      className="min-h-[44px] p-1.5 rounded-xl bg-[#132247] hover:bg-sky-900 disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                     >
-                      <RotateCcw className="w-4 h-4 text-stone-300" />
-                      <span>10. تهيئة</span>
+                      <RotateCcw className="w-3.5 h-3.5 text-stone-300" />
+                      <span>تهيئة</span>
                     </button>
                   </div>
 
-                  {/* Inventory Strip */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-300 pt-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>نوع السماد المختار:</span>
-                      <button
-                        onClick={() => setFertChoice('fert_organic')}
-                        className={`px-2 py-0.5 rounded-md border ${
-                          fertChoice === 'fert_organic'
-                            ? 'bg-emerald-700 border-emerald-500 text-white'
-                            : 'bg-stone-800 border-stone-700 text-stone-300'
-                        }`}
-                      >
-                        عضوي ({farm.inventory?.fert_organic || 0})
-                      </button>
-                      <button
-                        onClick={() => setFertChoice('fert_npk')}
-                        className={`px-2 py-0.5 rounded-md border ${
-                          fertChoice === 'fert_npk'
-                            ? 'bg-amber-700 border-amber-500 text-white'
-                            : 'bg-stone-800 border-stone-700 text-stone-300'
-                        }`}
-                      >
-                        مركب NPK ({farm.inventory?.fert_npk || 0})
-                      </button>
-                      <span className="px-2 py-0.5 rounded-md bg-stone-800 border border-stone-700">
-                        مكافحة حيوية نيم: {farm.inventory?.pest_neem || 0}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-stone-400">
-                      تلميح: اسحب للتدوير · مرر للتكبير · انقر على قطعة لاختيارها
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-sky-200">
+                    <button
+                      onClick={() => setFertChoice('fert_organic')}
+                      className={`px-2 py-1 rounded-lg border ${
+                        fertChoice === 'fert_organic'
+                          ? 'bg-emerald-700 border-emerald-400 text-white font-bold'
+                          : 'bg-[#132247] border-sky-400/20'
+                      }`}
+                    >
+                      سماد عضوي ({farm.inventory?.fert_organic || 0})
+                    </button>
+                    <button
+                      onClick={() => setFertChoice('fert_npk')}
+                      className={`px-2 py-1 rounded-lg border ${
+                        fertChoice === 'fert_npk'
+                          ? 'bg-amber-700 border-amber-400 text-white font-bold'
+                          : 'bg-[#132247] border-sky-400/20'
+                      }`}
+                    >
+                      مركب NPK ({farm.inventory?.fert_npk || 0})
+                    </button>
+                    <span className="px-2 py-1 rounded-lg bg-[#132247] border border-sky-400/20">
+                      🛡️ نيم: {farm.inventory?.pest_neem || 0}
                     </span>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-3 py-1 text-xs">
-                  <span className="text-stone-300 flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-amber-400" />
-                    <span>
-                      {selectedPlot.isGreenhouse
-                        ? 'هذا السرير محجوز لتوسعة البيت المحمي (المستوى التالي).'
-                        : 'استصلح هذه القطعة بالعملات الافتراضية من المتجر لزيادة إنتاج مزرعتك.'}
-                    </span>
-                  </span>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-sky-200">قطعة مقفلة — افتحها لزراعة المزيد</span>
                   <button
                     onClick={() =>
                       performAction('buy_item', undefined, {
                         itemId: selectedPlot.isGreenhouse ? 'upgrade_greenhouse' : 'expand_plot',
                       })
                     }
-                    className="px-4 py-1.5 rounded-xl bg-amber-500 text-stone-950 font-bold shrink-0"
+                    className="min-h-[44px] px-4 rounded-xl bg-amber-500 text-stone-950 font-bold"
                   >
-                    فتح الآن ({selectedPlot.isGreenhouse ? 180 : 120} عملة)
+                    فتح ({selectedPlot.isGreenhouse ? 180 : 120} 🪙)
                   </button>
                 </div>
               )}
@@ -1340,62 +1195,222 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
         )}
       </div>
 
-      {/* Modal 1: Seed Picker */}
+      {/* 3. Compact Mobile-First Game Navigation Bar Under Viewport */}
+      <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 text-[11px] font-bold">
+        <button
+          onClick={() => setActiveModal('seeds')}
+          className="min-h-[44px] px-2 py-1.5 rounded-xl bg-emerald-600/15 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-center gap-1"
+        >
+          <Sprout className="w-4 h-4 shrink-0" />
+          <span className="truncate">البذور</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setShopTab('supplies');
+            setActiveModal('shop');
+          }}
+          className="min-h-[44px] px-2 py-1.5 rounded-xl bg-amber-500/15 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-center gap-1"
+        >
+          <ShoppingBag className="w-4 h-4 shrink-0" />
+          <span className="truncate">المتجر والآلات</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setMarketTab('sell');
+            setActiveModal('market');
+          }}
+          className="min-h-[44px] px-2 py-1.5 rounded-xl bg-teal-500/15 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border border-teal-500/30 flex flex-col sm:flex-row items-center justify-center gap-1"
+        >
+          <Store className="w-4 h-4 shrink-0" />
+          <span className="truncate">السوق ({totalWarehouseCount})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveModal('livestock')}
+          className="min-h-[44px] px-2 py-1.5 rounded-xl bg-lime-500/15 dark:bg-lime-950/40 text-lime-800 dark:text-lime-300 border border-lime-500/30 flex flex-col sm:flex-row items-center justify-center gap-1"
+        >
+          <Home className="w-4 h-4 shrink-0" />
+          <span className="truncate">الحظيرة 🐄</span>
+        </button>
+
+        <button
+          onClick={() => setActiveModal('quests')}
+          className="relative min-h-[44px] px-2 py-1.5 rounded-xl bg-rose-500/15 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-500/30 flex flex-col sm:flex-row items-center justify-center gap-1"
+        >
+          <ClipboardCheck className="w-4 h-4 shrink-0" />
+          <span className="truncate">المهام</span>
+          {claimableQuestsCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-stone-950 text-[9px] font-black flex items-center justify-center">
+              {claimableQuestsCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveModal('greenhouse')}
+          className="min-h-[44px] px-2 py-1.5 rounded-xl bg-cyan-500/15 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border border-cyan-500/30 flex flex-col sm:flex-row items-center justify-center gap-1"
+        >
+          <Thermometer className="w-4 h-4 shrink-0" />
+          <span className="truncate">المحمي {farm.greenhouseTemp}°</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveModal('advisor');
+            if (!advisorReply) handleAskAdvisor();
+          }}
+          className="min-h-[44px] px-2 py-1.5 rounded-xl bg-purple-500/15 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border border-purple-500/30 flex flex-col sm:flex-row items-center justify-center gap-1"
+        >
+          <Bot className="w-4 h-4 shrink-0" />
+          <span className="truncate">المستشار</span>
+        </button>
+
+        <button
+          onClick={() => {
+            fetchSocial();
+            setActiveModal('social');
+          }}
+          className="min-h-[44px] px-2 py-1.5 rounded-xl bg-blue-500/15 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-500/30 flex flex-col sm:flex-row items-center justify-center gap-1"
+        >
+          <Trophy className="w-4 h-4 shrink-0" />
+          <span className="truncate">الترتيب</span>
+        </button>
+      </div>
+
+      {/* Subtle Bottom Almanac Link */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white dark:bg-[#132247]/70 border border-stone-200 dark:border-sky-400/20 text-[11px] text-stone-700 dark:text-sky-200">
+        <span className="truncate">
+          <strong className="text-emerald-700 dark:text-emerald-300">إرشاد اليوم: </strong>
+          {farm.dailyBookTip || farm.seasonHint}
+        </span>
+        <button
+          onClick={() => setActiveModal('crops_guide')}
+          className="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-600/15 text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1"
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>موسوعة المحاصيل</span>
+        </button>
+      </div>
+
+      {/* Modal 1: Illustrated Seed Shop (Inspired by Reference Seed Shop Card Style) */}
       {activeModal === 'seeds' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 border border-stone-200 dark:border-stone-800 space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
-              <h3 className="font-bold text-base text-stone-900 dark:text-white">
-                اختر المحصول للزراعة في القطعة #{selectedPlot.plotIndex + 1}
-              </h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 text-stone-400 hover:text-stone-700">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-[#f8f5ec] dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[88dvh] overflow-y-auto p-4 sm:p-6 border border-amber-300/60 dark:border-sky-400/25 space-y-4">
+            <div className="flex items-center justify-between border-b border-amber-200 dark:border-sky-400/20 pb-3">
+              <div>
+                <h3 className="font-extrabold text-base text-stone-900 dark:text-white flex items-center gap-2">
+                  <span>🌱 متجر البذور والشتلات العُمانية</span>
+                </h3>
+                <p className="text-[11px] text-stone-600 dark:text-sky-200/80 mt-0.5">
+                  القطعة #{selectedPlot.plotIndex + 1} · رصيدك: <strong className="text-amber-600 dark:text-amber-300">{farm.coins} 🪙</strong>
+                </p>
+              </div>
+              <button onClick={() => setActiveModal(null)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-sky-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Preparation Helper Alert if Plot is not leveled yet */}
+            {!selectedPlot.cropId && (!selectedPlot.soilPrepared || !selectedPlot.soilLeveled) && (
+              <div className="p-3 rounded-2xl bg-amber-100 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 flex items-center justify-between gap-2 text-xs">
+                <span className="font-bold text-amber-900 dark:text-amber-200">
+                  {selectedPlot.soilPrepared
+                    ? 'التربة محروثة — اضغط «تسوية الآن» قبل الزراعة:'
+                    : 'القطعة بكر — احرثها أولاً لتصبح جاهزة للبذر:'}
+                </span>
+                <button
+                  disabled={busyAction}
+                  onClick={() => performAction(selectedPlot.soilPrepared ? 'level_soil' : 'plow', selectedPlot.id)}
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 text-white font-bold shrink-0"
+                >
+                  {selectedPlot.soilPrepared ? 'تسوية الآن' : 'حرث الآن'}
+                </button>
+              </div>
+            )}
+
+            {/* Category Filter Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[11px] font-bold">
+              {[
+                ['all', 'الكل'],
+                ['حمضيات وفاكهة', 'نخيل وفاكهة 🌴'],
+                ['خضراوات', 'خضراوات 🍅'],
+                ['محاصيل حقلية', 'حقلية وأعلاف 🌾'],
+              ].map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setSeedCategoryFilter(val)}
+                  className={`px-3 py-1.5 rounded-xl shrink-0 border ${
+                    seedCategoryFilter === val
+                      ? 'bg-emerald-600 text-white border-emerald-500'
+                      : 'bg-white dark:bg-[#0b1329]/80 text-stone-700 dark:text-sky-200 border-stone-200 dark:border-sky-400/20'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Illustrated Seed Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              {crops.map((c) => {
+              {filteredSeedCrops.map((c) => {
                 const suitable = selectedPlot.isGreenhouse ? c.greenhouseSuitable : c.openFieldSuitable;
+                const canPlantHere = suitable && !selectedPlot.cropId && selectedPlot.soilPrepared && selectedPlot.soilLeveled;
                 return (
                   <div
                     key={c.id}
-                    className={`p-3.5 rounded-2xl border space-y-2 ${
+                    className={`p-3.5 rounded-2xl border-2 space-y-2.5 transition-all ${
                       suitable
-                        ? 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/50'
-                        : 'border-stone-200 dark:border-stone-800 opacity-50'
+                        ? 'border-amber-200/80 dark:border-sky-400/25 bg-white dark:bg-[#0b1329]/80 shadow-sm'
+                        : 'border-stone-200 dark:border-stone-800 opacity-55 bg-stone-100 dark:bg-stone-900'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
-                        <span>{c.nameAr}</span>
-                        {c.bookCitationCode && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold">
-                            {c.bookCitationCode}
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-700/50 flex items-center justify-center text-3xl shrink-0">
+                        {CROP_EMOJIS[c.id] || '🌱'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-extrabold text-stone-900 dark:text-white flex items-center justify-between gap-1">
+                          <span className="truncate">{c.nameAr}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 shrink-0">
+                            {c.category}
                           </span>
+                        </div>
+                        <div className="text-[10px] text-stone-500 dark:text-sky-200/70 mt-0.5 truncate">
+                          {c.omaniRegions}
+                        </div>
+                        {c.id === 'omani_alfalfa' && (
+                          <div className="text-[10px] font-bold text-lime-700 dark:text-lime-400 mt-0.5">
+                            +2 حزمة علف للحظيرة مع كل حصاد 🐄
+                          </div>
                         )}
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 shrink-0">
-                        {c.category}
-                      </span>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-stone-500 dark:text-stone-400">
-                      الموسم: {c.preferredSeason}
-                    </div>
-                    <div className="text-[11px] text-stone-500 dark:text-stone-400">
-                      المناطق: {c.omaniRegions}
-                    </div>
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-amber-700 dark:text-amber-300 font-bold">
-                        البذور: {c.seedCostCoins} 🪙 · العائد: {c.harvestCoins} 🪙
-                      </span>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-stone-100 dark:border-sky-400/10">
+                      <div className="font-bold text-[11px] tabular-nums">
+                        <span className="text-stone-700 dark:text-sky-200">البذور: {c.seedCostCoins} 🪙</span>
+                        <span className="mx-1.5 text-stone-300">|</span>
+                        <span className="text-emerald-700 dark:text-emerald-400">العائد: {c.harvestCoins} 🪙</span>
+                      </div>
                       <button
-                        disabled={!suitable || busyAction}
+                        disabled={!canPlantHere || busyAction || farm.coins < c.seedCostCoins}
                         onClick={async () => {
                           const ok = await performAction('plant', selectedPlot.id, { cropId: c.id });
                           if (ok) setActiveModal(null);
                         }}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-stone-400 text-white font-bold"
+                        className="min-h-[38px] px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-stone-300 dark:disabled:bg-stone-800 text-white dark:disabled:text-stone-500 font-extrabold text-[11px]"
                       >
-                        {suitable ? 'زراعة الآن' : selectedPlot.isGreenhouse ? 'للحقل فقط' : 'للبيت المحمي فقط'}
+                        {!suitable
+                          ? selectedPlot.isGreenhouse
+                            ? 'حقل مكشوف'
+                            : 'بيت محمي'
+                          : !selectedPlot.soilLeveled
+                            ? 'جهّز الأرض أولاً'
+                            : selectedPlot.cropId
+                              ? 'قطعة مزروعة'
+                              : 'زراعة الآن'}
                       </button>
                     </div>
                   </div>
@@ -1406,72 +1421,147 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Modal 2: Virtual Currency Farm Shop (Zero Real-Money Purchases) */}
+      {/* Modal 2: Farm Shop + Tool & Equipment Upgrades */}
       {activeModal === 'shop' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 border border-stone-200 dark:border-stone-800 space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-white dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[88dvh] overflow-y-auto p-4 sm:p-6 border border-stone-200 dark:border-sky-400/25 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-sky-400/20 pb-3">
               <div>
                 <h3 className="font-bold text-base text-stone-900 dark:text-white">
-                  متجر المزرعة الافتراضي (عملات اللعب المجانية فقط)
+                  متجر المزرعة وتطوير المعدات
                 </h3>
-                <p className="text-[11px] text-stone-500">رصيدك الحالي: {farm.coins} عملة افتراضية · لا توجد أي مشتريات بمال حقيقي</p>
+                <p className="text-[11px] text-stone-500 dark:text-sky-200/80">
+                  رصيدك الحالي: <strong className="text-amber-500">{farm.coins} 🪙</strong> · عملات اللعب المجانية فقط
+                </p>
               </div>
-              <button onClick={() => setActiveModal(null)} className="p-1 text-stone-400 hover:text-stone-700">
+              <button onClick={() => setActiveModal(null)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              {VIRTUAL_SHOP_ITEMS.map((item: VirtualShopItem) => (
-                <div key={item.id} className="p-4 rounded-2xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/40 flex flex-col justify-between gap-3">
-                  <div>
-                    <div className="font-bold text-stone-900 dark:text-white">{item.nameAr}</div>
-                    <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">{item.description}</p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-amber-600 dark:text-amber-400">{item.costCoins} 🪙</span>
-                    <button
-                      disabled={busyAction || farm.coins < item.costCoins}
-                      onClick={() => performAction('buy_item', undefined, { itemId: item.id })}
-                      className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-stone-400 text-white font-bold"
-                    >
-                      شراء وتوريد
-                    </button>
-                  </div>
-                </div>
-              ))}
+
+            <div className="flex gap-2 text-xs font-bold">
+              <button
+                onClick={() => setShopTab('supplies')}
+                className={`flex-1 min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 ${
+                  shopTab === 'supplies'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-stone-100 dark:bg-[#0b1329]/80 text-stone-700 dark:text-sky-200'
+                }`}
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>الإمدادات والأراضي</span>
+              </button>
+              <button
+                onClick={() => setShopTab('tools')}
+                className={`flex-1 min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 ${
+                  shopTab === 'tools'
+                    ? 'bg-amber-500 text-stone-950'
+                    : 'bg-stone-100 dark:bg-[#0b1329]/80 text-stone-700 dark:text-sky-200'
+                }`}
+              >
+                <Wrench className="w-4 h-4" />
+                <span>تطوير الأدوات والمعدات (4)</span>
+              </button>
             </div>
+
+            {shopTab === 'supplies' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {VIRTUAL_SHOP_ITEMS.map((item: VirtualShopItem) => (
+                  <div key={item.id} className="p-3.5 rounded-2xl border border-stone-200 dark:border-sky-400/20 bg-stone-50 dark:bg-[#0b1329]/70 flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="font-bold text-stone-900 dark:text-white">{item.nameAr}</div>
+                      <p className="text-[11px] text-stone-500 dark:text-sky-200/75 mt-1">{item.description}</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-600 dark:text-amber-400">{item.costCoins} 🪙</span>
+                      <button
+                        disabled={busyAction || farm.coins < item.costCoins}
+                        onClick={() => performAction('buy_item', undefined, { itemId: item.id })}
+                        className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-stone-400 text-white font-bold"
+                      >
+                        شراء الآن
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {FARM_TOOL_UPGRADES.map((t) => {
+                  const lv = Number(farm.tools?.[t.id] || 1);
+                  const isMax = lv >= t.maxLevel;
+                  const cost = t.baseCostCoins * lv;
+                  return (
+                    <div key={t.id} className="p-4 rounded-2xl border border-stone-200 dark:border-sky-400/25 bg-stone-50 dark:bg-[#0b1329]/75 flex flex-col justify-between gap-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-extrabold text-sm text-stone-900 dark:text-white">
+                            {t.icon} {t.nameAr}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold text-[11px]">
+                            م {lv}/{t.maxLevel}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-600 dark:text-sky-200/80">{t.description}</p>
+                        <div className="space-y-1 text-[10px]">
+                          {t.levelBenefits.map((b, idx) => (
+                            <div
+                              key={idx}
+                              className={`px-2 py-1 rounded-lg ${
+                                idx + 1 <= lv
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 font-bold'
+                                  : 'bg-stone-100 dark:bg-stone-900/60 text-stone-500 dark:text-stone-400'
+                              }`}
+                            >
+                              {idx + 1 <= lv ? '✓ ' : '○ '}
+                              {b}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        disabled={busyAction || isMax || farm.coins < cost}
+                        onClick={() => performAction('upgrade_tool', undefined, { toolId: t.id })}
+                        className="min-h-[44px] w-full rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-stone-300 dark:disabled:bg-stone-800 text-stone-950 dark:disabled:text-stone-400 font-extrabold"
+                      >
+                        {isMax ? 'الحد الأقصى للتطوير ✓' : `ترقية للمستوى ${lv + 1} (${cost} 🪙)`}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Modal 3: Greenhouse Control */}
       {activeModal === 'greenhouse' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-md p-6 border border-stone-200 dark:border-stone-800 space-y-5">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-white dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 sm:p-6 border border-stone-200 dark:border-sky-400/25 space-y-5">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-sky-400/20 pb-3">
               <h3 className="font-bold text-base text-stone-900 dark:text-white">
                 غرفة التحكم بالبيت المحمي (المستوى {farm.greenhouseLevel})
               </h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 text-stone-400 hover:text-stone-700">
+              <button onClick={() => setActiveModal(null)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-2xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
-                <div className="text-stone-500">درجة الحرارة الداخلية</div>
+                <div className="text-stone-500 dark:text-orange-200">الحرارة الداخلية</div>
                 <div className="text-xl font-black text-orange-600 mt-1">{farm.greenhouseTemp}°C</div>
               </div>
               <div className="p-3 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800">
-                <div className="text-stone-500">الرطوبة النسبية</div>
+                <div className="text-stone-500 dark:text-sky-200">الرطوبة النسبية</div>
                 <div className="text-xl font-black text-sky-600 mt-1">{farm.greenhouseHumidity}%</div>
               </div>
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-stone-800">
-                <span className="font-bold flex items-center gap-2">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-[#0b1329]/70">
+                <span className="font-bold flex items-center gap-2 text-stone-800 dark:text-white">
                   <Wind className="w-4 h-4 text-cyan-600" />
                   <span>مراوح التهوية والتبريد الصحراوي</span>
                 </span>
@@ -1481,7 +1571,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                       ventilation: !farm.greenhouseVentilation,
                     })
                   }
-                  className={`px-3 py-1 rounded-lg font-bold ${
+                  className={`min-h-[38px] px-3 py-1 rounded-lg font-bold ${
                     farm.greenhouseVentilation ? 'bg-emerald-600 text-white' : 'bg-stone-300 text-stone-800'
                   }`}
                 >
@@ -1489,8 +1579,8 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-stone-800">
-                <span className="font-bold flex items-center gap-2">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-[#0b1329]/70">
+                <span className="font-bold flex items-center gap-2 text-stone-800 dark:text-white">
                   <Droplets className="w-4 h-4 text-sky-600" />
                   <span>الري الآلي بالتنقيط</span>
                 </span>
@@ -1500,7 +1590,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                       irrigationAuto: !farm.greenhouseIrrigationAuto,
                     })
                   }
-                  className={`px-3 py-1 rounded-lg font-bold ${
+                  className={`min-h-[38px] px-3 py-1 rounded-lg font-bold ${
                     farm.greenhouseIrrigationAuto ? 'bg-emerald-600 text-white' : 'bg-stone-300 text-stone-800'
                   }`}
                 >
@@ -1508,7 +1598,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                 </button>
               </div>
 
-              <div className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800 space-y-2">
+              <div className="p-3 rounded-xl bg-stone-50 dark:bg-[#0b1329]/70 space-y-2 text-stone-800 dark:text-white">
                 <div className="flex items-center justify-between font-bold">
                   <span className="flex items-center gap-2">
                     <SunMedium className="w-4 h-4 text-amber-500" />
@@ -1537,13 +1627,13 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
       {/* Modal 4: 10-Point Agricultural Crop Guide */}
       {activeModal === 'crops_guide' && guideCrop && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6 border border-stone-200 dark:border-stone-800 space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-white dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-3xl max-h-[88dvh] overflow-y-auto p-4 sm:p-6 border border-stone-200 dark:border-sky-400/25 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-sky-400/20 pb-3">
               <h3 className="font-bold text-base text-stone-900 dark:text-white">
-                الملف العلمي الشامل للمحاصيل (10 نقاط زراعية معتمدة)
+                الملف العلمي الشامل للمحاصيل ({crops.length} محصولاً عُمانياً)
               </h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 text-stone-400 hover:text-stone-700">
+              <button onClick={() => setActiveModal(null)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1556,15 +1646,15 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
                     guideCrop.id === c.id
                       ? 'bg-emerald-600 text-white'
-                      : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300'
+                      : 'bg-stone-100 dark:bg-[#0b1329]/80 text-stone-700 dark:text-sky-200'
                   }`}
                 >
-                  {c.nameAr}
+                  {CROP_EMOJIS[c.id] || '🌱'} {c.nameAr}
                 </button>
               ))}
             </div>
 
-            <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs space-y-1.5">
+            <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs space-y-1.5">
               <div className="font-extrabold text-sm text-emerald-900 dark:text-emerald-200 flex flex-wrap items-center gap-2">
                 <span>{guideCrop.nameAr} ({guideCrop.nameEn})</span>
                 {guideCrop.bookCitationCode && (
@@ -1595,7 +1685,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                 ['9. الوقاية والمكافحة الآمنة', guideCrop.guide['9_preventionAndControl']],
                 ['10. علامات النضج والحصاد', guideCrop.guide['10_harvestAndYield']],
               ].map(([title, text], i) => (
-                <div key={i} className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-800 space-y-1">
+                <div key={i} className="p-3 rounded-xl bg-stone-50 dark:bg-[#0b1329]/70 border border-stone-200 dark:border-sky-400/15 space-y-1">
                   <div className="font-bold text-emerald-700 dark:text-emerald-400">{title}</div>
                   <p className="text-stone-600 dark:text-stone-300 leading-relaxed">{text}</p>
                 </div>
@@ -1605,16 +1695,16 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Modal 5: Safe AI Advisor inside Virtual Farm */}
+      {/* Modal 5: Safe AI Advisor */}
       {activeModal === 'advisor' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-lg p-6 border border-stone-200 dark:border-stone-800 space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-white dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-6 border border-stone-200 dark:border-sky-400/25 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-sky-400/20 pb-3">
               <h3 className="font-bold text-base text-stone-900 dark:text-white flex items-center gap-2">
-                <Bot className="w-5 h-5 text-purple-600" />
-                <span>المستشار الزراعي الذكي (القطعة #{selectedPlot.plotIndex + 1})</span>
+                <img src={FLIJAN_AVATAR_URL} alt="فليجان" className="w-7 h-7 rounded-full object-cover object-top" />
+                <span>المستشار الزراعي الذكي (قطعة #{selectedPlot.plotIndex + 1})</span>
               </h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 text-stone-400 hover:text-stone-700">
+              <button onClick={() => setActiveModal(null)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1629,7 +1719,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                 value={advisorPrompt}
                 onChange={(e) => setAdvisorPrompt(e.target.value)}
                 placeholder="اسأل عن الري، التسميد، أو مكافحة الآفة بأمان..."
-                className="flex-1 p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white"
+                className="flex-1 p-2.5 rounded-xl border border-stone-300 dark:border-sky-400/25 bg-stone-50 dark:bg-[#0b1329]/80 text-stone-900 dark:text-white"
               />
               <button
                 onClick={() => handleAskAdvisor()}
@@ -1646,24 +1736,23 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
       {/* Modal 6: Social, Friends, Oman Leaderboards, Achievements & Audit Log */}
       {activeModal === 'social' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-3xl max-h-[88vh] overflow-y-auto p-6 border border-stone-200 dark:border-stone-800 space-y-5 text-xs">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-white dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-3xl max-h-[88dvh] overflow-y-auto p-4 sm:p-6 border border-stone-200 dark:border-sky-400/25 space-y-5 text-xs">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-sky-400/20 pb-3">
               <h3 className="font-bold text-base text-stone-900 dark:text-white flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-500" />
-                <span>لوحة ترتيب عُمان · الأصدقاء · المنافسات · الإنجازات</span>
+                <span>الترتيب العام · المنافسات · الإنجازات</span>
               </h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 text-stone-400 hover:text-stone-700">
+              <button onClick={() => setActiveModal(null)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Active Competitions */}
             {socialData.competitions.length > 0 && (
               <div className="space-y-2">
-                <div className="font-bold text-stone-800 dark:text-stone-200">المسابقات والمنافسات المفتوحة في سلطنة عُمان:</div>
+                <div className="font-bold text-stone-800 dark:text-sky-100">المنافسات المفتوحة في سلطنة عُمان:</div>
                 {socialData.competitions.map((comp) => (
-                  <div key={comp.id} className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-center justify-between">
+                  <div key={comp.id} className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-2">
                     <div>
                       <div className="font-bold text-amber-900 dark:text-amber-200">{comp.title}</div>
                       <div className="text-[11px] text-stone-600 dark:text-stone-300">{comp.description}</div>
@@ -1674,17 +1763,16 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
               </div>
             )}
 
-            {/* Leaderboard */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-stone-800 dark:text-stone-200">الترتيب العام للاعبي سلطنة عُمان:</span>
+                <span className="font-bold text-stone-800 dark:text-sky-100">الترتيب العام:</span>
                 <div className="flex gap-1">
                   {(['all', 'weekly', 'monthly'] as const).map((t) => (
                     <button
                       key={t}
                       onClick={() => setBoardTab(t)}
                       className={`px-2.5 py-1 rounded-lg font-bold ${
-                        boardTab === t ? 'bg-emerald-600 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
+                        boardTab === t ? 'bg-emerald-600 text-white' : 'bg-stone-100 dark:bg-[#0b1329]/80 text-stone-600 dark:text-sky-200'
                       }`}
                     >
                       {t === 'all' ? 'الكل' : t === 'weekly' ? 'أسبوعي' : 'شهري'}
@@ -1693,32 +1781,32 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                 </div>
               </div>
 
-              <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden">
+              <div className="divide-y divide-stone-100 dark:divide-sky-400/15 border border-stone-200 dark:border-sky-400/20 rounded-2xl overflow-hidden">
                 {sortedLeaderboard.map((player, idx) => {
                   const pts = boardTab === 'weekly' ? player.weeklyPoints : boardTab === 'monthly' ? player.monthlyPoints : player.points;
                   const isMe = player.userId === user.id;
                   return (
-                    <div key={player.userId} className={`p-3 flex items-center justify-between ${isMe ? 'bg-emerald-50/70 dark:bg-emerald-950/30' : ''}`}>
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-full bg-stone-200 dark:bg-stone-800 flex items-center justify-center font-bold">
+                    <div key={player.userId} className={`p-3 flex items-center justify-between gap-2 ${isMe ? 'bg-emerald-50/70 dark:bg-emerald-950/30' : ''}`}>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-6 h-6 rounded-full bg-stone-200 dark:bg-[#0b1329] flex items-center justify-center font-bold shrink-0">
                           {idx + 1}
                         </span>
-                        <div>
-                          <div className="font-bold text-stone-900 dark:text-white">
+                        <div className="min-w-0">
+                          <div className="font-bold text-stone-900 dark:text-white truncate">
                             {player.name} {isMe && '(أنت)'}
                           </div>
-                          <div className="text-[11px] text-stone-500">
-                            {player.governorate} · المستوى {player.level} · {player.achievementsCount} إنجازات
+                          <div className="text-[11px] text-stone-500 dark:text-sky-200/70 truncate">
+                            {player.governorate} · م{player.level} · {player.achievementsCount} إنجازات
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-emerald-600 font-mono">{pts} نقطة</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono">{pts} نقطة</span>
                         {!isMe && (
                           <>
                             <button
                               onClick={() => handleSocialAction({ action: 'send_invite', targetUserId: player.userId })}
-                              className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold flex items-center gap-1"
+                              className="px-2 py-1 rounded-lg bg-blue-600 text-white font-bold flex items-center gap-1"
                             >
                               <Users className="w-3 h-3" />
                               <span>تحدي</span>
@@ -1726,7 +1814,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                             <button
                               onClick={() => handleSocialAction({ action: 'report_player', targetUserId: player.userId, reason: 'طلب مراجعة نزاهة النقاط' })}
                               className="p-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-500 hover:text-red-500"
-                              title="إبلاغ عن مخالفة"
+                              title="إبلاغ"
                             >
                               <Flag className="w-3.5 h-3.5" />
                             </button>
@@ -1739,12 +1827,11 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
               </div>
             </div>
 
-            {/* Friend Invites */}
             {socialData.friendships.length > 0 && (
               <div className="space-y-2">
-                <div className="font-bold text-stone-800 dark:text-stone-200">طلبات الصداقة والمنافسة:</div>
+                <div className="font-bold text-stone-800 dark:text-sky-100">طلبات الصداقة والمنافسة:</div>
                 {socialData.friendships.map((fr) => (
-                  <div key={fr.id} className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800 flex items-center justify-between">
+                  <div key={fr.id} className="p-3 rounded-xl bg-stone-50 dark:bg-[#0b1329]/70 flex items-center justify-between">
                     <span>
                       {fr.requesterName} ↔ {fr.recipientName} ({fr.status === 'accepted' ? 'متنافسون ✅' : fr.status === 'pending' ? 'بانتظار القبول' : 'مرفوضة'})
                     </span>
@@ -1769,10 +1856,9 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
               </div>
             )}
 
-            {/* Achievements & Audit Logs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <div className="font-bold text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
+                <div className="font-bold text-stone-800 dark:text-sky-100 flex items-center gap-1.5">
                   <Award className="w-4 h-4 text-amber-500" />
                   <span>الإنجازات ({(farm.achievements || []).length}/{FARM_ACHIEVEMENTS.length})</span>
                 </div>
@@ -1785,11 +1871,11 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                         className={`p-2.5 rounded-xl border flex items-center justify-between ${
                           unlocked
                             ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700'
-                            : 'bg-stone-50 dark:bg-stone-800/40 border-stone-200 dark:border-stone-800 opacity-60'
+                            : 'bg-stone-50 dark:bg-[#0b1329]/50 border-stone-200 dark:border-sky-400/15 opacity-60'
                         }`}
                       >
                         <span>{ach.icon} {ach.titleAr}</span>
-                        <span className="font-bold text-emerald-600">+{ach.rewardPoints}</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">+{ach.rewardPoints}</span>
                       </div>
                     );
                   })}
@@ -1797,12 +1883,12 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
               </div>
 
               <div className="space-y-2">
-                <div className="font-bold text-stone-800 dark:text-stone-200">سجل النقاط الموثق من الخادم:</div>
-                <div className="max-h-56 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-800 rounded-xl p-2">
+                <div className="font-bold text-stone-800 dark:text-sky-100">سجل النقاط الموثق:</div>
+                <div className="max-h-56 overflow-y-auto divide-y divide-stone-100 dark:divide-sky-400/10 border border-stone-200 dark:border-sky-400/20 rounded-xl p-2">
                   {(farm.logs || []).slice(0, 12).map((l: any) => (
                     <div key={l.id} className="py-1.5 flex items-center justify-between gap-2">
                       <span className="text-stone-600 dark:text-stone-300">{l.description}</span>
-                      {l.pointsDelta > 0 && <span className="font-bold text-emerald-600 shrink-0">+{l.pointsDelta}</span>}
+                      {l.pointsDelta > 0 && <span className="font-bold text-emerald-600 dark:text-emerald-400 shrink-0">+{l.pointsDelta}</span>}
                     </div>
                   ))}
                 </div>
@@ -1812,19 +1898,19 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Modal 7: Farm Notifications & User Preference Toggle */}
+      {/* Modal 7: Farm Notifications */}
       {activeModal === 'notifications' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-md p-6 border border-stone-200 dark:border-stone-800 space-y-4 text-xs">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-white dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 sm:p-6 border border-stone-200 dark:border-sky-400/25 space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-sky-400/20 pb-3">
               <h3 className="font-bold text-base text-stone-900 dark:text-white">تنبيهات المزرعة الافتراضية</h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 text-stone-400 hover:text-stone-700">
+              <button onClick={() => setActiveModal(null)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-stone-800">
-              <span className="font-bold">استلام إشعارات الري والحصاد والمنافسات</span>
+            <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-[#0b1329]/70">
+              <span className="font-bold">استلام إشعارات الري والحصاد</span>
               <button
                 onClick={() => performAction('toggle_notifications')}
                 className={`px-3 py-1 rounded-lg font-bold ${
@@ -1837,7 +1923,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
             <div className="max-h-72 overflow-y-auto space-y-2">
               {(farm.notifications || []).map((n: any) => (
-                <div key={n.id} className="p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/40">
+                <div key={n.id} className="p-3 rounded-xl border border-stone-200 dark:border-sky-400/15 bg-stone-50/70 dark:bg-[#0b1329]/60">
                   <div className="font-bold text-stone-900 dark:text-white">{n.title}</div>
                   <p className="text-stone-600 dark:text-stone-300 mt-0.5">{n.message}</p>
                 </div>
@@ -1846,7 +1932,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
             <button
               onClick={() => performAction('mark_notifications_read')}
-              className="w-full py-2 rounded-xl bg-stone-200 dark:bg-stone-800 font-bold text-stone-800 dark:text-stone-200"
+              className="w-full min-h-[44px] py-2 rounded-xl bg-stone-200 dark:bg-[#0b1329] font-bold text-stone-800 dark:text-sky-100"
             >
               تحديد الكل كمقروء
             </button>
@@ -1856,15 +1942,15 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
       {/* Modal 8: Omani Livestock Barn & Beehive Apiary */}
       {activeModal === 'livestock' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-[#132247] rounded-3xl w-full max-w-2xl max-h-[88vh] overflow-y-auto p-6 border border-stone-200 dark:border-sky-400/25 space-y-4 text-xs">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-white dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[88dvh] overflow-y-auto p-4 sm:p-6 border border-stone-200 dark:border-sky-400/25 space-y-4 text-xs">
             <div className="flex items-center justify-between border-b border-stone-200 dark:border-sky-400/20 pb-3">
               <div>
-                <h3 className="font-bold text-base text-stone-900 dark:text-white flex items-center gap-2">
-                  <span>🐄 الحظيرة العُمانية ومنحل العسل</span>
+                <h3 className="font-bold text-base text-stone-900 dark:text-white">
+                  🐄 الحظيرة العُمانية ومنحل العسل
                 </h3>
                 <p className="text-[11px] text-stone-500 dark:text-sky-200/80 mt-0.5">
-                  رصيد الأعلاف: <strong className="text-emerald-600 dark:text-emerald-400 tabular-nums">{farm.inventory?.fodder_pack ?? 0}</strong> حزمة برسيم · مستوى الحظيرة {farm.buildings?.livestockShelter || 1} · المنحل {farm.buildings?.beehiveApiary || 1}
+                  رصيد الأعلاف: <strong className="text-emerald-600 dark:text-emerald-400 tabular-nums">{farm.inventory?.fodder_pack ?? 0}</strong> حزمة برسيم · م الحظيرة {farm.buildings?.livestockShelter || 1}
                 </p>
               </div>
               <button onClick={() => setActiveModal(null)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-700 dark:hover:text-white">
@@ -1927,7 +2013,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
             <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700/40 text-[11px]">
               <span className="text-amber-900 dark:text-amber-200 font-semibold">
-                هل نفدت الأعلاف؟ يمكنك شراء حزم البرسيم العُماني أو بيع منتجات الحظيرة في السوق اليومي.
+                نصيحة: زراعة القت العُماني تمنحك حزمتي علف مجاناً مع كل حصاد!
               </span>
               <div className="flex gap-2">
                 <button
@@ -1944,7 +2030,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                   }}
                   className="px-3 py-2 rounded-xl bg-teal-600 text-white font-bold"
                 >
-                  اذهب للسوق 🏪
+                  السوق 🏪
                 </button>
               </div>
             </div>
@@ -1952,10 +2038,10 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Modal 9: Dynamic Daily Omani Souq Market & Upgradable Farm Buildings */}
+      {/* Modal 9: Dynamic Daily Omani Souq Market, Buildings & Harvest Log */}
       {activeModal === 'market' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-[#132247] rounded-3xl w-full max-w-3xl max-h-[88vh] overflow-y-auto p-6 border border-stone-200 dark:border-sky-400/25 space-y-4 text-xs">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-white dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-3xl max-h-[88dvh] overflow-y-auto p-4 sm:p-6 border border-stone-200 dark:border-sky-400/25 space-y-4 text-xs">
             <div className="flex items-center justify-between border-b border-stone-200 dark:border-sky-400/20 pb-3">
               <div>
                 <h3 className="font-bold text-base text-stone-900 dark:text-white flex items-center gap-2">
@@ -1963,7 +2049,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                   <span>سوق المزرعة اليومي وتطوير المنشآت</span>
                 </h3>
                 <p className="text-[11px] text-stone-500 dark:text-sky-200/80 mt-0.5">
-                  رصيدك: <strong className="text-amber-500 tabular-nums">{farm.coins} 🪙</strong> · علاوة المخزن: <strong className="text-emerald-500">+{Math.max(0, ((farm.buildings?.barnStorage || 1) - 1) * 12)}%</strong> على الأسعار
+                  رصيدك: <strong className="text-amber-500 tabular-nums">{farm.coins} 🪙</strong> · علاوة المخزن: <strong className="text-emerald-500">+{Math.max(0, ((farm.buildings?.barnStorage || 1) - 1) * 12)}%</strong>
                 </p>
               </div>
               <button onClick={() => setActiveModal(null)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-700 dark:hover:text-white">
@@ -1971,39 +2057,44 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
               </button>
             </div>
 
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-1.5 font-bold">
               <button
                 onClick={() => setMarketTab('sell')}
-                className={`flex-1 min-h-[44px] rounded-xl font-bold flex items-center justify-center gap-2 ${
+                className={`min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 ${
                   marketTab === 'sell'
                     ? 'bg-teal-600 text-white'
                     : 'bg-stone-100 dark:bg-[#0b1329]/80 text-stone-700 dark:text-sky-200'
                 }`}
               >
-                <TrendingUp className="w-4 h-4" />
-                <span>سوق المزرعة والمخزن ({totalWarehouseCount})</span>
+                <TrendingUp className="w-4 h-4 shrink-0" />
+                <span>السوق ({totalWarehouseCount})</span>
               </button>
               <button
                 onClick={() => setMarketTab('buildings')}
-                className={`flex-1 min-h-[44px] rounded-xl font-bold flex items-center justify-center gap-2 ${
+                className={`min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 ${
                   marketTab === 'buildings'
                     ? 'bg-emerald-600 text-white'
                     : 'bg-stone-100 dark:bg-[#0b1329]/80 text-stone-700 dark:text-sky-200'
                 }`}
               >
-                <Hammer className="w-4 h-4" />
-                <span>تطوير مباني المزرعة (4)</span>
+                <Hammer className="w-4 h-4 shrink-0" />
+                <span>المباني (4)</span>
+              </button>
+              <button
+                onClick={() => setMarketTab('stats')}
+                className={`min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 ${
+                  marketTab === 'stats'
+                    ? 'bg-amber-500 text-stone-950'
+                    : 'bg-stone-100 dark:bg-[#0b1329]/80 text-stone-700 dark:text-sky-200'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4 shrink-0" />
+                <span>سجل الإنتاج</span>
               </button>
             </div>
 
             {marketTab === 'sell' ? (
               <div className="space-y-4">
-                <div className="p-3 rounded-2xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-700/40 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                  <span className="font-bold text-teal-900 dark:text-teal-200">
-                    📈 أسعار اليوم الزراعي {farm.farmDay || 1} تتجدد مع كل يوم وموسم — راقب الأصناف ذات الطلب المرتفع!
-                  </span>
-                </div>
-
                 <div className="space-y-2">
                   <div className="font-bold text-stone-800 dark:text-sky-100 flex items-center gap-1.5">
                     <Package className="w-4 h-4 text-amber-500" />
@@ -2024,8 +2115,8 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                                 {def.icon} {def.productNameAr}
                               </div>
                               <div className="text-[11px] text-stone-500 dark:text-sky-200/75 tabular-nums">
-                                السعر اليوم: <strong className="text-amber-500">{unitPrice} 🪙</strong> · معامل {mult.toFixed(2)}×
-                                {isHot && <span className="text-emerald-500 font-bold"> · طلب مرتفع!</span>}
+                                اليوم: <strong className="text-amber-500">{unitPrice} 🪙</strong> · {mult.toFixed(2)}×
+                                {isHot && <span className="text-emerald-500 font-bold"> · طلب عالٍ!</span>}
                               </div>
                             </div>
                             <span className="font-black text-sm text-sky-600 dark:text-sky-300 tabular-nums">×{qty}</span>
@@ -2044,7 +2135,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                                 onClick={() => performAction('sell_market', undefined, { itemType: 'good', itemId: def.productId, quantity: 'all' })}
                                 className="min-h-[44px] px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold"
                               >
-                                بيع الكل ({qty * unitPrice} 🪙)
+                                الكل ({qty * unitPrice} 🪙)
                               </button>
                             )}
                           </div>
@@ -2068,11 +2159,13 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                       const unitPrice = Math.max(15, Math.round(base * mult * barnBonus));
                       const isHot = (farm.hotItems || []).includes(crop.id);
                       return (
-                        <div key={crop.id} className={`p-3.5 rounded-2xl border border-stone-200 dark:border-sky-400/20 bg-stone-50 dark:bg-[#0b1329]/70 flex items-center justify-between gap-2 ${qty === 0 ? 'opacity-65' : ''}`}>
+                        <div key={crop.id} className={`p-3 rounded-2xl border border-stone-200 dark:border-sky-400/20 bg-stone-50 dark:bg-[#0b1329]/70 flex items-center justify-between gap-2 ${qty === 0 ? 'opacity-65' : ''}`}>
                           <div>
-                            <div className="font-bold text-stone-900 dark:text-white">{crop.nameAr}</div>
+                            <div className="font-bold text-stone-900 dark:text-white">
+                              {CROP_EMOJIS[crop.id] || '🌱'} {crop.nameAr}
+                            </div>
                             <div className="text-[11px] text-stone-500 dark:text-sky-200/75 tabular-nums">
-                              {unitPrice} 🪙/صندوق · معامل {mult.toFixed(2)}×{isHot ? ' · طلب عالٍ!' : ''}
+                              {unitPrice} 🪙/صندوق · {mult.toFixed(2)}×{isHot ? ' · طلب عالٍ!' : ''}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -2080,9 +2173,9 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                             <button
                               disabled={busyAction || qty <= 0}
                               onClick={() => performAction('sell_market', undefined, { itemType: 'crop', itemId: crop.id, quantity: 'all' })}
-                              className="min-h-[44px] px-3 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:bg-stone-300 dark:disabled:bg-stone-800 text-white dark:disabled:text-stone-500 font-bold"
+                              className="min-h-[40px] px-3 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:bg-stone-300 dark:disabled:bg-stone-800 text-white dark:disabled:text-stone-500 font-bold"
                             >
-                              {qty > 0 ? `بيع (${qty * unitPrice} 🪙)` : 'فارغ'}
+                              {qty > 0 ? `بيع (${qty * unitPrice})` : 'فارغ'}
                             </button>
                           </div>
                         </div>
@@ -2091,7 +2184,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : marketTab === 'buildings' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {FARM_BUILDING_DEFS.map((b) => {
                   const lv = Number(farm.buildings?.[b.id] || 1);
@@ -2115,11 +2208,50 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
                         onClick={() => performAction('upgrade_building', undefined, { buildingId: b.id })}
                         className="w-full min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-stone-300 dark:disabled:bg-stone-800 text-white dark:disabled:text-stone-400 font-extrabold"
                       >
-                        {isMax ? 'أعلى مستوى ✓' : `تطوير إلى المستوى ${lv + 1} (${cost} 🪙)`}
+                        {isMax ? 'أعلى مستوى ✓' : `تطوير إلى م${lv + 1} (${cost} 🪙)`}
                       </button>
                     </div>
                   );
                 })}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-700/40">
+                    <div className="text-[11px] text-stone-600 dark:text-emerald-200">إجمالي الحصادات</div>
+                    <div className="text-xl font-black text-emerald-700 dark:text-emerald-300 mt-1 tabular-nums">
+                      {farm.harvestStats?.totalHarvests || 0} عملية
+                    </div>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700/40">
+                    <div className="text-[11px] text-stone-600 dark:text-amber-200">عوائد الحصاد</div>
+                    <div className="text-xl font-black text-amber-700 dark:text-amber-300 mt-1 tabular-nums">
+                      {farm.harvestStats?.totalEarnedCoins || 0} 🪙
+                    </div>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-700/40">
+                    <div className="text-[11px] text-stone-600 dark:text-sky-200">ترقية المعدات</div>
+                    <div className="text-xl font-black text-sky-700 dark:text-sky-300 mt-1 tabular-nums">
+                      {(farm.tools?.plow || 1) + (farm.tools?.irrigation || 1) + (farm.tools?.sprayer || 1) + (farm.tools?.harvester || 1)}/12
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {crops.map((c) => {
+                    const harvestedBoxes = Number(farm.harvestStats?.byCrop?.[c.id] || 0);
+                    return (
+                      <div key={c.id} className="p-3 rounded-xl border border-stone-200 dark:border-sky-400/20 bg-stone-50 dark:bg-[#0b1329]/70 flex items-center justify-between">
+                        <span className="font-bold text-stone-900 dark:text-white">
+                          {CROP_EMOJIS[c.id] || '🌱'} {c.nameAr}
+                        </span>
+                        <span className="font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                          {harvestedBoxes} صندوق محصود
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -2128,8 +2260,8 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
       {/* Modal 10: Daily Farm Quests */}
       {activeModal === 'quests' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75">
-          <div className="bg-white dark:bg-[#132247] rounded-3xl w-full max-w-lg p-6 border border-stone-200 dark:border-sky-400/25 space-y-4 text-xs">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80">
+          <div className="bg-white dark:bg-[#132247] rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-6 border border-stone-200 dark:border-sky-400/25 space-y-4 text-xs">
             <div className="flex items-center justify-between border-b border-stone-200 dark:border-sky-400/20 pb-3">
               <div>
                 <h3 className="font-bold text-base text-stone-900 dark:text-white flex items-center gap-2">
@@ -2164,7 +2296,7 @@ export const VirtualFarmView: React.FC<VirtualFarmViewProps> = ({ user }) => {
 
                     <div className="flex items-center justify-between gap-2 pt-1">
                       <span className="text-[11px] font-bold text-amber-600 dark:text-amber-300 tabular-nums">
-                        المكافأة: +{q.rewardCoins} 🪙 · +{q.rewardPoints} ⭐ · +{q.rewardWater}💧
+                        +{q.rewardCoins} 🪙 · +{q.rewardPoints} ⭐ · +{q.rewardWater}💧
                       </span>
                       <button
                         disabled={busyAction || !ready}

@@ -12,7 +12,9 @@ import {
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { UserProfile } from '../types/index.ts';
-import { OMANI_GOVERNORATES, INITIAL_BOOKS } from '../data/agriculturalData.ts';
+import { INITIAL_BOOKS } from '../data/agriculturalData.ts';
+import { OMAN_ADMINISTRATIVE_DATA, matchOmanLocationByNames } from '../data/omanLocationsData.ts';
+import { useLocation } from '../context/LocationContext.tsx';
 import {
   auth,
   db,
@@ -33,15 +35,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onUpdateUser,
   onNavigateToLibrary
 }) => {
+  const { location, setManualSelection } = useLocation();
+  const initialMatched = matchOmanLocationByNames(
+    location.governorate || user.governorate,
+    location.wilayat || user.wilayat,
+    location.village || user.village
+  );
+
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [name, setName] = useState<string>(user.name);
-  const [gov, setGov] = useState<string>(user.governorate);
-  const [wilayat, setWilayat] = useState<string>(user.wilayat);
+  const [govId, setGovId] = useState<string>(initialMatched.governorate.id);
+  const [wilayatId, setWilayatId] = useState<string>(initialMatched.wilayat.id);
+  const [village, setVillage] = useState<string>(initialMatched.village);
   const [role, setRole] = useState<string>(user.role);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
   const [authLoading, setAuthLoading] = useState<boolean>(false);
+
+  const selectedGovObj =
+    OMAN_ADMINISTRATIVE_DATA.find((g) => g.id === govId) || OMAN_ADMINISTRATIVE_DATA[0];
+  const selectedWilayatObj =
+    selectedGovObj.wilayats.find((w) => w.id === wilayatId) || selectedGovObj.wilayats[0];
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (current) => {
@@ -54,13 +69,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     e.preventDefault();
     setSyncError(null);
     const nextName = name.trim() || user.name;
-    const nextGov = gov;
-    const nextWilayat = wilayat.trim() || user.wilayat;
+    const nextGov = selectedGovObj.name;
+    const nextWilayat = selectedWilayatObj.name;
+    const nextVillage = village.trim() || selectedWilayatObj.villages[0] || nextWilayat;
+
+    setManualSelection({
+      governorateId: selectedGovObj.id,
+      wilayatId: selectedWilayatObj.id,
+      village: nextVillage,
+    });
 
     onUpdateUser({
       name: nextName,
       governorate: nextGov,
       wilayat: nextWilayat,
+      village: nextVillage,
       role: role as any
     });
     setIsEditing(false);
@@ -71,9 +94,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         await updateDoc(doc(db, 'users', fbUser.uid), {
           displayName: nextName.slice(0, 80),
           governorate: nextGov.slice(0, 60),
+          wilayat: nextWilayat.slice(0, 80),
+          village: nextVillage.slice(0, 100),
           updatedAt: serverTimestamp(),
         });
-        setSavedMsg('تم حفظ البيانات ومزامنتها سحابياً مع حسابك في Firebase بنجاح.');
+        setSavedMsg('تم حفظ البيانات والمزامنة سحابياً مع حسابك في Firebase بنجاح.');
       } catch (err) {
         try {
           handleFirestoreError(err, OperationType.UPDATE, userPath);
@@ -82,7 +107,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         }
       }
     } else {
-      setSavedMsg('تم حفظ بيانات الملف الشخصي بنجاح.');
+      setSavedMsg('تم حفظ بيانات الملف الشخصي وتحديث الموقع الجغرافي بنجاح.');
     }
     setTimeout(() => setSavedMsg(null), 3500);
   };
@@ -168,8 +193,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </span>
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-300 mt-1 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-500" />
-                <span>{user.governorate} · ولاية {user.wilayat}</span>
+                <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>
+                  {location.governorate} · ولاية {location.wilayat}
+                  {location.village ? ` · ${location.village}` : ''}
+                </span>
               </div>
             </div>
           </div>
@@ -276,26 +304,58 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <div>
                 <label className="block font-semibold mb-1">المحافظة:</label>
                 <select
-                  value={gov}
-                  onChange={e => setGov(e.target.value)}
+                  value={selectedGovObj.id}
+                  onChange={(e) => {
+                    const nextGovObj =
+                      OMAN_ADMINISTRATIVE_DATA.find((g) => g.id === e.target.value) ||
+                      OMAN_ADMINISTRATIVE_DATA[0];
+                    setGovId(nextGovObj.id);
+                    const firstWil = nextGovObj.wilayats[0];
+                    setWilayatId(firstWil.id);
+                    setVillage(firstWil.villages[0] || firstWil.name);
+                  }}
                   className="w-full min-h-[44px] p-2.5 rounded-xl border border-slate-300 dark:border-sky-300/20 bg-white dark:bg-[#132247] text-slate-900 dark:text-white"
                 >
-                  {OMANI_GOVERNORATES.map(g => (
-                    <option key={g.id} value={g.name}>{g.name}</option>
+                  {OMAN_ADMINISTRATIVE_DATA.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label className="block font-semibold mb-1">الولاية:</label>
+                <select
+                  value={selectedWilayatObj.id}
+                  onChange={(e) => {
+                    const nextWilObj =
+                      selectedGovObj.wilayats.find((w) => w.id === e.target.value) ||
+                      selectedGovObj.wilayats[0];
+                    setWilayatId(nextWilObj.id);
+                    setVillage(nextWilObj.villages[0] || nextWilObj.name);
+                  }}
+                  className="w-full min-h-[44px] p-2.5 rounded-xl border border-slate-300 dark:border-sky-300/20 bg-white dark:bg-[#132247] text-slate-900 dark:text-white"
+                >
+                  {selectedGovObj.wilayats.map((w) => (
+                    <option key={w.id} value={w.id}>ولاية {w.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-semibold mb-1">القرية أو المنطقة الزراعية:</label>
                 <input
                   type="text"
-                  required
-                  value={wilayat}
-                  onChange={e => setWilayat(e.target.value)}
-                  placeholder="مثال: نزوى، صحم، بهلاء، الرستاق..."
+                  list="profile-oman-villages"
+                  value={village}
+                  onChange={(e) => setVillage(e.target.value)}
+                  placeholder="اختر أو اكتب اسم القرية أو المنطقة..."
                   className="w-full min-h-[44px] p-2.5 rounded-xl border border-slate-300 dark:border-sky-300/20 bg-white dark:bg-[#132247] text-slate-900 dark:text-white"
                 />
+                <datalist id="profile-oman-villages">
+                  {selectedWilayatObj.villages.map((v) => (
+                    <option key={v} value={v} />
+                  ))}
+                </datalist>
               </div>
             </div>
 

@@ -107,6 +107,7 @@ export async function signInWithGoogleFarmer() {
           uid: fbUser.uid,
           displayName: (fbUser.displayName || 'مزارع عُماني').slice(0, 80),
           governorate: 'محافظة الداخلية',
+          wilayat: 'نزوى',
           role: 'farmer',
           level: 1,
           totalPoints: 0,

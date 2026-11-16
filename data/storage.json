@@ -925,15 +925,16 @@
   ],
   "moderationLogs": [],
   "supportTickets": [],
+  "calendarReminders": [],
   "visitors": {
     "v_e76150ef976d2df9": {
       "anonId": "v_e76150ef976d2df9",
       "deviceType": "هاتف",
       "browserLabel": "Android · Chrome",
       "firstVisitAt": 1794570398345,
-      "lastSeenAt": 1794734667323,
-      "visitCount": 4,
-      "lastPage": "home"
+      "lastSeenAt": 1794818448338,
+      "visitCount": 5,
+      "lastPage": "virtual_farm"
     }
   },
   "dailyVisitIds": {
@@ -944,6 +945,9 @@
       "v_e76150ef976d2df9"
     ],
     "2026-11-15": [
+      "v_e76150ef976d2df9"
+    ],
+    "2026-11-16": [
       "v_e76150ef976d2df9"
     ]
   },
@@ -1947,6 +1951,408 @@
         "9_preventionAndControl": "الرش بأبامكتين أو سبينوساد لصانعة الأنفاق، وبالزيت المعدني للحشرات القشرية [ت].",
         "10_harvestAndYield": "تُجنى الثمار طازجة أو تُجفف لإنتاج اللومي العُماني الشهير."
       }
+    },
+    {
+      "id": "omani_mango",
+      "nameAr": "المانجو العُماني (الأمبا)",
+      "nameEn": "Omani Mango",
+      "category": "حمضيات وفاكهة",
+      "greenhouseSuitable": false,
+      "openFieldSuitable": true,
+      "seedCostCoins": 75,
+      "harvestCoins": 230,
+      "harvestPoints": 35,
+      "waterConsumptionRate": 7,
+      "nutrientConsumptionRate": 8,
+      "idealTempRange": [
+        24,
+        42
+      ],
+      "omaniRegions": "جنوب وشمال الباطنة، قريات، ظفار (صلالة)",
+      "preferredSeason": "طوال العام (الغرس في فبراير–أبريل وأغسطس–أكتوبر) [م]",
+      "bookCitationCode": "[م]",
+      "bookPests": [
+        "ذبابة الفاكهة",
+        "الحشرات القشرية",
+        "البياض الدقيقي على الشماريخ"
+      ],
+      "safeControlHint": "تُستخدم المصائد الفرمونية لذبابة الفاكهة، والرش الآمن بمستخلص النيم وتجنب المبيدات غير المرخصة [160/2023].",
+      "dailyTipsByStage": [
+        "بذرة وشتلة مطعّمة: احمِ الشتلة من الرياح الجافة واغرسها في تربة عميقة جيدة الصرف.",
+        "نمو وتفريع: تقليم القمة النامية مبكراً يعطي شجرة مانجو عُمانية متوازنة وقوية.",
+        "تفتح الشماريخ الزهرية: خفّف الري قليلاً عند بداية التزهير ثم انتظم بعد العقد.",
+        "عقد حبات المانجو: التسميد المتوازن بالبوتاسيوم والفسفور يرفع حجم الثمار ويمنع التساقط.",
+        "تلوّن ونضج الأمبا: تفحّص المصائد الفرمونية لحماية الثمار الذهبية من ذبابة الفاكهة.",
+        "جاهز للحصاد: اقطف ثمار المانجو العُمانية الناضجة ذات الرائحة العطرية المميزة!"
+      ],
+      "colorHex": "#f59e0b",
+      "stages": [
+        {
+          "name": "بذرة وشتلة مطعّمة",
+          "durationSec": 38,
+          "minMoisture": 45,
+          "minNutrients": 35,
+          "minHealth": 50,
+          "visualScale": 0.34,
+          "description": "تثبيت شتلة المانجو العُماني في جورة عميقة جيدة الصرف."
+        },
+        {
+          "name": "نمو وتكوين الأفرع",
+          "durationSec": 46,
+          "minMoisture": 50,
+          "minNutrients": 45,
+          "minHealth": 55,
+          "visualScale": 0.56,
+          "description": "تكوين تاج ورقي أخضر غزير يتحمل حرارة الصيف."
+        },
+        {
+          "name": "تزهير الشماريخ",
+          "durationSec": 48,
+          "minMoisture": 50,
+          "minNutrients": 55,
+          "minHealth": 60,
+          "visualScale": 0.75,
+          "description": "ظهور الشماريخ الزهرية وتلقيح النحل لها."
+        },
+        {
+          "name": "إثمار ونمو الحبات",
+          "durationSec": 52,
+          "minMoisture": 55,
+          "minNutrients": 60,
+          "minHealth": 65,
+          "visualScale": 0.9,
+          "description": "تضخم ثمار الأمبا الخضراء وحمايتها بالمصائد الآمنة."
+        },
+        {
+          "name": "تلوّن ذهبي ونضج",
+          "durationSec": 40,
+          "minMoisture": 45,
+          "minNutrients": 45,
+          "minHealth": 70,
+          "visualScale": 0.97,
+          "description": "اكتساب اللون الذهبي المحمر والرائحة العطرية."
+        },
+        {
+          "name": "جاهز للحصاد",
+          "durationSec": 0,
+          "minMoisture": 35,
+          "minNutrients": 30,
+          "minHealth": 65,
+          "visualScale": 1,
+          "description": "ثمار مانجو عُمانية فاخرة جاهزة للقطف والتسويق."
+        }
+      ],
+      "guide": {
+        "1_landPrep": "حراثة عميقة وحفر جور 80×80 سم مع خلط السماد العضوي المتحلل.",
+        "2_soilType": "تربة طميية رملية عميقة خالية من الملوحة ومياه الصرف السطحية.",
+        "3_seedsOrSeedlings": "شتلات مانجو مطعّمة على أصول عُمانية مقاومة للملوحة والجفاف.",
+        "4_plantingMethod": "تُزرع على مسافات 6×6 أمتار مع دعامة خشبية ضد الرياح.",
+        "5_irrigationNeeds": "ري معتدل كل 4–6 أيام شتاءً وكل 2–3 أيام صيفاً مع تقليله قبل التزهير.",
+        "6_fertilization": "دفعة عضوية شتوية + NPK متوازن وسلفات البوتاسيوم أثناء امتلاء الثمار.",
+        "7_growthStagesSummary": "غرس الشتلة ← نمو التاج ← تزهير الشماريخ ← عقد ونمو الثمار ← النضج.",
+        "8_diseasesAndPests": "ذبابة الفاكهة، البياض الدقيقي، والحشرات القشرية.",
+        "9_preventionAndControl": "تقليم الأفرع المتزاحمة + مصائد ذبابة الفاكهة + مستخلص النيم الحيوي.",
+        "10_harvestAndYield": "تُقطف الثمار بمقص مع ترك جزء من العنق لحفظ الجودة أثناء النقل."
+      }
+    },
+    {
+      "id": "omani_banana",
+      "nameAr": "الموز العُماني",
+      "nameEn": "Omani Banana",
+      "category": "حمضيات وفاكهة",
+      "greenhouseSuitable": false,
+      "openFieldSuitable": true,
+      "seedCostCoins": 60,
+      "harvestCoins": 185,
+      "harvestPoints": 32,
+      "waterConsumptionRate": 10,
+      "nutrientConsumptionRate": 9,
+      "idealTempRange": [
+        22,
+        39
+      ],
+      "omaniRegions": "ظفار (صلالة والطاقة)، سمائل، صحار، قريات",
+      "preferredSeason": "طوال العام (أفضل غرس في الربيع والخريف) [م]",
+      "bookCitationCode": "[م]",
+      "bookPests": [
+        "حشرة المن الناقل للفيروس",
+        "العناكب الحمراء",
+        "نيماتودا الجذور"
+      ],
+      "safeControlHint": "استخدم خلفات نظيفة خالية من الفيروسات، وعزّز المادة العضوية ومستخلص النيم عند ظهور المن.",
+      "dailyTipsByStage": [
+        "زراعة الخلفة: اختر خلفة موز قوية من أمهات سليمة وأسسها في تربة غنية بالعضوي.",
+        "بداية التفريع: تتفتح الأوراق العريضة بسرعة وتحتاج رطوبة أرضية متزنة دون غرق.",
+        "نمو الساق الكاذبة: قدّم دفعة تسميد غنية بالبوتاسيوم والنيتروجين لدعم حمل العذق.",
+        "ظهور الكوز الزهري: ينحني الكوز وتبدأ أصابع الموز بالتكوين بانتظام.",
+        "امتلاء السوباطة: احتفظ بأوراق سليمة كافية لتغذية السوباطة وزيادة الحلاوة.",
+        "حصاد الموز العُماني: حان موعد قطع عذق الموز العُماني ذي القوام الكريمي الحلو!"
+      ],
+      "colorHex": "#eab308",
+      "stages": [
+        {
+          "name": "بذرة وغرس الخلفة",
+          "durationSec": 34,
+          "minMoisture": 55,
+          "minNutrients": 40,
+          "minHealth": 50,
+          "visualScale": 0.36,
+          "description": "إنبات الخلفة وتثبيت الجذور السطحية للموز."
+        },
+        {
+          "name": "إنبات الأوراق العريضة",
+          "durationSec": 42,
+          "minMoisture": 60,
+          "minNutrients": 50,
+          "minHealth": 55,
+          "visualScale": 0.58,
+          "description": "خروج الأوراق الخضراء الكبيرة والتفريع."
+        },
+        {
+          "name": "اشتداد الساق الكاذبة",
+          "durationSec": 44,
+          "minMoisture": 60,
+          "minNutrients": 55,
+          "minHealth": 60,
+          "visualScale": 0.76,
+          "description": "نمو الساق الكاذبة والاستعداد لخروج الكوز."
+        },
+        {
+          "name": "تزهير وخروج العذق",
+          "durationSec": 48,
+          "minMoisture": 65,
+          "minNutrients": 65,
+          "minHealth": 65,
+          "visualScale": 0.9,
+          "description": "تفتح قنابات الكوز وظهور كفوف الموز الخضراء."
+        },
+        {
+          "name": "إثمار وامتلاء الأصابع",
+          "durationSec": 38,
+          "minMoisture": 55,
+          "minNutrients": 55,
+          "minHealth": 70,
+          "visualScale": 0.98,
+          "description": "امتلاء أصابع الموز العُماني واستدارتها."
+        },
+        {
+          "name": "جاهز للحصاد",
+          "durationSec": 0,
+          "minMoisture": 45,
+          "minNutrients": 40,
+          "minHealth": 65,
+          "visualScale": 1,
+          "description": "عذوق موز عُماني ناضجة جاهزة للقطع والبيع."
+        }
+      ],
+      "guide": {
+        "1_landPrep": "حراثة عميقة مع إضافة 25–30 كجم سماد عضوي متحلل في كل جورة.",
+        "2_soilType": "تربة خصبة عميقة غنية بالدبال جيدة الصرف والتهوية.",
+        "3_seedsOrSeedlings": "خلفات قوية سليمة مفحوصة ضد تورد القمة.",
+        "4_plantingMethod": "مسافة 2.5×2.5 متر مع إبقاء خلفة واحدة لكل أم لتجديد الإنتاج.",
+        "5_irrigationNeeds": "محب للرطوبة المنتظمة (تغطية التربة بالملش تحفظ مياه الفلج).",
+        "6_fertilization": "احتياج عالٍ للبوتاسيوم والنيتروجين مقسماً على دفعات شهرية.",
+        "7_growthStagesSummary": "غرس الخلفة ← أوراق خضراء ← ساق قوية ← خروج الكوز ← امتلاء السوباطة.",
+        "8_diseasesAndPests": "من الموز، العناكب، وتبقع الأوراق في الرطوبة العالية.",
+        "9_preventionAndControl": "إزالة الأوراق اليابسة + مكافحة المن حيوياً بالنيم والتهوية الجيدة.",
+        "10_harvestAndYield": "يُقطع العذق عند استدارة الأصابع ويُنضج في مكان دافئ جيد التهوية."
+      }
+    },
+    {
+      "id": "watermelon",
+      "nameAr": "البطيخ العُماني (الحبحب)",
+      "nameEn": "Omani Watermelon",
+      "category": "خضراوات",
+      "greenhouseSuitable": true,
+      "openFieldSuitable": true,
+      "seedCostCoins": 36,
+      "harvestCoins": 132,
+      "harvestPoints": 28,
+      "waterConsumptionRate": 9,
+      "nutrientConsumptionRate": 8,
+      "idealTempRange": [
+        22,
+        38
+      ],
+      "omaniRegions": "الشرقية (سناو والكامل)، الظاهرة، الباطنة",
+      "preferredSeason": "فبراير – مايو وأغسطس – نوفمبر",
+      "bookPests": [
+        "ذبابة ثمار القرعيات",
+        "المن",
+        "البياض الدقيقي"
+      ],
+      "safeControlHint": "تجنب الرش بالمركبات الكيميائية وقت التزهير لحماية النحل؛ اعتمد النيم والتهوية المتوازنة.",
+      "dailyTipsByStage": [
+        "بذرة في جورة رملية: ازرع 2-3 بذور على مصطبة واسعة واترك التربة رطبة دافئة.",
+        "إنبات وشتلة زاحفة: تبدأ الساق بالتفرع والامتداد؛ أزل الأعشاب المنافسة مبكراً.",
+        "نمو المدادات: وجّه الأفرع الزاحفة بانتظام فوق المصطبة لحمايتها من الممرات.",
+        "تزهير وتلقيح: النحل في الصباح الباكر يرفع عقد ثمار الحبحب بشكل كبير!",
+        "نضج وامتلاء الثمار: قلّل الري تدريجياً في الأسبوع الأخير لتركيز السكر والحلاوة.",
+        "جاهز للحصاد: جفاف المحلاق المقابل لعنق الثمرة واصفرار ملامستها للتربة علامة النضج!"
+      ],
+      "colorHex": "#16a34a",
+      "stages": [
+        {
+          "name": "بذرة وإنبات",
+          "durationSec": 26,
+          "minMoisture": 55,
+          "minNutrients": 30,
+          "minHealth": 50,
+          "visualScale": 0.28,
+          "description": "انبثاق الفلقات الخضراء فوق المصاطب الرملية."
+        },
+        {
+          "name": "شتلة وبداية المدادات",
+          "durationSec": 32,
+          "minMoisture": 55,
+          "minNutrients": 40,
+          "minHealth": 55,
+          "visualScale": 0.48,
+          "description": "تكون الأوراق الحقيقية الأولى وانطلاق العرش."
+        },
+        {
+          "name": "نمو وتغطية الخطوط",
+          "durationSec": 36,
+          "minMoisture": 60,
+          "minNutrients": 50,
+          "minHealth": 60,
+          "visualScale": 0.7,
+          "description": "امتداد السيقان الزاحفة وتفتح الأزهار الصفراء."
+        },
+        {
+          "name": "إثمار وتكوين الحبحب",
+          "durationSec": 40,
+          "minMoisture": 55,
+          "minNutrients": 55,
+          "minHealth": 65,
+          "visualScale": 0.88,
+          "description": "تكون ثمار البطيخ المخططة وتمدد حجمها."
+        },
+        {
+          "name": "النضج وزيادة الحلاوة",
+          "durationSec": 30,
+          "minMoisture": 40,
+          "minNutrients": 40,
+          "minHealth": 70,
+          "visualScale": 0.96,
+          "description": "تراكم السكريات وتخفيف الري لضمان عدم التشقق."
+        },
+        {
+          "name": "جاهز للحصاد",
+          "durationSec": 0,
+          "minMoisture": 30,
+          "minNutrients": 25,
+          "minHealth": 65,
+          "visualScale": 1,
+          "description": "ثمار حبحب عُماني حلوة وناضجة جاهزة للجني!"
+        }
+      ],
+      "guide": {
+        "1_landPrep": "حراثة وتخطيط مصاطب بعرض 180 سم مع إضافة سماد عضوي متحلل في باطن الخط.",
+        "2_soilType": "تربة رملية طميية خفيفة دافئة جيدة الصرف.",
+        "3_seedsOrSeedlings": "بذور هجين عالية التحمل للبياض الدقيقي وحرارة القيظ.",
+        "4_plantingMethod": "تُزرع على جانب المصطبة على مسافة 75–90 سم بين الجور.",
+        "5_irrigationNeeds": "ري منتظم دون تغريق الساق، مع تقليل الري عند اقتراب النضج.",
+        "6_fertilization": "دفعة فوسفورية للتجذير + بوتاسيوم عالٍ وقت تضخم الثمار.",
+        "7_growthStagesSummary": "إنبات ← مدادات ← تزهير وتلقيح ← عقد ونمو ← نضج (75–90 يوماً).",
+        "8_diseasesAndPests": "البياض الدقيقي، المن، وذبابة ثمار القرعيات.",
+        "9_preventionAndControl": "مصائد غذائية لذبابة الفاكهة + زيت النيم + حماية النحل الملقح.",
+        "10_harvestAndYield": "يُعرف النضج بجفاف المحلاق المقابل للثمرة وسماع صوت مكتوم عند الطرق."
+      }
+    },
+    {
+      "id": "omani_alfalfa",
+      "nameAr": "الأعلاف الخضراء (القت العُماني)",
+      "nameEn": "Omani Alfalfa (Qat)",
+      "category": "محاصيل حقلية",
+      "greenhouseSuitable": false,
+      "openFieldSuitable": true,
+      "seedCostCoins": 24,
+      "harvestCoins": 88,
+      "harvestPoints": 26,
+      "waterConsumptionRate": 8,
+      "nutrientConsumptionRate": 5,
+      "idealTempRange": [
+        18,
+        40
+      ],
+      "omaniRegions": "الباطنة، الداخلية، الظاهرة، الشرقية، ظفار",
+      "preferredSeason": "طوال العام (أفضل زراعة في سبتمبر – نوفمبر) [م]",
+      "bookCitationCode": "[م]",
+      "bookPests": [
+        "دودة ورق البرسيم",
+        "حشرة المن",
+        "حامول القت"
+      ],
+      "safeControlHint": "القت يعطي +2 حزمة علف مجانية للحظيرة مع كل حصاد! تجنب الأعلاف المصابة بالحامول واختر الحش في الوقت المناسب.",
+      "dailyTipsByStage": [
+        "بذر القت في الأحواض: وزّع البذور بانتظام على تربة مسواة جداً وغطّها برفق.",
+        "إنبات كثيف: يخرج البساط الأخضر الكثيف؛ راقب الأعشاب في الحشة الأولى.",
+        "نمو وتفريع: جذور القت تثبت النيتروجين وتخصب التربة طبيعياً!",
+        "اكتمال الكتلة الخضراء: استعد للحش عندما تبدأ نسبة التزهير حوالي 10%.",
+        "نضج الحشة المثالية: القت في أوج قيمته البروتينية لأبقارك وماعزك العُمانية.",
+        "جاهز للحصاد: احصد القت واكسب عملات + حزمتَي علف مجاناً لحضيرة المزرعة!"
+      ],
+      "colorHex": "#22c55e",
+      "stages": [
+        {
+          "name": "بذرة في الحوض",
+          "durationSec": 22,
+          "minMoisture": 55,
+          "minNutrients": 30,
+          "minHealth": 50,
+          "visualScale": 0.3,
+          "description": "نثر بذور القت العُماني وريها بهدوء."
+        },
+        {
+          "name": "إنبات السجاد الأخضر",
+          "durationSec": 28,
+          "minMoisture": 55,
+          "minNutrients": 35,
+          "minHealth": 55,
+          "visualScale": 0.52,
+          "description": "ظهور البادرات الثلاثية الخضراء بكثافة."
+        },
+        {
+          "name": "نمو وتفريع كثيف",
+          "durationSec": 30,
+          "minMoisture": 60,
+          "minNutrients": 40,
+          "minHealth": 60,
+          "visualScale": 0.74,
+          "description": "تغطية كامل القطعة بالنباتات العلفية."
+        },
+        {
+          "name": "بداية التزهير البنفسجي",
+          "durationSec": 32,
+          "minMoisture": 55,
+          "minNutrients": 45,
+          "minHealth": 65,
+          "visualScale": 0.9,
+          "description": "ذروة العناصر الغذائية والبروتين في الأوراق."
+        },
+        {
+          "name": "جاهز للحشّ والجمع",
+          "durationSec": 0,
+          "minMoisture": 40,
+          "minNutrients": 30,
+          "minHealth": 65,
+          "visualScale": 1,
+          "description": "علف قت عُماني وفير جاهز للحصاد (+2 حزمة علف للحظيرة)."
+        }
+      ],
+      "guide": {
+        "1_landPrep": "حراثة جيداً وتسوية تامة وتقسيم إلى أحواض (جلب) متساوية المنسوب.",
+        "2_soilType": "معظم أنواع الترب جيدة الصرف؛ حساس فقط للغدق والمياه الراكدة.",
+        "3_seedsOrSeedlings": "بذور القت العُماني البلدي النظيف الخالي من بذور الحامول.",
+        "4_plantingMethod": "نثر أو تسطير بعمق لا يتجاوز 1–2 سم بمعدل 10–12 كجم/فدان.",
+        "5_irrigationNeeds": "ري منتظم كل 5–7 أيام مع تجنب التغريق لمنع عفن الجذور.",
+        "6_fertilization": "يثبت النيتروجين طبيعياً ويحتاج فقط لتأسيس فسفوري وبوتاسي متوازن.",
+        "7_growthStagesSummary": "بذر ← إنبات ← تغطية الحوض ← بداية التزهير ← حش متجدد.",
+        "8_diseasesAndPests": "منّ البرسيم، يرقات دودة الورق، ونبات الحامول المتطفل.",
+        "9_preventionAndControl": "الحش المبكر يقطع دورة الآفات؛ ويُستبعد الرش إلا بالمركبات الآمنة عند الضرورة.",
+        "10_harvestAndYield": "يُحش كل 25–30 يوماً صيفاً ويوفر غذاءً أساسياً للأبقار والأغنام."
+      }
     }
   ],
   "virtualFarms": {
@@ -1965,7 +2371,7 @@
       "maxWaterLiters": 300,
       "sizeLevel": 1,
       "greenhouseLevel": 1,
-      "greenhouseTemp": 33,
+      "greenhouseTemp": 28,
       "greenhouseHumidity": 50,
       "greenhouseIrrigationAuto": false,
       "greenhouseVentilation": true,
@@ -1989,16 +2395,16 @@
           "plantedAt": 1794731199819,
           "lastStageAdvanceAt": 1794731364819,
           "stageIndex": 5,
-          "moisture": 57.7,
-          "nutrients": 57.2,
-          "health": 94,
-          "weedsLevel": 10,
-          "pestType": null,
+          "moisture": 5,
+          "nutrients": 5,
+          "health": 15,
+          "weedsLevel": 80,
+          "pestType": "الذبابة البيضاء",
           "pruned": false,
           "blockedReason": null,
           "harvestedCount": 0,
           "lastActionTokens": {},
-          "updatedAt": 1794734352105
+          "updatedAt": 1794818448342
         },
         {
           "id": "plot-1",
@@ -2306,18 +2712,18 @@
       "lastDailyLoginKey": "",
       "dailyPointsEarned": 145,
       "dailyPointsDateKey": "2026-11-15",
-      "farmDay": 53,
-      "lastDayAdvanceAt": 1794734334819,
+      "farmDay": 1454,
+      "lastDayAdvanceAt": 1794818394819,
       "seasonIndex": 2,
       "seasonName": "القيظ (الصيف الداخلي)",
       "seasonHint": "حرارة عالية في الحقل المكشوف؛ تتحمل النخلة والسمسم ويُفضّل البيت المحمي للخضر [ع]",
-      "ambientTemp": 42,
+      "ambientTemp": 37,
       "falajTurnActive": false,
       "falajCollectedDay": 0,
-      "dailyBookTip": "السمسم يتحمل فترات جفاف قصيرة لكنه شديد الحساسية لركود الماء؛ ولا تؤخر حصاده كي لا تتفتح القرون [ع].",
-      "lastSimulatedAt": 1794734352105,
+      "dailyBookTip": "البياض الدقيقي على الخيار العُماني يُعالج بأزوكسيستروبين ولا يُستخدم الكبريت لحساسية القرعيات له [ت].",
+      "lastSimulatedAt": 1794818448342,
       "createdAt": 1794731214819,
-      "updatedAt": 1794734352105,
+      "updatedAt": 1794818448342,
       "livestock": {
         "cows": {
           "fedAt": 1794734264822,
@@ -2359,7 +2765,31 @@
       },
       "quests": [
         {
-          "id": "q_harvest_d52",
+          "id": "q_livestock_d1454",
+          "templateId": "q_livestock",
+          "titleAr": "اجمع إنتاج الحظيرة والمنحل الطازج",
+          "actionKey": "livestock_collect",
+          "progress": 0,
+          "target": 2,
+          "rewardCoins": 60,
+          "rewardPoints": 25,
+          "rewardWater": 30,
+          "claimed": false
+        },
+        {
+          "id": "q_market_d1454",
+          "templateId": "q_market",
+          "titleAr": "بِع منتجاً في سوق المزرعة العُماني",
+          "actionKey": "market_sell",
+          "progress": 0,
+          "target": 1,
+          "rewardCoins": 55,
+          "rewardPoints": 22,
+          "rewardWater": 25,
+          "claimed": false
+        },
+        {
+          "id": "q_harvest_d1454",
           "templateId": "q_harvest",
           "titleAr": "احصد محصولاً ناضجاً من الحقل أو البيت المحمي",
           "actionKey": "harvest",
@@ -2369,9 +2799,368 @@
           "rewardPoints": 30,
           "rewardWater": 40,
           "claimed": false
+        }
+      ],
+      "questsDay": 1454,
+      "marketMultipliers": {
+        "faradh_palm": 1.47,
+        "omani_cucumber": 0.95,
+        "omani_wheat": 1.15,
+        "onion": 1.45,
+        "garlic": 0.95,
+        "sesame": 1.18,
+        "tomato": 1.43,
+        "pepper": 0.95,
+        "potato": 1.22,
+        "omani_lemon": 1.4,
+        "omani_mango": 0.95,
+        "omani_banana": 1.26,
+        "watermelon": 1.38,
+        "omani_alfalfa": 0.95,
+        "milk": 1.29,
+        "goat_cheese": 1.35,
+        "eggs": 0.95,
+        "honey": 1.32
+      },
+      "hotItems": [
+        "faradh_palm",
+        "onion",
+        "tomato"
+      ],
+      "tools": {
+        "plow": 1,
+        "irrigation": 1,
+        "sprayer": 1,
+        "harvester": 1
+      },
+      "harvestStats": {
+        "totalHarvests": 0,
+        "totalEarnedCoins": 0,
+        "byCrop": {}
+      }
+    },
+    "smoke-test-farm-1794817669441": {
+      "ownerId": "smoke-test-farm-1794817669441",
+      "ownerName": "TestFarmer",
+      "governorate": "محافظة الداخلية",
+      "farmName": "مزرعة TestFarmer الافتراضية",
+      "coins": 155,
+      "points": 75,
+      "weeklyPoints": 75,
+      "monthlyPoints": 75,
+      "xp": 50,
+      "level": 1,
+      "waterLiters": 200,
+      "maxWaterLiters": 300,
+      "sizeLevel": 1,
+      "greenhouseLevel": 1,
+      "greenhouseTemp": 18,
+      "greenhouseHumidity": 50,
+      "greenhouseIrrigationAuto": false,
+      "greenhouseVentilation": true,
+      "greenhouseShading": 30,
+      "inventory": {
+        "fert_organic": 2,
+        "fert_npk": 1,
+        "pest_neem": 2,
+        "fodder_pack": 3
+      },
+      "plots": [
+        {
+          "id": "plot-0",
+          "ownerId": "smoke-test-farm-1794817669441",
+          "plotIndex": 0,
+          "isGreenhouse": false,
+          "isUnlocked": true,
+          "soilPrepared": true,
+          "soilLeveled": true,
+          "cropId": "omani_cucumber",
+          "plantedAt": 1794817654446,
+          "lastStageAdvanceAt": 1794817654446,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794817669513
         },
         {
-          "id": "q_irrigate_d52",
+          "id": "plot-1",
+          "ownerId": "smoke-test-farm-1794817669441",
+          "plotIndex": 1,
+          "isGreenhouse": false,
+          "isUnlocked": true,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794817669446
+        },
+        {
+          "id": "plot-2",
+          "ownerId": "smoke-test-farm-1794817669441",
+          "plotIndex": 2,
+          "isGreenhouse": false,
+          "isUnlocked": true,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794817669446
+        },
+        {
+          "id": "plot-3",
+          "ownerId": "smoke-test-farm-1794817669441",
+          "plotIndex": 3,
+          "isGreenhouse": false,
+          "isUnlocked": true,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794817669446
+        },
+        {
+          "id": "plot-4",
+          "ownerId": "smoke-test-farm-1794817669441",
+          "plotIndex": 4,
+          "isGreenhouse": false,
+          "isUnlocked": false,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794817669446
+        },
+        {
+          "id": "plot-5",
+          "ownerId": "smoke-test-farm-1794817669441",
+          "plotIndex": 5,
+          "isGreenhouse": false,
+          "isUnlocked": false,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794817669446
+        },
+        {
+          "id": "plot-6",
+          "ownerId": "smoke-test-farm-1794817669441",
+          "plotIndex": 6,
+          "isGreenhouse": true,
+          "isUnlocked": true,
+          "soilPrepared": true,
+          "soilLeveled": true,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794817669446
+        },
+        {
+          "id": "plot-7",
+          "ownerId": "smoke-test-farm-1794817669441",
+          "plotIndex": 7,
+          "isGreenhouse": true,
+          "isUnlocked": false,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794817669446
+        },
+        {
+          "id": "plot-8",
+          "ownerId": "smoke-test-farm-1794817669441",
+          "plotIndex": 8,
+          "isGreenhouse": true,
+          "isUnlocked": false,
+          "soilPrepared": false,
+          "soilLeveled": false,
+          "cropId": null,
+          "plantedAt": null,
+          "lastStageAdvanceAt": null,
+          "stageIndex": 0,
+          "moisture": 70,
+          "nutrients": 65,
+          "health": 95,
+          "weedsLevel": 0,
+          "pestType": null,
+          "pruned": false,
+          "blockedReason": null,
+          "harvestedCount": 0,
+          "lastActionTokens": {},
+          "updatedAt": 1794817669446
+        }
+      ],
+      "achievements": [],
+      "logs": [
+        {
+          "id": "flog-1794817669496-qj36",
+          "actionType": "upgrade_tool",
+          "description": "تطوير الجرار والمحراث الآلي إلى المستوى 2",
+          "pointsDelta": 25,
+          "coinsDelta": 0,
+          "timestamp": 1794817669496
+        },
+        {
+          "id": "flog-1794817669445",
+          "actionType": "init",
+          "description": "تأسيس المزرعة الافتراضية ومنح البذور والأدوات الأولية مجاناً",
+          "pointsDelta": 50,
+          "coinsDelta": 250,
+          "timestamp": 1794817669445
+        }
+      ],
+      "notifications": [
+        {
+          "id": "fnotif-1794817669445",
+          "title": "أهلاً بك في مزرعتك الافتراضية!",
+          "message": "ابدأ بحرث الأرض أو متابعة شتلة الخيار العُماني أو رعاية الحظيرة والمنحل.",
+          "category": "system",
+          "isRead": false,
+          "timestamp": 1794817669445
+        }
+      ],
+      "notificationsEnabled": true,
+      "lastDailyLoginKey": "",
+      "dailyPointsEarned": 25,
+      "dailyPointsDateKey": "2026-11-16",
+      "farmDay": 1,
+      "lastDayAdvanceAt": 1794817669445,
+      "seasonIndex": 0,
+      "seasonName": "الموسم المعتدل (الشتوي)",
+      "seasonHint": "مناسب لزراعة البصل والثوم والخيار العُماني والخضراوات المكشوفة [م]",
+      "ambientTemp": 24,
+      "falajTurnActive": true,
+      "falajCollectedDay": 0,
+      "dailyBookTip": "نظام توزيع مياه الفلج (الأيام والنوبات) هو العامل الأهم في تحديد موعد الري والزراعة بولاية سمائل [م].",
+      "lastSimulatedAt": 1794817669513,
+      "createdAt": 1794817669445,
+      "updatedAt": 1794817669513,
+      "livestock": {
+        "cows": {
+          "fedAt": 1794817654463,
+          "lastCollectedAt": 1794817609463,
+          "happiness": 85
+        },
+        "goats": {
+          "fedAt": 1794817654463,
+          "lastCollectedAt": 1794817609463,
+          "happiness": 82
+        },
+        "chickens": {
+          "fedAt": 1794817654463,
+          "lastCollectedAt": 1794817609463,
+          "happiness": 88
+        },
+        "bees": {
+          "fedAt": 1794817669463,
+          "lastCollectedAt": 1794817599463,
+          "happiness": 90
+        }
+      },
+      "buildings": {
+        "wellPump": 1,
+        "barnStorage": 1,
+        "beehiveApiary": 1,
+        "livestockShelter": 1
+      },
+      "warehouse": {
+        "crops": {
+          "omani_cucumber": 1
+        },
+        "goods": {
+          "milk": 1,
+          "goat_cheese": 0,
+          "eggs": 1,
+          "honey": 0
+        }
+      },
+      "quests": [
+        {
+          "id": "q_irrigate_d1",
           "templateId": "q_irrigate",
           "titleAr": "اسقِ المحاصيل بالماء المتوازن (مرتين)",
           "actionKey": "irrigate",
@@ -2383,7 +3172,7 @@
           "claimed": false
         },
         {
-          "id": "q_livestock_d52",
+          "id": "q_livestock_d1",
           "templateId": "q_livestock",
           "titleAr": "اجمع إنتاج الحظيرة والمنحل الطازج",
           "actionKey": "livestock_collect",
@@ -2393,30 +3182,57 @@
           "rewardPoints": 25,
           "rewardWater": 30,
           "claimed": false
+        },
+        {
+          "id": "q_market_d1",
+          "templateId": "q_market",
+          "titleAr": "بِع منتجاً في سوق المزرعة العُماني",
+          "actionKey": "market_sell",
+          "progress": 0,
+          "target": 1,
+          "rewardCoins": 55,
+          "rewardPoints": 22,
+          "rewardWater": 25,
+          "claimed": false
         }
       ],
-      "questsDay": 52,
+      "questsDay": 1,
       "marketMultipliers": {
-        "faradh_palm": 0.95,
-        "omani_cucumber": 1.47,
-        "omani_wheat": 1.1,
-        "onion": 0.95,
-        "garlic": 1.48,
-        "sesame": 1.07,
-        "tomato": 0.95,
-        "pepper": 1.49,
-        "potato": 1.03,
-        "omani_lemon": 0.95,
-        "milk": 1.5,
-        "goat_cheese": 1,
-        "eggs": 0.96,
-        "honey": 1.5
+        "faradh_palm": 1.49,
+        "omani_cucumber": 1.03,
+        "omani_wheat": 0.95,
+        "onion": 1.5,
+        "garlic": 0.99,
+        "sesame": 0.97,
+        "tomato": 1.5,
+        "pepper": 0.96,
+        "potato": 1,
+        "omani_lemon": 1.5,
+        "omani_mango": 0.95,
+        "omani_banana": 1.04,
+        "watermelon": 1.49,
+        "omani_alfalfa": 0.95,
+        "milk": 1.07,
+        "goat_cheese": 1.48,
+        "eggs": 0.95,
+        "honey": 1.11
       },
       "hotItems": [
-        "omani_cucumber",
-        "garlic",
-        "pepper"
-      ]
+        "faradh_palm",
+        "onion",
+        "tomato"
+      ],
+      "tools": {
+        "plow": 2,
+        "irrigation": 1,
+        "sprayer": 1,
+        "harvester": 1
+      },
+      "harvestStats": {
+        "totalHarvests": 0,
+        "totalEarnedCoins": 0,
+        "byCrop": {}
+      }
     }
   },
   "farmFriendships": [],

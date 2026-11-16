@@ -8,6 +8,8 @@
         "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
         "displayName": { "type": "string", "minLength": 1, "maxLength": 80 },
         "governorate": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "wilayat": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "village": { "type": "string", "minLength": 1, "maxLength": 100 },
         "role": { "type": "string", "enum": ["farmer", "engineer", "admin"] },
         "level": { "type": "number" },
         "totalPoints": { "type": "number" },

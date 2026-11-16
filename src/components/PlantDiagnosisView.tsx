@@ -42,7 +42,10 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
-import { OMANI_GOVERNORATES } from '../data/agriculturalData.ts';
+import {
+  OMAN_ADMINISTRATIVE_DATA,
+} from '../data/omanLocationsData.ts';
+import { useLocation } from '../context/LocationContext.tsx';
 import {
   auth,
   db,
@@ -155,6 +158,7 @@ const OMANI_CROP_GROUPS = [
 export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   initialFocus = 'auto',
 }) => {
+  const { location } = useLocation();
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const lastAnalyzedSignatureRef = useRef<string | null>(null);
@@ -166,8 +170,25 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   // Optional context (collapsed by default for dead-simple single-photo flow)
   const [showOptionalDetails, setShowOptionalDetails] = useState<boolean>(false);
   const [cropName, setCropName] = useState<string>('تحديد تلقائي من الصورة');
-  const [wilayat, setWilayat] = useState<string>('سلطنة عُمان');
+  const [overrideGovId, setOverrideGovId] = useState<string>('');
+  const [overrideWilayatId, setOverrideWilayatId] = useState<string>('');
+  const [overrideVillage, setOverrideVillage] = useState<string>('');
   const [observations, setObservations] = useState<string>('');
+
+  const overrideGovObj = overrideGovId
+    ? OMAN_ADMINISTRATIVE_DATA.find((g) => g.id === overrideGovId) || null
+    : null;
+  const overrideWilayatObj = overrideGovObj
+    ? overrideGovObj.wilayats.find((w) => w.id === overrideWilayatId) || overrideGovObj.wilayats[0]
+    : null;
+
+  const effectiveGovernorate = overrideGovObj?.name || location.governorate;
+  const effectiveWilayat = overrideWilayatObj?.name || location.wilayat;
+  const effectiveVillage =
+    (overrideGovObj ? overrideVillage || overrideWilayatObj?.villages[0] : location.village) ||
+    effectiveWilayat;
+  const effectiveAgroZone = overrideWilayatObj?.agroZone || location.agroZone;
+  const effectiveLocationLabel = `${effectiveGovernorate} · ولاية ${effectiveWilayat} · ${effectiveVillage}`;
 
   // Sound preference
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
@@ -424,7 +445,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     }
 
     const effectiveCrop = cropName === 'تحديد تلقائي من الصورة' ? '' : cropName;
-    const signature = `${selectedImage.fingerprint}|${effectiveCrop}|${wilayat}|${observations.trim()}`;
+    const signature = `${selectedImage.fingerprint}|${effectiveCrop}|${effectiveGovernorate}|${effectiveWilayat}|${effectiveVillage}|${observations.trim()}`;
 
     // Prevent redundant identical submissions if a result is already visible
     if (lastAnalyzedSignatureRef.current === signature && result) {
@@ -442,7 +463,10 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
         body: JSON.stringify({
           imageBase64: selectedImage.dataUrl,
           cropName: effectiveCrop,
-          wilayat,
+          governorate: effectiveGovernorate,
+          wilayat: effectiveWilayat,
+          village: effectiveVillage,
+          agroZone: effectiveAgroZone,
           observations: observations.trim(),
           modeHint: initialFocus,
         }),
@@ -464,7 +488,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       }
 
       if (fbUser && fbUser.uid && !diag.needsClearerPhoto) {
-        await persistDiagnosisToFirebase(fbUser, diag, wilayat, observations.trim());
+        await persistDiagnosisToFirebase(fbUser, diag, effectiveLocationLabel, observations.trim());
       }
     } catch (err: any) {
       playSoftNoticeSound(soundEnabled);
@@ -483,7 +507,12 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     try {
       const signedInUser = await signInWithGoogleFarmer();
       if (signedInUser && result && !result.needsClearerPhoto) {
-        await persistDiagnosisToFirebase(signedInUser, result, wilayat, observations.trim());
+        await persistDiagnosisToFirebase(
+          signedInUser,
+          result,
+          effectiveLocationLabel,
+          observations.trim()
+        );
       }
     } catch (err: any) {
       setError(err?.message || 'تعذر تسجيل الدخول بحساب Google.');
@@ -820,7 +849,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                     />
 
                     <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
-                      <Sparkles className="w-7 h-7 text-emerald-400 animate-pulse" />
+                      <Sparkles className="w-7 h-7 text-emerald-400" />
                     </div>
 
                     <div className="space-y-2 max-w-xs">
@@ -895,9 +924,11 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
             onClick={() => setShowOptionalDetails((v) => !v)}
             className="w-full flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
           >
-            <span className="inline-flex items-center gap-2">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-500" />
-              <span>تفاصيل اختيارية لتحسين الدقة (غير مطلوبة)</span>
+            <span className="inline-flex items-center gap-2 text-start">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <span>
+                تفاصيل اختيارية ({effectiveGovernorate} · ولاية {effectiveWilayat})
+              </span>
             </span>
             {showOptionalDetails ? (
               <ChevronUp className="w-4 h-4" />
@@ -922,7 +953,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                     <select
                       value={cropName}
                       onChange={(e) => setCropName(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-[#132247] border border-slate-200 dark:border-sky-300/20 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full min-h-[42px] px-3 py-2 rounded-xl bg-white dark:bg-[#132247] border border-slate-200 dark:border-sky-300/20 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                     >
                       {OMANI_CROP_GROUPS.map((group) => (
                         <option key={group} value={group}>
@@ -934,21 +965,73 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                      المحافظة / الولاية (اختياري)
+                      المحافظة (افتراضي: موقعك المحدد)
                     </label>
                     <select
-                      value={wilayat}
-                      onChange={(e) => setWilayat(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-[#132247] border border-slate-200 dark:border-sky-300/20 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      value={overrideGovId}
+                      onChange={(e) => {
+                        const nextId = e.target.value;
+                        setOverrideGovId(nextId);
+                        const govMatch = OMAN_ADMINISTRATIVE_DATA.find((g) => g.id === nextId);
+                        const firstWil = govMatch?.wilayats[0];
+                        setOverrideWilayatId(firstWil?.id || '');
+                        setOverrideVillage(firstWil?.villages[0] || '');
+                      }}
+                      className="w-full min-h-[42px] px-3 py-2 rounded-xl bg-white dark:bg-[#132247] border border-slate-200 dark:border-sky-300/20 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                     >
-                      <option value="سلطنة عُمان">سلطنة عُمان (عام)</option>
-                      {OMANI_GOVERNORATES.map((gov) => (
-                        <option key={gov.id} value={gov.name}>
+                      <option value="">
+                        موقعك الحالي ({location.governorate} ← {location.wilayat})
+                      </option>
+                      {OMAN_ADMINISTRATIVE_DATA.map((gov) => (
+                        <option key={gov.id} value={gov.id}>
                           {gov.name}
                         </option>
                       ))}
                     </select>
                   </div>
+
+                  {overrideGovObj && (
+                    <>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                          الولاية:
+                        </label>
+                        <select
+                          value={overrideWilayatObj?.id || ''}
+                          onChange={(e) => {
+                            const wId = e.target.value;
+                            setOverrideWilayatId(wId);
+                            const w = overrideGovObj.wilayats.find((x) => x.id === wId);
+                            setOverrideVillage(w?.villages[0] || '');
+                          }}
+                          className="w-full min-h-[42px] px-3 py-2 rounded-xl bg-white dark:bg-[#132247] border border-slate-200 dark:border-sky-300/20 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                        >
+                          {overrideGovObj.wilayats.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              ولاية {w.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                          القرية / المنطقة:
+                        </label>
+                        <select
+                          value={overrideVillage}
+                          onChange={(e) => setOverrideVillage(e.target.value)}
+                          className="w-full min-h-[42px] px-3 py-2 rounded-xl bg-white dark:bg-[#132247] border border-slate-200 dark:border-sky-300/20 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                        >
+                          {(overrideWilayatObj?.villages || []).map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
 
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">

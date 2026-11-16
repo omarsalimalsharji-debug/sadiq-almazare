@@ -31,6 +31,13 @@ export interface FarmerRig {
   rightArm: THREE.Group;
   leftLeg: THREE.Group;
   rightLeg: THREE.Group;
+  leftEye?: THREE.Mesh;
+  rightEye?: THREE.Mesh;
+  leftEyelid?: THREE.Mesh;
+  rightEyelid?: THREE.Mesh;
+  leftBrow?: THREE.Mesh;
+  rightBrow?: THREE.Mesh;
+  mouthGroup?: THREE.Group;
   shadowDisc: THREE.Mesh;
   tools: {
     hoe: THREE.Group;
@@ -527,20 +534,55 @@ export function createOmaniFarmer(): FarmerRig {
 
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1e1b18, roughness: 0.25 });
   const beardMat = new THREE.MeshStandardMaterial({ color: 0x261d17, roughness: 0.9 });
+  const mouthInteriorMat = new THREE.MeshStandardMaterial({ color: 0x4a1d1f, roughness: 0.85 });
+  const lipHighlightMat = new THREE.MeshStandardMaterial({ color: 0xf4ece4, roughness: 0.45 });
+
+  let leftEye: THREE.Mesh | undefined;
+  let rightEye: THREE.Mesh | undefined;
+  let leftEyelid: THREE.Mesh | undefined;
+  let rightEyelid: THREE.Mesh | undefined;
+  let leftBrow: THREE.Mesh | undefined;
+  let rightBrow: THREE.Mesh | undefined;
+
   [-0.056, 0.056].forEach((ex) => {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), eyeMat);
     eye.position.set(ex, 0.23, 0.145);
     headGroup.add(eye);
 
+    const eyelid = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.036, 0.024), skinMat);
+    eyelid.position.set(ex, 0.244, 0.149);
+    eyelid.scale.set(1, 0.08, 1);
+    headGroup.add(eyelid);
+
     const brow = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.014, 0.015), beardMat);
     brow.position.set(ex, 0.265, 0.145);
     headGroup.add(brow);
+
+    if (ex < 0) {
+      leftEye = eye;
+      leftEyelid = eyelid;
+      leftBrow = brow;
+    } else {
+      rightEye = eye;
+      rightEyelid = eyelid;
+      rightBrow = brow;
+    }
   });
 
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.055, 6), skinMat);
   nose.rotation.x = Math.PI / 2;
   nose.position.set(0, 0.2, 0.168);
   headGroup.add(nose);
+
+  const mouthGroup = new THREE.Group();
+  mouthGroup.position.set(0, 0.168, 0.151);
+  const mouthCavity = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.018, 0.018), mouthInteriorMat);
+  mouthGroup.add(mouthCavity);
+  const upperLip = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.005, 0.019), lipHighlightMat);
+  upperLip.position.set(0, 0.005, 0.002);
+  mouthGroup.add(upperLip);
+  mouthGroup.scale.set(1, 0.25, 1);
+  headGroup.add(mouthGroup);
 
   const beard = new THREE.Mesh(
     new THREE.SphereGeometry(0.125, 12, 10, 0, Math.PI * 2, Math.PI * 0.45, Math.PI * 0.55),
@@ -573,6 +615,13 @@ export function createOmaniFarmer(): FarmerRig {
     rightArm,
     leftLeg,
     rightLeg,
+    leftEye,
+    rightEye,
+    leftEyelid,
+    rightEyelid,
+    leftBrow,
+    rightBrow,
+    mouthGroup,
     shadowDisc,
     tools: { hoe, waterCan, basket, sprayer },
     walkPhase: 0,
@@ -610,9 +659,41 @@ export function clearFarmerTools(rig: FarmerRig) {
 }
 
 /**
- * Animates Omani Farmer walking, idle breathing, OR rich agricultural tool gestures
+ * Animates Omani Farmer walking, idle breathing, facial blinking/lip-sync, OR rich agricultural tool gestures
  */
-export function animateOmaniFarmer(rig: FarmerRig, moveSpeedNorm: number, dt: number, elapsed: number) {
+export function animateOmaniFarmer(
+  rig: FarmerRig,
+  moveSpeedNorm: number,
+  dt: number,
+  elapsed: number,
+  isSpeaking = false
+) {
+  // Natural periodic eye blinking & eyebrow expression
+  const blinkPhase = elapsed % 3.8;
+  const isBlinking = blinkPhase < 0.15;
+  const targetLidScale = isBlinking ? 1.15 : 0.08;
+  if (rig.leftEyelid && rig.rightEyelid) {
+    const nextLid = THREE.MathUtils.damp(rig.leftEyelid.scale.y, targetLidScale, 28, dt);
+    rig.leftEyelid.scale.y = nextLid;
+    rig.rightEyelid.scale.y = nextLid;
+    const lidY = THREE.MathUtils.lerp(0.244, 0.23, THREE.MathUtils.clamp((nextLid - 0.08) / 1.07, 0, 1));
+    rig.leftEyelid.position.y = lidY;
+    rig.rightEyelid.position.y = lidY;
+  }
+
+  if (rig.leftBrow && rig.rightBrow) {
+    const browTargetY = 0.265 + (isSpeaking ? 0.008 + Math.sin(elapsed * 5.2) * 0.004 : 0);
+    rig.leftBrow.position.y = THREE.MathUtils.damp(rig.leftBrow.position.y, browTargetY, 14, dt);
+    rig.rightBrow.position.y = rig.leftBrow.position.y;
+  }
+
+  if (rig.mouthGroup) {
+    const targetMouthY = isSpeaking
+      ? 0.35 + Math.abs(Math.sin(elapsed * 11.2)) * 0.85 + Math.abs(Math.sin(elapsed * 17.5)) * 0.45
+      : 0.25;
+    rig.mouthGroup.scale.y = THREE.MathUtils.damp(rig.mouthGroup.scale.y, targetMouthY, 22, dt);
+  }
+
   if (rig.actionTimer > 0 && moveSpeedNorm < 0.08) {
     rig.actionTimer -= dt;
     const p = elapsed * 9.5;
@@ -676,11 +757,25 @@ export function animateOmaniFarmer(rig: FarmerRig, moveSpeedNorm: number, dt: nu
   } else {
     rig.leftLeg.rotation.x = THREE.MathUtils.damp(rig.leftLeg.rotation.x, 0, 10, dt);
     rig.rightLeg.rotation.x = THREE.MathUtils.damp(rig.rightLeg.rotation.x, 0, 10, dt);
-    rig.leftArm.rotation.x = THREE.MathUtils.damp(rig.leftArm.rotation.x, 0, 10, dt);
-    rig.rightArm.rotation.x = THREE.MathUtils.damp(rig.rightArm.rotation.x, 0, 10, dt);
+    rig.leftArm.rotation.x = THREE.MathUtils.damp(
+      rig.leftArm.rotation.x,
+      isSpeaking ? -0.14 + Math.cos(elapsed * 3.6) * 0.08 : 0,
+      10,
+      dt
+    );
+    rig.rightArm.rotation.x = THREE.MathUtils.damp(
+      rig.rightArm.rotation.x,
+      isSpeaking ? -0.38 + Math.sin(elapsed * 4.4) * 0.18 : 0,
+      10,
+      dt
+    );
     rig.bodyPivot.position.y = Math.sin(elapsed * 2.1) * 0.012;
-    rig.headGroup.rotation.y = Math.sin(elapsed * 0.8) * 0.14;
-    rig.headGroup.rotation.x = Math.sin(elapsed * 1.4) * 0.03;
+    rig.headGroup.rotation.y = isSpeaking
+      ? Math.sin(elapsed * 1.4) * 0.18
+      : Math.sin(elapsed * 0.8) * 0.14;
+    rig.headGroup.rotation.x = isSpeaking
+      ? Math.sin(elapsed * 3.1) * 0.07
+      : Math.sin(elapsed * 1.4) * 0.03;
   }
 }
 

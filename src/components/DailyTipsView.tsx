@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, MapPin, Droplets, Sprout, ShieldAlert } from 'lucide-react';
+import { useLocation } from '../context/LocationContext.tsx';
 
 const DAILY_AGRICULTURAL_TIPS = [
   {
@@ -63,6 +64,7 @@ const TIP_CATEGORIES = [
 ];
 
 export const DailyTipsView: React.FC = () => {
+  const { location, agroAdvice } = useLocation();
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
 
   const todayTip = useMemo(() => {
@@ -116,6 +118,53 @@ export const DailyTipsView: React.FC = () => {
         <p className="text-sm leading-relaxed text-emerald-50 text-justify">{todayTip.tip}</p>
 
         <div className="pt-2 text-[11px] text-emerald-300">المصدر المعتمد: {todayTip.source}</div>
+      </div>
+
+      {/* Location-Aware Regional Agricultural Guidance */}
+      <div className="bg-white dark:bg-[#132247] rounded-2xl border border-stone-200 dark:border-sky-300/15 p-5 shadow-sm space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-stone-900 dark:text-white">
+            <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>
+              توجيه نطاقك الزراعي · {location.governorate} — ولاية {location.wilayat} ({location.village})
+            </span>
+          </div>
+          <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">
+            {agroAdvice.labelAr}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div className="p-3 rounded-xl bg-stone-50 dark:bg-[#0e1936] border border-stone-200/70 dark:border-sky-300/10 space-y-1">
+            <div className="font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
+              <Droplets className="w-3.5 h-3.5 shrink-0" />
+              <span>إرشاد الري المحلي</span>
+            </div>
+            <p className="text-stone-600 dark:text-slate-300 leading-relaxed">
+              {agroAdvice.irrigationHint}
+            </p>
+          </div>
+
+          <div className="p-3 rounded-xl bg-stone-50 dark:bg-[#0e1936] border border-stone-200/70 dark:border-sky-300/10 space-y-1">
+            <div className="font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+              <Sprout className="w-3.5 h-3.5 shrink-0" />
+              <span>محاصيل الولاية الموصى بها</span>
+            </div>
+            <p className="text-stone-600 dark:text-slate-300 leading-relaxed">
+              {agroAdvice.cropsFocus}
+            </p>
+          </div>
+
+          <div className="p-3 rounded-xl bg-stone-50 dark:bg-[#0e1936] border border-stone-200/70 dark:border-sky-300/10 space-y-1">
+            <div className="font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+              <span>مراقبة الآفات الحالية</span>
+            </div>
+            <p className="text-stone-600 dark:text-slate-300 leading-relaxed">
+              {agroAdvice.pestWatch}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Category Filter + Archive Grid */}

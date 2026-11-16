@@ -88,6 +88,22 @@ export const OMANI_PRONUNCIATION_DICTIONARY: DictionaryEntry[] = [
   { term: 'التقليم', vocalized: 'التَّقْلِيم', category: 'مصطلح إرشادي' },
   { term: 'السماد العضوي', vocalized: 'السَّمَادُ الْعُضْوِيّ', category: 'مصطلح إرشادي' },
   { term: 'المكافحة الحيوية', vocalized: 'الْمُكَافَحَةُ الْحَيَوِيَّة', category: 'مصطلح إرشادي' },
+  { term: 'وادي محرم', vocalized: 'وَادِي مُحْرَم', category: 'محافظة وولاية' },
+  { term: 'بركة الموز', vocalized: 'بِرْكَةُ الْمَوْز', category: 'محافظة وولاية' },
+  { term: 'الحمراء', vocalized: 'الْحَمْرَاء', category: 'محافظة وولاية' },
+  { term: 'منح', vocalized: 'مَنَح', category: 'محافظة وولاية' },
+  { term: 'سناو', vocalized: 'سِنَاو', category: 'محافظة وولاية' },
+  { term: 'ثمريت', vocalized: 'ثُمْرَيْت', category: 'محافظة وولاية' },
+  { term: 'مصيرة', vocalized: 'مَصِيرَة', category: 'محافظة وولاية' },
+  { term: 'دماء والطائيين', vocalized: 'دِمَاءُ وَالطَّائِيِّين', category: 'محافظة وولاية' },
+  { term: 'وادي بني خالد', vocalized: 'وَادِي بَنِي خَالِد', category: 'محافظة وولاية' },
+  { term: 'النارجيل', vocalized: 'النَّارْجِيل', category: 'محصول وري' },
+  { term: 'الفافاي', vocalized: 'الْفَافَاي', category: 'محصول وري' },
+  { term: 'اللومي العُماني', vocalized: 'اللُّومِي الْعُمَانِيّ', category: 'محصول وري' },
+  { term: 'حلم الغبار', vocalized: 'حَلَمُ الْغُبَار', category: 'آفة ومرض' },
+  { term: 'التربس', vocalized: 'التِّرِبْس', category: 'آفة ومرض' },
+  { term: 'فترة التحريم', vocalized: 'فَتْرَةُ التَّحْرِيم', category: 'مصطلح إرشادي' },
+  { term: 'المرسوم', vocalized: 'الْمَرْسُوم', category: 'مصطلح إرشادي' },
 ];
 
 const SORTED_DICTIONARY = [...OMANI_PRONUNCIATION_DICTIONARY].sort(

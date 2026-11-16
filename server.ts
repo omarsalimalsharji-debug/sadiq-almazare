@@ -30,12 +30,19 @@ import {
   FARM_LIVESTOCK_DEFS,
   FARM_BUILDING_DEFS,
   FARM_QUEST_TEMPLATES,
+  FARM_TOOL_UPGRADES,
   VirtualCropDef
 } from './src/data/virtualFarmData.ts';
 import { DEFAULT_SEASONAL_CONFIG, SeasonalConfig } from './src/utils/islamicCalendar.ts';
 import { prepareArabicTextForTts } from './src/utils/arabicPronunciation.ts';
 import { INITIAL_CARTOON_EPISODES } from './src/data/cartoonEpisodesData.ts';
 import type { EpisodeQaReviewState } from './src/data/voiceEvaluationData.ts';
+import {
+  ALL_OMAN_WILAYATS,
+  OMAN_ADMINISTRATIVE_DATA,
+  findNearestOmanLocation,
+  matchOmanLocationByNames,
+} from './src/data/omanLocationsData.ts';
 
 dotenv.config();
 
@@ -190,6 +197,22 @@ export interface SupportTicket {
   updatedAt: number;
 }
 
+export interface CalendarReminder {
+  id: string;
+  userId: string;
+  cropId: string;
+  cropName: string;
+  monthIndex: number;
+  phase: string;
+  cadence: 'daily_dawn' | 'every_2_days' | 'weekly' | 'monthly_start';
+  governorate: string;
+  title: string;
+  message: string;
+  enabled: boolean;
+  createdAt: number;
+  lastDispatchedAt?: number;
+}
+
 // Default Seed State
 interface StorageSchema {
   books: Book[];
@@ -211,6 +234,7 @@ interface StorageSchema {
   bannedWords: string[];
   moderationLogs: ModerationLog[];
   supportTickets: SupportTicket[];
+  calendarReminders: CalendarReminder[];
   visitors: Record<string, VisitorRecord>;
   dailyVisitIds: Record<string, string[]>;
   seasonalConfig: SeasonalConfig;
@@ -360,6 +384,7 @@ const defaultStorage: StorageSchema = {
   bannedWords: ['نصب', 'احتيال', 'سبام'],
   moderationLogs: [],
   supportTickets: [],
+  calendarReminders: [],
   visitors: {},
   dailyVisitIds: {},
   seasonalConfig: { ...DEFAULT_SEASONAL_CONFIG },
@@ -411,6 +436,7 @@ if (fs.existsSync(STORAGE_FILE)) {
       bannedWords: Array.isArray(parsed.bannedWords) ? parsed.bannedWords : [...defaultStorage.bannedWords],
       moderationLogs: Array.isArray(parsed.moderationLogs) ? parsed.moderationLogs : [],
       supportTickets: Array.isArray(parsed.supportTickets) ? parsed.supportTickets : [],
+      calendarReminders: Array.isArray(parsed.calendarReminders) ? parsed.calendarReminders : [],
       visitors: parsed.visitors && typeof parsed.visitors === 'object' ? parsed.visitors : {},
       dailyVisitIds: parsed.dailyVisitIds && typeof parsed.dailyVisitIds === 'object' ? parsed.dailyVisitIds : {},
       seasonalConfig: { ...DEFAULT_SEASONAL_CONFIG, ...(parsed.seasonalConfig || {}) },
@@ -597,21 +623,164 @@ function requireAdmin(req: AuthenticatedRequest, res: express.Response, next: ex
   next();
 }
 
-// --- 1. Real Weather API (Open-Meteo Integration for Oman) ---
+// --- 1. Unified Oman Reverse Geocoding & Live Weather API (Open-Meteo + OSM Nominatim) ---
+const reverseGeoCache = new Map<string, { resolved: any; source: string; expiry: number }>();
+
+app.get('/api/location/reverse', async (req, res) => {
+  const latRaw = Number(req.query.lat);
+  const lonRaw = Number(req.query.lon);
+
+  if (!Number.isFinite(latRaw) || !Number.isFinite(lonRaw) || latRaw < -90 || latRaw > 90 || lonRaw < -180 || lonRaw > 180) {
+    return res.status(400).json({
+      success: false,
+      error: 'إحداثيات الموقع غير صالحة. يرجى التأكد من خط العرض وخط الطول.',
+    });
+  }
+
+  const cacheKey = `${latRaw.toFixed(3)},${lonRaw.toFixed(3)}`;
+  const now = Date.now();
+  const cached = reverseGeoCache.get(cacheKey);
+  if (cached && cached.expiry > now) {
+    return res.json({ success: true, cached: true, source: cached.source, resolved: cached.resolved });
+  }
+
+  const fallback = findNearestOmanLocation(latRaw, lonRaw);
+  const withinOmanBounds = latRaw >= 16.4 && latRaw <= 26.6 && lonRaw >= 51.8 && lonRaw <= 60.0;
+
+  let resolved = {
+    governorateId: fallback.governorate.id,
+    governorate: fallback.governorate.name,
+    governorateEn: fallback.governorate.nameEn,
+    wilayatId: fallback.wilayat.id,
+    wilayat: fallback.wilayat.name,
+    wilayatEn: fallback.wilayat.nameEn,
+    village: fallback.wilayat.villages[0] || fallback.wilayat.name,
+    lat: Number(latRaw.toFixed(5)),
+    lon: Number(lonRaw.toFixed(5)),
+    agroZone: fallback.wilayat.agroZone,
+    withinOman: withinOmanBounds,
+    distanceKm: Math.round(fallback.distanceKm * 10) / 10,
+  };
+  let source = 'oman-administrative-nearest';
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const nomUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latRaw}&lon=${lonRaw}&zoom=14&addressdetails=1&accept-language=ar`;
+    const nomRes = await fetch(nomUrl, {
+      headers: {
+        'User-Agent': 'SadiqAlMuzari/2026 (Oman Agricultural Platform)',
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (nomRes.ok) {
+      const nomData = await nomRes.json();
+      const addr = nomData?.address || {};
+      const countryCode = String(addr.country_code || '').toLowerCase();
+      const isOmanNom = countryCode === 'om' || withinOmanBounds;
+
+      const rawGov = String(addr.state || addr.region || addr.province || '');
+      const rawWil = String(addr.county || addr.city || addr.town || addr.state_district || '');
+      const rawVillage = String(
+        addr.village || addr.hamlet || addr.suburb || addr.neighbourhood || addr.locality || nomData?.name || ''
+      ).trim();
+
+      if (isOmanNom) {
+        const matched = matchOmanLocationByNames(rawGov, rawWil, rawVillage);
+        const distanceToMatched =
+          Math.hypot(latRaw - matched.wilayat.lat, lonRaw - matched.wilayat.lon);
+        const bestMatch =
+          distanceToMatched <= 0.85 ? matched : fallback;
+
+        resolved = {
+          governorateId: bestMatch.governorate.id,
+          governorate: bestMatch.governorate.name,
+          governorateEn: bestMatch.governorate.nameEn,
+          wilayatId: bestMatch.wilayat.id,
+          wilayat: bestMatch.wilayat.name,
+          wilayatEn: bestMatch.wilayat.nameEn,
+          village:
+            rawVillage && rawVillage.length >= 2 && rawVillage.length <= 60
+              ? rawVillage
+              : bestMatch.wilayat.villages[0] || bestMatch.wilayat.name,
+          lat: Number(latRaw.toFixed(5)),
+          lon: Number(lonRaw.toFixed(5)),
+          agroZone: bestMatch.wilayat.agroZone,
+          withinOman: true,
+          distanceKm: 0,
+        };
+        source = 'nominatim+oman-admin';
+      } else {
+        resolved.withinOman = false;
+        source = 'out-of-oman-fallback';
+      }
+    }
+  } catch {
+    // Graceful Haversine fallback on Nominatim timeout/offline
+  }
+
+  if (reverseGeoCache.size >= 150) {
+    const oldest = reverseGeoCache.keys().next().value;
+    if (oldest) reverseGeoCache.delete(oldest);
+  }
+  reverseGeoCache.set(cacheKey, {
+    resolved,
+    source,
+    expiry: now + 15 * 60 * 1000,
+  });
+
+  return res.json({ success: true, cached: false, source, resolved });
+});
+
 const weatherCache = new Map<string, { data: any; expiry: number }>();
 
 app.get('/api/weather/live', async (req, res) => {
   const govId = (req.query.govId as string) || 'muscat';
-  const gov = OMANI_GOVERNORATES.find(g => g.id === govId) || OMANI_GOVERNORATES[0];
+  const wilayatId = typeof req.query.wilayatId === 'string' ? req.query.wilayatId.trim() : '';
+  const wilayatNameQuery = typeof req.query.wilayatName === 'string' ? req.query.wilayatName.trim() : '';
+  const villageNameQuery = typeof req.query.villageName === 'string' ? req.query.villageName.trim() : '';
+  const latQuery = req.query.lat !== undefined ? Number(req.query.lat) : NaN;
+  const lonQuery = req.query.lon !== undefined ? Number(req.query.lon) : NaN;
 
+  const adminGov =
+    OMAN_ADMINISTRATIVE_DATA.find((g) => g.id === govId) ||
+    OMANI_GOVERNORATES.find((g) => g.id === govId) ||
+    OMANI_GOVERNORATES[0];
+  const matchedWil =
+    (wilayatId && ALL_OMAN_WILAYATS.find((w) => w.id === wilayatId)) ||
+    (wilayatNameQuery && ALL_OMAN_WILAYATS.find((w) => w.name === wilayatNameQuery)) ||
+    null;
+
+  const targetLat = Number.isFinite(latQuery)
+    ? latQuery
+    : matchedWil
+      ? matchedWil.lat
+      : adminGov.lat;
+  const targetLon = Number.isFinite(lonQuery)
+    ? lonQuery
+    : matchedWil
+      ? matchedWil.lon
+      : adminGov.lon;
+
+  const displayGov = matchedWil
+    ? OMAN_ADMINISTRATIVE_DATA.find((g) => g.id === matchedWil.governorateId) || adminGov
+    : adminGov;
+  const legacyGov = OMANI_GOVERNORATES.find((g) => g.id === displayGov.id) || OMANI_GOVERNORATES[0];
+  const displayWilayat = wilayatNameQuery || matchedWil?.name || legacyGov.wilayat;
+  const displayVillage = villageNameQuery || matchedWil?.villages?.[0] || '';
+
+  const cacheKey = `${displayGov.id}:${displayWilayat}:${targetLat.toFixed(2)},${targetLon.toFixed(2)}`;
   const now = Date.now();
-  const cached = weatherCache.get(gov.id);
+  const cached = weatherCache.get(cacheKey);
   if (cached && cached.expiry > now) {
-    return res.json({ success: true, live: cached.data });
+    return res.json({ success: true, live: { ...cached.data, village: displayVillage || cached.data.village } });
   }
 
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${gov.lat}&longitude=${gov.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&timezone=Asia%2FMuscat`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${targetLat}&longitude=${targetLon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&timezone=Asia%2FMuscat`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Open-Meteo API response not ok');
     const meteoData = await response.json();
@@ -625,9 +794,9 @@ app.get('/api/weather/live', async (req, res) => {
     // Build intelligent agricultural alerts based on real readings
     const generatedAlerts: string[] = [];
     if (temp >= 36) {
-      generatedAlerts.push(`موجة حرارة مرتفعة (${temp}°م): ينصح بزيادة وتيرة الري ليلاً وتظليل المشاتل والبيوت المحمية.`);
-    } else if (temp <= 8) {
-      generatedAlerts.push(`انخفاض حاد في درجات الحرارة (${temp}°م): تنبيه لمزارعي الجبل الأخضر لحماية المحاصيل الحساسة من الصقيع.`);
+      generatedAlerts.push(`موجة حرارة مرتفعة (${temp}°م) في ${displayWilayat}: ينصح بزيادة وتيرة الري ليلاً وتظليل المشاتل والبيوت المحمية.`);
+    } else if (temp <= 10) {
+      generatedAlerts.push(`انخفاض درجات الحرارة (${temp}°م) في ${displayWilayat}: تنبيه لمزارعي المرتفعات والجبل الأخضر لحماية المحاصيل الحساسة من الصقيع.`);
     }
 
     if (humidity >= 65) {
@@ -643,38 +812,51 @@ app.get('/api/weather/live', async (req, res) => {
     }
 
     const payload = {
-      governorate: gov.name,
-      governorateEn: gov.nameEn,
-      wilayat: gov.wilayat,
+      governorateId: displayGov.id,
+      governorate: displayGov.name,
+      governorateEn: displayGov.nameEn,
+      wilayat: displayWilayat,
+      village: displayVillage,
+      lat: Number(targetLat.toFixed(4)),
+      lon: Number(targetLon.toFixed(4)),
       temperature: temp,
       humidity,
       windSpeed,
       rain,
       recordedAt: current.time || new Date().toISOString(),
       alerts: generatedAlerts,
-      source: "بيانات حية مباشرة من محطات الأرصاد (Open-Meteo)",
-      climateNote: gov.climateNote
+      source: 'بيانات حية مباشرة من محطات الأرصاد (Open-Meteo)',
+      climateNote: legacyGov.climateNote,
     };
 
     // Cache for 10 minutes
-    weatherCache.set(gov.id, { data: payload, expiry: now + 10 * 60 * 1000 });
+    if (weatherCache.size >= 120) {
+      const oldest = weatherCache.keys().next().value;
+      if (oldest) weatherCache.delete(oldest);
+    }
+    weatherCache.set(cacheKey, { data: payload, expiry: now + 10 * 60 * 1000 });
     return res.json({ success: true, live: payload });
   } catch (err: any) {
     console.warn('Weather fetch error:', err.message);
-    // Graceful fallback with governorate standard climate
+    // Graceful fallback with governorate/wilayat standard climate
     return res.json({
       success: true,
       live: {
-        governorate: gov.name,
-        wilayat: gov.wilayat,
+        governorateId: displayGov.id,
+        governorate: displayGov.name,
+        governorateEn: displayGov.nameEn,
+        wilayat: displayWilayat,
+        village: displayVillage,
+        lat: Number(targetLat.toFixed(4)),
+        lon: Number(targetLon.toFixed(4)),
         temperature: 28,
         humidity: 55,
         windSpeed: 14,
         rain: 0,
-        alerts: ["الطقس مستقر ومناسب للخدمات الزراعية المعتادة."],
-        source: "بيانات تقديرية لمناخ المحافظة",
-        climateNote: gov.climateNote
-      }
+        alerts: ['الطقس مستقر ومناسب للخدمات الزراعية المعتادة.'],
+        source: 'بيانات تقديرية لمناخ المحافظة',
+        climateNote: legacyGov.climateNote,
+      },
     });
   }
 });
@@ -1317,15 +1499,27 @@ function extractAndValidateBase64Image(rawDataUrl: string): { mimeType: string; 
 async function runUnifiedAgriVisionDiagnosis(params: {
   images: Array<{ label: string; mimeType: string; cleanBase64: string }>;
   cropName?: string;
+  governorate?: string;
   wilayat?: string;
+  village?: string;
+  agroZone?: string;
   observations?: string;
   modeHint?: 'auto' | 'plant' | 'insect';
 }) {
-  const { images, cropName = '', wilayat = '', observations = '', modeHint = 'auto' } = params;
+  const {
+    images,
+    cropName = '',
+    governorate = '',
+    wilayat = '',
+    village = '',
+    agroZone = '',
+    observations = '',
+    modeHint = 'auto',
+  } = params;
 
   const hash = crypto.createHash('sha256');
   images.forEach((img) => hash.update(img.cleanBase64));
-  hash.update(`|${cropName}|${wilayat}|${observations}|${modeHint}`);
+  hash.update(`|${cropName}|${governorate}|${wilayat}|${village}|${agroZone}|${observations}|${modeHint}`);
   const cacheKey = hash.digest('hex');
 
   const now = Date.now();
@@ -1400,14 +1594,19 @@ async function runUnifiedAgriVisionDiagnosis(params: {
       ? 'تلميح سياقي: المستخدم فتح الأداة من قسم الحشرات، لكن اعتمد على ما تراه فعلياً في الصورة (قد تكون نباتاً أو حشرة نافعة أو ضارة).'
       : 'ميّز تلقائياً من الصورة هل هي لنبات/ورقة أم حشرة (نافعة أم ضارة) أم غير واضحة.';
 
+  const locationLabel = [governorate, wilayat ? `ولاية ${wilayat}` : '', village]
+    .filter(Boolean)
+    .join(' · ') || 'سلطنة عُمان';
+
   parts.push({
     text: `معلومات إضافية اختيارية من المزارع:
 - المحصول المذكور (إن وجد): ${cropName || 'غير محدد — استنتجه من الصورة إن أمكن'}
-- الولاية / المحافظة في سلطنة عُمان: ${wilayat || 'سلطنة عُمان'}
+- الموقع الزراعي في سلطنة عُمان: ${locationLabel}
+- النطاق المناخي الزراعي: ${agroZone || 'عُمان العام'}
 - ملاحظات المزارع: ${observations || 'لا توجد ملاحظات نصية — اعتمد على تحليل الصورة'}
 - ${hintText}
 
-حلل الصورة بدقة علمية الآن وأخرج JSON فقط.`,
+راعِ البيئة المناخية للمنطقة المذكورة عند كتابة omaniFarmingNote والنصائح الوقائية، وحلل الصورة بدقة علمية الآن وأخرج JSON فقط.`,
   });
 
   const response = await ai.models.generateContent({
@@ -1677,7 +1876,7 @@ async function runUnifiedAgriVisionDiagnosis(params: {
       'تواصل مع المهندس الزراعي أو دائرة التنمية الزراعية عند تزايد الأعراض سريعاً، أو في حال التباس التشخيص، أو قبل اتخاذ قرار الرش العلاجي الواسع.',
     omaniFarmingNote:
       (parsed.omaniFarmingNote || '').trim() ||
-      `راعِ ظروف الحرارة والرطوبة في ${wilayat || 'سلطنة عُمان'} ونفّذ عمليات الفحص والرش (إن لزم) في الصباح الباكر أو قبل الغروب.`,
+      `راعِ ظروف الحرارة والرطوبة في ${locationLabel} ونفّذ عمليات الفحص والرش (إن لزم) في الصباح الباكر أو قبل الغروب.`,
     advisoryNote: MANDATORY_ADVISORY,
     possibleConditions: possibleConditionsArr,
     insectDetails:
@@ -1725,8 +1924,20 @@ async function handleSmartDiagnosisRequest(
   defaultModeHint: 'auto' | 'plant' | 'insect' = 'auto'
 ) {
   try {
-    const { images, imageBase64, cropName, hostCrop, symptoms, pestDescription, observations, wilayat, modeHint } =
-      req.body || {};
+    const {
+      images,
+      imageBase64,
+      cropName,
+      hostCrop,
+      symptoms,
+      pestDescription,
+      observations,
+      governorate,
+      wilayat,
+      village,
+      agroZone,
+      modeHint,
+    } = req.body || {};
 
     const validImages: Array<{ label: string; mimeType: string; cleanBase64: string }> = [];
 
@@ -1765,7 +1976,10 @@ async function handleSmartDiagnosisRequest(
     }
 
     const cleanCrop = String(cropName || hostCrop || '').trim().slice(0, 80);
+    const cleanGov = String(governorate || '').trim().slice(0, 80);
     const cleanWilayat = String(wilayat || '').trim().slice(0, 100);
+    const cleanVillage = String(village || '').trim().slice(0, 100);
+    const cleanAgroZone = String(agroZone || '').trim().slice(0, 60);
     const cleanObs = String(observations || symptoms || pestDescription || '').trim().slice(0, 1000);
     const effectiveMode: 'auto' | 'plant' | 'insect' =
       modeHint === 'insect' || modeHint === 'plant' || modeHint === 'auto' ? modeHint : defaultModeHint;
@@ -1773,7 +1987,10 @@ async function handleSmartDiagnosisRequest(
     const { diagnosis, fromCache } = await runUnifiedAgriVisionDiagnosis({
       images: validImages,
       cropName: cleanCrop,
+      governorate: cleanGov,
       wilayat: cleanWilayat,
+      village: cleanVillage,
+      agroZone: cleanAgroZone,
       observations: cleanObs,
       modeHint: effectiveMode,
     });
@@ -2503,6 +2720,221 @@ app.post('/api/admin/broadcast-alert', requireAdmin, (req, res) => {
   return res.json({ success: true, notification: alert });
 });
 
+// --- 9C. Interactive Agricultural Calendar Reminders & Notifications ---
+app.get('/api/calendar/reminders', (req, res) => {
+  const userId = String(req.query?.userId || '').trim();
+  const list = userId
+    ? storage.calendarReminders.filter((r) => r.userId === userId)
+    : storage.calendarReminders;
+  const sorted = [...list].sort((a, b) => b.createdAt - a.createdAt);
+  const unreadNotificationsCount = storage.notifications.filter((n: any) => !n.read).length;
+  return res.json({ success: true, reminders: sorted, unreadNotificationsCount });
+});
+
+app.post('/api/calendar/reminders', writeRateLimit, (req, res) => {
+  const userId = String(req.body?.userId || 'usr-oman-default').trim().slice(0, 80);
+  const cropId = String(req.body?.cropId || '').trim().slice(0, 60);
+  const cropName = String(req.body?.cropName || '').trim().slice(0, 80);
+  const monthIndexRaw = Number(req.body?.monthIndex);
+  const monthIndex = Number.isInteger(monthIndexRaw) && monthIndexRaw >= 0 && monthIndexRaw <= 11
+    ? monthIndexRaw
+    : new Date().getMonth();
+  const phase = String(req.body?.phase || 'planting').trim().slice(0, 40);
+  const cadenceRaw = String(req.body?.cadence || 'weekly');
+  const cadence: CalendarReminder['cadence'] = ['daily_dawn', 'every_2_days', 'weekly', 'monthly_start'].includes(cadenceRaw)
+    ? (cadenceRaw as CalendarReminder['cadence'])
+    : 'weekly';
+  const governorate = String(req.body?.governorate || 'سلطنة عُمان').trim().slice(0, 80);
+  const title = String(req.body?.title || '').trim().slice(0, 140);
+  const message = String(req.body?.message || '').trim().slice(0, 600);
+  const pushImmediately = Boolean(req.body?.pushImmediately);
+
+  if (!cropId || !cropName || !title || !message) {
+    return res.status(400).json({ error: 'بيانات التنبيه الزراعي غير مكتملة.' });
+  }
+
+  const now = Date.now();
+  const existingIdx = storage.calendarReminders.findIndex(
+    (r) => r.userId === userId && r.cropId === cropId && r.monthIndex === monthIndex
+  );
+
+  let reminder: CalendarReminder;
+  if (existingIdx !== -1) {
+    reminder = {
+      ...storage.calendarReminders[existingIdx],
+      cropName,
+      phase,
+      cadence,
+      governorate,
+      title,
+      message,
+      enabled: true,
+      lastDispatchedAt: pushImmediately ? now : storage.calendarReminders[existingIdx].lastDispatchedAt,
+    };
+    storage.calendarReminders[existingIdx] = reminder;
+  } else {
+    reminder = {
+      id: `calrem-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      userId,
+      cropId,
+      cropName,
+      monthIndex,
+      phase,
+      cadence,
+      governorate,
+      title,
+      message,
+      enabled: true,
+      createdAt: now,
+      lastDispatchedAt: pushImmediately ? now : undefined,
+    };
+    storage.calendarReminders.unshift(reminder);
+    storage.calendarReminders = storage.calendarReminders.slice(0, 200);
+  }
+
+  let createdNotification: any = null;
+  if (pushImmediately) {
+    createdNotification = {
+      id: `notif-cal-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      title,
+      message,
+      type: 'crop_advice',
+      targetGovernorate: governorate,
+      timestamp: now,
+      read: false,
+      calendarKey: `manual-${cropId}-${monthIndex}`,
+    };
+    storage.notifications.unshift(createdNotification);
+    storage.notifications = storage.notifications.slice(0, 150);
+  }
+
+  saveStorage();
+  const unreadCount = storage.notifications.filter((n: any) => !n.read).length;
+  return res.status(existingIdx !== -1 ? 200 : 201).json({
+    success: true,
+    reminder,
+    notification: createdNotification,
+    unreadCount,
+  });
+});
+
+app.patch('/api/calendar/reminders/:id', writeRateLimit, (req, res) => {
+  const reminder = storage.calendarReminders.find((r) => r.id === req.params.id);
+  if (!reminder) {
+    return res.status(404).json({ error: 'التنبيه المجدول غير موجود.' });
+  }
+
+  if (typeof req.body?.enabled === 'boolean') {
+    reminder.enabled = req.body.enabled;
+  }
+  if (
+    typeof req.body?.cadence === 'string' &&
+    ['daily_dawn', 'every_2_days', 'weekly', 'monthly_start'].includes(req.body.cadence)
+  ) {
+    reminder.cadence = req.body.cadence as CalendarReminder['cadence'];
+  }
+
+  let createdNotification: any = null;
+  if (req.body?.dispatchNow === true) {
+    const now = Date.now();
+    reminder.lastDispatchedAt = now;
+    createdNotification = {
+      id: `notif-cal-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      title: reminder.title,
+      message: reminder.message,
+      type: 'crop_advice',
+      targetGovernorate: reminder.governorate,
+      timestamp: now,
+      read: false,
+      calendarKey: `dispatch-${reminder.cropId}-${reminder.monthIndex}`,
+    };
+    storage.notifications.unshift(createdNotification);
+    storage.notifications = storage.notifications.slice(0, 150);
+  }
+
+  saveStorage();
+  const unreadCount = storage.notifications.filter((n: any) => !n.read).length;
+  return res.json({
+    success: true,
+    reminder,
+    notification: createdNotification,
+    unreadCount,
+  });
+});
+
+app.delete('/api/calendar/reminders/:id', (req, res) => {
+  const beforeLen = storage.calendarReminders.length;
+  storage.calendarReminders = storage.calendarReminders.filter((r) => r.id !== req.params.id);
+  if (storage.calendarReminders.length === beforeLen) {
+    return res.status(404).json({ error: 'التنبيه المجدول غير موجود.' });
+  }
+  saveStorage();
+  const unreadCount = storage.notifications.filter((n: any) => !n.read).length;
+  return res.json({ success: true, unreadCount });
+});
+
+app.post('/api/calendar/sync-alerts', writeRateLimit, (req, res) => {
+  const governorate = String(req.body?.governorate || 'سلطنة عُمان').trim().slice(0, 80);
+  const monthIndexRaw = Number(req.body?.monthIndex);
+  const monthIndex = Number.isInteger(monthIndexRaw) && monthIndexRaw >= 0 && monthIndexRaw <= 11
+    ? monthIndexRaw
+    : new Date().getMonth();
+  const alertsInput = Array.isArray(req.body?.alerts) ? req.body.alerts.slice(0, 20) : [];
+
+  if (alertsInput.length === 0) {
+    return res.status(400).json({ error: 'لا توجد تنبيهات لمزامنتها.' });
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const existingKeys = new Set<string>(
+    storage.notifications
+      .map((n: any) => n?.calendarKey)
+      .filter((k: any): k is string => typeof k === 'string')
+  );
+
+  let addedCount = 0;
+  let skippedCount = 0;
+  const now = Date.now();
+
+  for (let i = 0; i < alertsInput.length; i++) {
+    const item = alertsInput[i];
+    const cropId = String(item?.cropId || '').trim().slice(0, 60);
+    const title = String(item?.title || '').trim().slice(0, 140);
+    const message = String(item?.message || '').trim().slice(0, 600);
+    if (!cropId || !title || !message) continue;
+
+    const dedupKey = `calendar-${cropId}-${monthIndex}-${todayStr}`;
+    if (existingKeys.has(dedupKey)) {
+      skippedCount++;
+      continue;
+    }
+
+    existingKeys.add(dedupKey);
+    storage.notifications.unshift({
+      id: `notif-sync-${now + i}-${Math.random().toString(36).slice(2, 6)}`,
+      title,
+      message,
+      type: 'crop_advice',
+      targetGovernorate: governorate,
+      timestamp: now + i,
+      read: false,
+      calendarKey: dedupKey,
+    });
+    addedCount++;
+  }
+
+  storage.notifications = storage.notifications.slice(0, 150);
+  saveStorage();
+
+  const unreadCount = storage.notifications.filter((n: any) => !n.read).length;
+  return res.json({
+    success: true,
+    addedCount,
+    skippedCount,
+    unreadCount,
+  });
+});
+
 // --- 10. Radio Stations Management APIs ---
 app.get('/api/radio/stations', (_req, res) => {
   return res.json({ success: true, stations: storage.radioStations });
@@ -2754,6 +3186,21 @@ function ensurePhase4FarmFields(farm: any) {
   if (!Array.isArray(farm.hotItems)) {
     farm.hotItems = [];
   }
+
+  if (!farm.tools) {
+    farm.tools = { plow: 1, irrigation: 1, sprayer: 1, harvester: 1 };
+  } else {
+    if (typeof farm.tools.plow !== 'number') farm.tools.plow = 1;
+    if (typeof farm.tools.irrigation !== 'number') farm.tools.irrigation = 1;
+    if (typeof farm.tools.sprayer !== 'number') farm.tools.sprayer = 1;
+    if (typeof farm.tools.harvester !== 'number') farm.tools.harvester = 1;
+  }
+
+  if (!farm.harvestStats) {
+    farm.harvestStats = { totalHarvests: 0, totalEarnedCoins: 0, byCrop: {} };
+  } else if (!farm.harvestStats.byCrop) {
+    farm.harvestStats.byCrop = {};
+  }
 }
 
 function getOrInitFarm(userId: string, userName?: string, governorate?: string) {
@@ -2972,7 +3419,8 @@ function recomputeFarmGrowth(farm: any) {
       if (elapsedHours > 0.05 && plot.weedsLevel < 70) {
         plot.weedsLevel = Math.min(80, Math.round(plot.weedsLevel + elapsedHours * 12));
       }
-      if (!plot.pestType && elapsedHours > 0.08 && (plot.moisture > 88 || plot.weedsLevel > 45 || (!plot.isGreenhouse && Math.random() < 0.15))) {
+      const pestSpawnChance = (farm.tools?.sprayer || 1) >= 3 ? 0.06 : 0.14;
+      if (!plot.pestType && elapsedHours > 0.08 && (plot.moisture > 88 || plot.weedsLevel > 45 || (!plot.isGreenhouse && Math.random() < pestSpawnChance))) {
         if (Array.isArray(crop.bookPests) && crop.bookPests.length > 0) {
           plot.pestType = plot.moisture > 88 && crop.bookPests[1] ? crop.bookPests[1] : crop.bookPests[0];
         } else {
@@ -3060,6 +3508,7 @@ app.get('/api/virtual-farm/crops', (_req, res) => {
     livestockDefs: FARM_LIVESTOCK_DEFS,
     buildingDefs: FARM_BUILDING_DEFS,
     questTemplates: FARM_QUEST_TEMPLATES,
+    toolUpgrades: FARM_TOOL_UPGRADES,
   });
 });
 
@@ -3326,6 +3775,22 @@ app.post('/api/virtual-farm/action', (req, res) => {
       quest.rewardCoins || 50
     );
     feedback = `أحسنت! استلمت +${quest.rewardCoins} 🪙 و+${pts} نقطة و+${quest.rewardWater} لتر ماء!`;
+  } else if (action === 'upgrade_tool') {
+    const toolId = payload?.toolId as 'plow' | 'irrigation' | 'sprayer' | 'harvester';
+    const def = FARM_TOOL_UPGRADES.find((t) => t.id === toolId);
+    if (!def) return res.status(400).json({ error: 'الأداة غير معروفة' });
+    const curLv = Number(farm.tools?.[toolId] || 1);
+    if (curLv >= def.maxLevel) {
+      return res.status(400).json({ error: `${def.nameAr} في أعلى مستوى (${def.maxLevel}).` });
+    }
+    const cost = def.baseCostCoins * curLv;
+    if (farm.coins < cost) {
+      return res.status(400).json({ error: `تحتاج ${cost} 🪙 لتطوير ${def.nameAr}.` });
+    }
+    farm.coins -= cost;
+    farm.tools[toolId] = curLv + 1;
+    const pts = awardFarmPoints(farm, 25, `تطوير ${def.nameAr} إلى المستوى ${curLv + 1}`, 'upgrade_tool');
+    feedback = `تم تطوير ${def.nameAr} إلى المستوى ${curLv + 1}! (+${pts} نقطة)`;
   } else {
     // Plot-level 10 Agricultural Operations
     const plot = farm.plots.find((p: any) => p.id === plotId);
@@ -3339,8 +3804,17 @@ app.post('/api/virtual-farm/action', (req, res) => {
       if (plot.soilPrepared) return res.status(400).json({ error: 'التربة محروثة مسبقاً!' });
       plot.soilPrepared = true;
       plot.weedsLevel = 0;
+      const plowLv = farm.tools?.plow || 1;
+      if (plowLv >= 2) {
+        plot.soilLeveled = true;
+      }
+      if (plowLv >= 3) {
+        plot.nutrients = Math.min(85, Math.max(plot.nutrients || 50, 68));
+      }
       const pts = awardFarmPoints(farm, storage.pointRules.farmAction, `حرث وتقليب التربة في القطعة ${plot.plotIndex + 1}`, 'plow');
-      feedback = `تم حرث الأرض وتهوية التربة (+${pts} نقاط)`;
+      feedback = plowLv >= 2
+        ? `تم الحرث والتسوية الآلية فوراً بالجرار المطور (المستوى ${plowLv})! القطعة جاهزة للزراعة (+${pts} نقاط)`
+        : `تم حرث الأرض وتهوية التربة (+${pts} نقاط)`;
     } else if (action === 'level_soil') {
       if (plot.cropId) return res.status(400).json({ error: 'الأرض مزروعة حالياً.' });
       if (!plot.soilPrepared) return res.status(400).json({ error: 'يرجى حرث الأرض أولاً قبل التسوية.' });
@@ -3375,15 +3849,23 @@ app.post('/api/virtual-farm/action', (req, res) => {
       plot.pruned = false;
       plot.blockedReason = null;
       unlockAchievement(farm, 'first_plant');
-      if (crop.id === 'faradh_palm') unlockAchievement(farm, 'green_thumb');
+      if (crop.id === 'faradh_palm' || crop.id === 'omani_mango') unlockAchievement(farm, 'green_thumb');
       const pts = awardFarmPoints(farm, storage.pointRules.farmAction, `زراعة ${crop.nameAr} في القطعة ${plot.plotIndex + 1}`, 'plant');
       feedback = `تمت زراعة ${crop.nameAr} بنجاح! (+${pts} نقاط)`;
     } else if (action === 'irrigate') {
       if (!plot.cropId) return res.status(400).json({ error: 'ازرع المحصول أولاً قبل الري.' });
-      if (farm.waterLiters < 15) return res.status(400).json({ error: 'خزان المياه منخفض، قم بتعبئة المياه من المتجر.' });
-      farm.waterLiters -= 15;
+      const irrLv = farm.tools?.irrigation || 1;
+      const waterCost = irrLv >= 3 ? 7 : irrLv >= 2 ? 9 : 15;
+      if (farm.waterLiters < waterCost) return res.status(400).json({ error: 'خزان المياه منخفض، قم بتعبئة المياه من المتجر أو انتظر نوبة الفلج.' });
+      farm.waterLiters -= waterCost;
       const prevMoisture = plot.moisture;
-      plot.moisture = Math.min(100, Math.round(plot.moisture + 28));
+      if (irrLv >= 2) {
+        // Drip irrigation prevents root-rot overwatering beyond 86%
+        plot.moisture = Math.min(86, Math.max(plot.moisture, Math.round(plot.moisture + 28)));
+        if (irrLv >= 3) plot.health = Math.min(100, (plot.health || 90) + 4);
+      } else {
+        plot.moisture = Math.min(100, Math.round(plot.moisture + 28));
+      }
       if (plot.moisture > 90) {
         plot.health = Math.max(20, plot.health - 12);
         warning = 'تنبيه تعليمي: الإفراط في الري (تغريق التربة >90%) يسبب اختناق الجذور وتناقص صحة النبات!';
@@ -3391,10 +3873,14 @@ app.post('/api/virtual-farm/action', (req, res) => {
         plot.lastActionTokens.irrigate = now;
         const pts = awardFarmPoints(farm, storage.pointRules.farmAction, `ري متوازن للقطعة ${plot.plotIndex + 1}`, 'irrigate');
         advanceQuestProgress(farm, 'irrigate', 1);
-        feedback = `تم الري بنجاح (+${pts} نقاط)`;
+        feedback = irrLv >= 2
+          ? `تم الري بالتنقيط الحديث (استهلاك ${waterCost} لتر فقط) (+${pts} نقاط)`
+          : `تم الري بنجاح (+${pts} نقاط)`;
       } else {
         advanceQuestProgress(farm, 'irrigate', 1);
-        feedback = 'تم الري، تذكر عدم تكرار الري على فترات متقاربة لحفظ صحة الجذور.';
+        feedback = irrLv >= 2
+          ? `تم الري بالتنقيط المتوازن (-${waterCost} لتر) دون إغراق التربة.`
+          : 'تم الري، تذكر عدم تكرار الري على فترات متقاربة لحفظ صحة الجذور.';
       }
     } else if (action === 'fertilize') {
       if (!plot.cropId) return res.status(400).json({ error: 'لا يوجد محصول لتسميده.' });
@@ -3437,9 +3923,12 @@ app.post('/api/virtual-farm/action', (req, res) => {
       farm.inventory.pest_neem -= 1;
       const curedPest = plot.pestType;
       plot.pestType = null;
-      plot.health = Math.min(100, plot.health + 18);
+      const sprayerLv = farm.tools?.sprayer || 1;
+      const healthHeal = sprayerLv >= 2 ? 25 : 18;
+      const sprayerBonusPts = sprayerLv >= 2 ? 8 : 0;
+      plot.health = Math.min(100, plot.health + healthHeal);
       unlockAchievement(farm, 'pest_doctor');
-      const pts = awardFarmPoints(farm, storage.pointRules.pestCure, `تشخيص ومعالجة «${curedPest}» بأمان حيوي`, 'pest_control');
+      const pts = awardFarmPoints(farm, (storage.pointRules.pestCure || 20) + sprayerBonusPts, `تشخيص ومعالجة «${curedPest}» بأمان حيوي`, 'pest_control');
       feedback = `تمت معالجة ${curedPest} بنجاح وحماية النحل (+${pts} نقطة)`;
     } else if (action === 'harvest') {
       if (!plot.cropId) return res.status(400).json({ error: 'لا يوجد محصول للحصاد.' });
@@ -3448,10 +3937,25 @@ app.post('/api/virtual-farm/action', (req, res) => {
       if (plot.stageIndex < crop.stages.length - 1) {
         return res.status(400).json({ error: 'لم يصل المحصول إلى مرحلة النضج والحصاد بعد!' });
       }
+      const harvesterLv = farm.tools?.harvester || 1;
       const qualityBonus = plot.health >= 85 ? 25 : 0;
-      const earnedCoins = crop.harvestCoins + qualityBonus;
-      const crateQty = plot.health >= 85 ? 2 : 1;
+      const toolCoinMult = harvesterLv >= 3 ? 1.4 : harvesterLv >= 2 ? 1.25 : 1.0;
+      const earnedCoins = Math.round((crop.harvestCoins + qualityBonus) * toolCoinMult);
+      const extraCrates = harvesterLv >= 3 ? 2 : harvesterLv >= 2 ? 1 : 0;
+      const crateQty = (plot.health >= 85 ? 2 : 1) + extraCrates;
       farm.warehouse.crops[crop.id] = (farm.warehouse.crops[crop.id] || 0) + crateQty;
+
+      let alfalfaNote = '';
+      if (crop.id === 'omani_alfalfa') {
+        farm.inventory.fodder_pack = (farm.inventory.fodder_pack || 0) + 2;
+        alfalfaNote = ' + 2 حزمة علف للحظيرة!';
+      }
+
+      if (!farm.harvestStats) farm.harvestStats = { totalHarvests: 0, totalEarnedCoins: 0, byCrop: {} };
+      farm.harvestStats.totalHarvests += 1;
+      farm.harvestStats.totalEarnedCoins += earnedCoins;
+      farm.harvestStats.byCrop[crop.id] = (farm.harvestStats.byCrop[crop.id] || 0) + crateQty;
+
       const pts = awardFarmPoints(farm, crop.harvestPoints || storage.pointRules.harvest, `حصاد محصول ${crop.nameAr} بجودة ${plot.health}%`, 'harvest', earnedCoins);
       advanceQuestProgress(farm, 'harvest', 1);
       unlockAchievement(farm, 'first_harvest');
@@ -3464,7 +3968,7 @@ app.post('/api/virtual-farm/action', (req, res) => {
       plot.pruned = false;
       plot.blockedReason = null;
       plot.harvestedCount += 1;
-      feedback = `مبارك الحصاد! كسبت +${earnedCoins} 🪙 و+${pts} نقطة وإيداع ${crateQty} صندوق ${crop.nameAr} في المخزن!`;
+      feedback = `مبارك الحصاد! كسبت +${earnedCoins} 🪙 و+${pts} نقطة وإيداع ${crateQty} صندوق ${crop.nameAr}${alfalfaNote}`;
     } else if (action === 'clear_reset') {
       plot.cropId = null;
       plot.plantedAt = null;
@@ -3500,14 +4004,29 @@ app.post('/api/virtual-farm/action', (req, res) => {
 
 app.post('/api/virtual-farm/advisor', aiRateLimit, async (req, res) => {
   try {
-    const { cropName, stageName, moisture, nutrients, health, pestType, greenhouseTemp, userQuestion } = req.body;
-    const systemInstruction = `أنت المستشار الزراعي الذكي داخل لعبة «مزرعتي الافتراضية» في تطبيق «صديق المزارع» بسلطنة عُمان (بإشراف عمر الشرجي).
+    const {
+      cropName,
+      stageName,
+      moisture,
+      nutrients,
+      health,
+      pestType,
+      greenhouseTemp,
+      userQuestion,
+      governorate,
+      wilayat,
+      village,
+      agroZone,
+    } = req.body;
+    const regionLabel = [governorate, wilayat ? `ولاية ${wilayat}` : '', village].filter(Boolean).join(' · ') || 'سلطنة عُمان';
+    const systemInstruction = `أنت المستشار الزراعي الذكي «فليجان» داخل لعبة «مزرعتي الافتراضية» في تطبيق «صديق المزارع» بسلطنة عُمان (بإشراف عمر الشرجي).
 قواعد صارمة:
-1. قدم إرشادات تعليمية دقيقة وعملية باللغة العربية تتناسب مع مناخ عُمان.
+1. قدم إرشادات تعليمية دقيقة وعملية باللغة العربية تتناسب مع مناخ عُمان ومنطقة المزارع (${regionLabel} - النطاق: ${agroZone || 'عُمان'}).
 2. لا توصِ أبداً بمبيدات عشوائية أو مواد كيميائية محظورة أو خطيرة؛ ركز على المكافحة الحيوية (مثل مستخلص النيم، المصائد الفرمونية، تهوية البيت المحمي، والري المتزن).
 3. اشرح للمزارع ما يحتاجه المحصول في مرحلته الحالية وكيفية معالجة أي خلل في الرطوبة أو التغذية أو الآفة بأسلوب واضح ومشجع.`;
 
-    const prompt = `المحصول: ${cropName || 'أرض قيد التجهيز'}
+    const prompt = `الموقع الزراعي: ${regionLabel}
+المحصول: ${cropName || 'أرض قيد التجهيز'}
 المرحلة الحالية: ${stageName || 'تجهيز التربة'}
 الرطوبة: ${moisture ?? 60}% | التغذية: ${nutrients ?? 60}% | صحة النبات: ${health ?? 95}%
 الإصابة الحالية: ${pestType || 'لا توجد'} | حرارة البيت المحمي: ${greenhouseTemp ?? 26}°م
@@ -3849,10 +4368,17 @@ app.post('/api/cartoon/tts', async (req, res) => {
       return res.status(400).json({ error: 'النص المطلوب تحويله إلى صوت غير موجود.' });
     }
 
-    const voiceMood = mood === 'warning' ? 'warning' : mood === 'curious' ? 'curious' : 'cheerful';
+    const voiceMood =
+      mood === 'warning'
+        ? 'warning'
+        : mood === 'curious'
+          ? 'curious'
+          : mood === 'proud'
+            ? 'proud'
+            : 'cheerful';
     const cacheKey = crypto
       .createHash('sha256')
-      .update(`${voiceMood}:${cleanText}`)
+      .update(`v2-flash-tts:${voiceMood}:${cleanText}`)
       .digest('hex');
 
     const ttsDiskCacheDir = path.join(DATA_DIR, 'tts-cache');
@@ -3871,15 +4397,17 @@ app.post('/api/cartoon/tts', async (req, res) => {
 
     const styleMap: Record<string, string> = {
       cheerful:
-        'Warm, authentic, cheerful Omani Arabic agricultural mascot speaking smoothly, clearly, and expressively like a real human guide at a comfortable moderate pace',
+        'Authentic, charismatic young Omani male agricultural host (Flijan) with warm natural breath, clear Arabic diction, welcoming Omani Gulf cadence, lively friendly inflection, zero robotic monotony',
       curious:
-        'Expressive, natural, crystal-clear Arabic educational narrator with warm curiosity and clear pronunciation for Omani farmers',
+        'Warm, engaging Omani Arabic male agricultural educator speaking with natural thoughtful curiosity, crystal-clear pronunciation of palm and pest terms, and approachable human pacing',
       warning:
-        'Warm, caring, steady Arabic agricultural advisor speaking clearly with gentle, reassuring emphasis',
+        'Caring, confident Omani male agricultural advisor speaking with gentle firm urgency, clear warnings on honeydew and pesticide safety, and warm reassurance',
+      proud:
+        'Enthusiastic, proud Omani male agricultural mentor celebrating harvest success with uplifting warm vocal energy and natural studio clarity',
     };
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash-lite-tts',
+      model: 'gemini-3.8-flash-tts',
       contents: [
         {
           role: 'user',
@@ -3897,7 +4425,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Puck' },
+            prebuiltVoiceConfig: { voiceName: 'Charon' },
           },
         },
       },
@@ -3967,14 +4495,14 @@ app.post('/api/cartoon/generate-episode', aiRateLimit, async (req, res) => {
     }
 
     const systemInstruction = `أنت كاتب سيناريو كرتوني زراعي محترف لبرنامج «فليجان صديق المزارع» في سلطنة عُمان.
-اكتب حلقة توعوية من 4 مشاهد قصيرة ومترابطة باللغة العربية الفصحى المبسطة والدافئة، يشرح فيها فليجان للمزارع العُماني الفكرة بوضوح وبدون تعقيد.
+اكتب حلقة توعوية من 4 مشاهد قصيرة ومترابطة باللغة العربية الفصحى المبسطة والروح العُمانية الدافئة، يشرح فيها فليجان للمزارع العُماني الفكرة بوضوح وبدون تعقيد مع الالتزام بالسلامة الزراعية والمرسوم العُماني 160/2023.
 التزم تماماً بإرجاع JSON صالح يطابق المخطط المطلوب فقط:
 - كل مشهد له narration (جملتان إلى ثلاث جمل صوتية واضحة ومناسبة للنطق الصوتي السلس).
 - subtitle مختصرة ومطابقة لمعنى المشهد للعرض أسفل الشاشة.
 - backdrop من: oasis_falaj | palm_grove | greenhouse | sunny_field
 - flijanPose من: wave | explain | inspect | celebrate | caution
 - flijanMood من: happy | curious | warning | proud
-- prop من: water_drop | palm_tree | magnifying_glass | bee | sun_shield | fertilizer_bag`;
+- prop من: water_drop | palm_tree | magnifying_glass | bee | sun_shield | fertilizer_bag | dubas_bug`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-4-hydrogen',
@@ -4030,6 +4558,7 @@ app.post('/api/cartoon/generate-episode', aiRateLimit, async (req, res) => {
                       'bee',
                       'sun_shield',
                       'fertilizer_bag',
+                      'dubas_bug',
                     ],
                   },
                 },

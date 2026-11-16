@@ -6,10 +6,11 @@
  * صاحب فكرة التطبيق ومديره: عمر الشرجي – سلطنة عمان
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { ActivePage, ThemeMode, UserProfile } from './types/index.ts';
+import { LocationProvider, UnifiedLocationState } from './context/LocationContext.tsx';
 
-// Components
+// Core Shell Components
 import { Header } from './components/Header.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { NotificationDrawer } from './components/NotificationDrawer.tsx';
@@ -18,28 +19,29 @@ import { BottomNav } from './components/BottomNav.tsx';
 import { GlobalMiniPlayer } from './components/GlobalMiniPlayer.tsx';
 import { OfflineIndicator } from './components/OfflineIndicator.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { LocationSelectorBar } from './components/LocationSelectorBar.tsx';
 
-// Views
+// Primary Home View (eager) + Secondary Views (lazy-loaded)
 import { HomeView } from './components/HomeView.tsx';
-import { PlantDiagnosisView } from './components/PlantDiagnosisView.tsx';
-import { PestDiagnosisView } from './components/PestDiagnosisView.tsx';
-import { CartoonVideosView } from './components/CartoonVideosView.tsx';
-import { GamesView } from './components/GamesView.tsx';
-import { LeaderboardView } from './components/LeaderboardView.tsx';
-import { LibraryView } from './components/LibraryView.tsx';
-import { RamadanView } from './components/RamadanView.tsx';
-import { WeatherView } from './components/WeatherView.tsx';
-import { CalendarView } from './components/CalendarView.tsx';
-import { EncyclopediaView } from './components/EncyclopediaView.tsx';
-import { CommunityView } from './components/CommunityView.tsx';
-import { DailyTipsView } from './components/DailyTipsView.tsx';
-import { ProfileView } from './components/ProfileView.tsx';
-import { SettingsView } from './components/SettingsView.tsx';
-import { HelpSupportView } from './components/HelpSupportView.tsx';
-import { AdminView } from './components/AdminView.tsx';
-import { QuranPlayer } from './components/QuranPlayer.tsx';
-import { RadioPlayer } from './components/RadioPlayer.tsx';
-import { VirtualFarmView } from './components/VirtualFarm/VirtualFarmView.tsx';
+const PlantDiagnosisView = lazy(() => import('./components/PlantDiagnosisView.tsx').then(m => ({ default: m.PlantDiagnosisView })));
+const PestDiagnosisView = lazy(() => import('./components/PestDiagnosisView.tsx').then(m => ({ default: m.PestDiagnosisView })));
+const CartoonVideosView = lazy(() => import('./components/CartoonVideosView.tsx').then(m => ({ default: m.CartoonVideosView })));
+const GamesView = lazy(() => import('./components/GamesView.tsx').then(m => ({ default: m.GamesView })));
+const LeaderboardView = lazy(() => import('./components/LeaderboardView.tsx').then(m => ({ default: m.LeaderboardView })));
+const LibraryView = lazy(() => import('./components/LibraryView.tsx').then(m => ({ default: m.LibraryView })));
+const RamadanView = lazy(() => import('./components/RamadanView.tsx').then(m => ({ default: m.RamadanView })));
+const WeatherView = lazy(() => import('./components/WeatherView.tsx').then(m => ({ default: m.WeatherView })));
+const CalendarView = lazy(() => import('./components/CalendarView.tsx').then(m => ({ default: m.CalendarView })));
+const EncyclopediaView = lazy(() => import('./components/EncyclopediaView.tsx').then(m => ({ default: m.EncyclopediaView })));
+const CommunityView = lazy(() => import('./components/CommunityView.tsx').then(m => ({ default: m.CommunityView })));
+const DailyTipsView = lazy(() => import('./components/DailyTipsView.tsx').then(m => ({ default: m.DailyTipsView })));
+const ProfileView = lazy(() => import('./components/ProfileView.tsx').then(m => ({ default: m.ProfileView })));
+const SettingsView = lazy(() => import('./components/SettingsView.tsx').then(m => ({ default: m.SettingsView })));
+const HelpSupportView = lazy(() => import('./components/HelpSupportView.tsx').then(m => ({ default: m.HelpSupportView })));
+const AdminView = lazy(() => import('./components/AdminView.tsx').then(m => ({ default: m.AdminView })));
+const QuranPlayer = lazy(() => import('./components/QuranPlayer.tsx').then(m => ({ default: m.QuranPlayer })));
+const RadioPlayer = lazy(() => import('./components/RadioPlayer.tsx').then(m => ({ default: m.RadioPlayer })));
+const VirtualFarmView = lazy(() => import('./components/VirtualFarm/VirtualFarmView.tsx').then(m => ({ default: m.VirtualFarmView })));
 import {
   SeasonalConfig,
   DEFAULT_SEASONAL_CONFIG,
@@ -303,7 +305,31 @@ export default function App() {
     }));
   };
 
+  const handleLocationSync = useCallback((loc: UnifiedLocationState) => {
+    setUser((prev) => {
+      if (
+        prev.governorate === loc.governorate &&
+        prev.wilayat === loc.wilayat &&
+        prev.village === loc.village
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        governorate: loc.governorate,
+        wilayat: loc.wilayat,
+        village: loc.village,
+      };
+    });
+  }, []);
+
   return (
+    <LocationProvider
+      initialGovernorate={user.governorate}
+      initialWilayat={user.wilayat}
+      initialVillage={user.village}
+      onLocationSync={handleLocationSync}
+    >
     <div className="min-h-screen overflow-x-hidden flex flex-col bg-slate-50 text-slate-900 dark:bg-[#0b1329] dark:text-slate-100 navy-ambient-bg transition-colors duration-300 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-12">
       
       {/* Comprehensive Header with Top Bar Contract & Hamburger */}
@@ -356,6 +382,7 @@ export default function App() {
 
       {/* Main Content View Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <LocationSelectorBar lang={lang} />
         <ErrorBoundary onGoHome={() => setActivePage('home')}>
         {activePage === 'home' && (
           <HomeView
@@ -367,6 +394,14 @@ export default function App() {
             lang={lang}
           />
         )}
+
+        <Suspense
+          fallback={
+            <div className="p-10 text-center text-sm font-semibold text-slate-600 dark:text-slate-300">
+              {lang === 'ar' ? 'جاري تحميل القسم...' : 'Loading section...'}
+            </div>
+          }
+        >
 
         {activePage === 'virtual_farm' && (
           <VirtualFarmView user={user} />
@@ -464,7 +499,12 @@ export default function App() {
         )}
 
         {activePage === 'calendar' && (
-          <CalendarView />
+          <CalendarView
+            user={user}
+            unreadNotifsCount={unreadNotifsCount}
+            onNotificationsUpdated={(count) => setUnreadNotifsCount(count)}
+            onOpenNotifications={() => setIsNotifDrawerOpen(true)}
+          />
         )}
 
         {activePage === 'encyclopedia' && (
@@ -511,6 +551,7 @@ export default function App() {
             }}
           />
         )}
+        </Suspense>
         </ErrorBoundary>
       </main>
 
@@ -559,5 +600,6 @@ export default function App() {
       </footer>
 
     </div>
+    </LocationProvider>
   );
 }

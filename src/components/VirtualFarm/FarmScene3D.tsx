@@ -110,6 +110,7 @@ interface FarmScene3DProps {
   presetTrigger: number;
   moveInputRef?: React.MutableRefObject<MoveVector2>;
   visualCommand?: FarmVisualCommand | null;
+  flijanSpeaking?: boolean;
 }
 
 const _tmpVec = new THREE.Vector3();
@@ -194,12 +195,222 @@ function buildCropVisualGroup(
   const isUnhealthy = health < 55;
   const leafColor = isUnhealthy ? 0x9ca341 : 0x2e8b3c;
   const leafMat = new THREE.MeshStandardMaterial({ color: leafColor, roughness: 0.72, metalness: 0.02 });
+  const vibrantLeafMat = new THREE.MeshStandardMaterial({ color: isUnhealthy ? 0xa3b13b : 0x3ba547, roughness: 0.68, metalness: 0.02 });
+
+  // Stage 0 seed mounds / emerging cotyledons for non-tree field crops
+  if (
+    stageIndex === 0 &&
+    cropId !== 'faradh_palm' &&
+    cropId !== 'omani_lemon' &&
+    cropId !== 'omani_mango' &&
+    cropId !== 'omani_banana'
+  ) {
+    const moundMat = new THREE.MeshStandardMaterial({ color: 0x5c3c21, roughness: 0.94 });
+    const seedMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.7 });
+    for (let r = -1; r <= 1; r++) {
+      for (let c = -1; c <= 1; c++) {
+        const px = r * 0.56;
+        const pz = c * 0.54;
+        const mound = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), moundMat);
+        mound.position.set(px, 0.0, pz);
+        group.add(mound);
+
+        const seed = new THREE.Mesh(new THREE.SphereGeometry(0.032, 6, 6), seedMat);
+        seed.position.set(px, 0.08, pz);
+        group.add(seed);
+
+        const cotyledon = new THREE.Mesh(new THREE.ConeGeometry(0.028, 0.1, 5), vibrantLeafMat);
+        cotyledon.position.set(px + 0.02, 0.13, pz);
+        cotyledon.rotation.z = -0.25;
+        group.add(cotyledon);
+      }
+    }
+    return group;
+  }
 
   if (cropId === 'faradh_palm') {
     const palmHeight = 0.85 + stageIndex * 0.42;
     const frondCount = 7 + stageIndex * 2;
     const palmModel = createRealisticDatePalm(palmHeight, frondCount, stageIndex >= 3);
     group.add(palmModel);
+  } else if (cropId === 'omani_mango') {
+    // Omani Mango tree with warm terracotta trunk, layered oval foliage canopy & hanging mangoes
+    const trunkH = 0.48 + scaleFactor * 0.72;
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 });
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.14, trunkH, 8), trunkMat);
+    trunk.position.y = trunkH / 2;
+    trunk.castShadow = true;
+    group.add(trunk);
+
+    const crownR = 0.36 + scaleFactor * 0.5;
+    const mainCanopy = new THREE.Mesh(new THREE.DodecahedronGeometry(crownR, 1), vibrantLeafMat);
+    mainCanopy.scale.set(1.12, 0.9, 1.12);
+    mainCanopy.position.y = trunkH + crownR * 0.52;
+    mainCanopy.castShadow = true;
+    group.add(mainCanopy);
+
+    if (stageIndex >= 1) {
+      const subCanopy = new THREE.Mesh(new THREE.DodecahedronGeometry(crownR * 0.66, 1), leafMat);
+      subCanopy.position.set(crownR * 0.35, trunkH + crownR * 0.88, -crownR * 0.15);
+      subCanopy.castShadow = true;
+      group.add(subCanopy);
+    }
+
+    if (stageIndex === 2) {
+      // Cream panicle blossoms
+      const panicleMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.5 });
+      for (let b = 0; b < 6; b++) {
+        const ang = (b / 6) * Math.PI * 2;
+        const p = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.14, 5), panicleMat);
+        p.position.set(
+          Math.cos(ang) * crownR * 0.9,
+          trunkH + crownR * 0.65,
+          Math.sin(ang) * crownR * 0.9
+        );
+        p.rotation.z = Math.cos(ang) * 0.5;
+        group.add(p);
+      }
+    } else if (stageIndex >= 3) {
+      const mangoColor = stageIndex >= 4 ? 0xf59e0b : 0x65a30d;
+      const blushColor = stageIndex >= 4 ? 0xea580c : 0x84cc16;
+      const mangoMat = new THREE.MeshStandardMaterial({ color: mangoColor, roughness: 0.38 });
+      const blushMat = new THREE.MeshStandardMaterial({ color: blushColor, roughness: 0.38 });
+      for (let f = 0; f < 7; f++) {
+        const ang = (f / 7) * Math.PI * 2 + 0.2;
+        const fruit = new THREE.Mesh(
+          new THREE.SphereGeometry(0.085, 8, 8),
+          f % 2 === 0 ? mangoMat : blushMat
+        );
+        fruit.scale.set(0.85, 1.25, 0.85);
+        fruit.position.set(
+          Math.cos(ang) * crownR * 0.86,
+          trunkH + crownR * (0.3 + (f % 3) * 0.18),
+          Math.sin(ang) * crownR * 0.86
+        );
+        fruit.castShadow = true;
+        group.add(fruit);
+      }
+    }
+  } else if (cropId === 'omani_banana') {
+    // Omani Banana plant: ringed pseudostem + wide arching paddle leaves + hanging yellow banana hand
+    const stemH = 0.42 + scaleFactor * 0.82;
+    const stemMat = new THREE.MeshStandardMaterial({ color: isUnhealthy ? 0x849c3c : 0x5c8f32, roughness: 0.78 });
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.14, stemH, 8), stemMat);
+    stem.position.y = stemH / 2;
+    stem.castShadow = true;
+    group.add(stem);
+
+    const leafCount = 5 + stageIndex;
+    for (let l = 0; l < leafCount; l++) {
+      const ang = (l / leafCount) * Math.PI * 2;
+      const leafLen = 0.42 + scaleFactor * 0.55;
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.025, leafLen), vibrantLeafMat);
+      leaf.position.set(
+        Math.cos(ang) * (leafLen * 0.42),
+        stemH + 0.08 + (l % 2) * 0.1,
+        Math.sin(ang) * (leafLen * 0.42)
+      );
+      leaf.rotation.y = -ang + Math.PI / 2;
+      leaf.rotation.x = 0.35 + (l % 3) * 0.1;
+      leaf.castShadow = true;
+      group.add(leaf);
+    }
+
+    if (stageIndex >= 3) {
+      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.032, 0.38, 6), stemMat);
+      stalk.position.set(0.18, stemH - 0.12, 0.12);
+      stalk.rotation.z = -0.35;
+      group.add(stalk);
+
+      const bananaColor = stageIndex >= 4 ? 0xfacc15 : 0x65a30d;
+      const bananaMat = new THREE.MeshStandardMaterial({ color: bananaColor, roughness: 0.45 });
+      for (let b = 0; b < 5; b++) {
+        const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.036, 0.14, 4, 6), bananaMat);
+        finger.position.set(0.22 + (b - 2) * 0.035, stemH - 0.26 - (b % 2) * 0.04, 0.16);
+        finger.rotation.z = 0.25;
+        group.add(finger);
+      }
+      // Reddish banana flower bud at tip
+      const bud = new THREE.Mesh(
+        new THREE.ConeGeometry(0.05, 0.12, 6),
+        new THREE.MeshStandardMaterial({ color: 0x881337, roughness: 0.6 })
+      );
+      bud.position.set(0.22, stemH - 0.42, 0.16);
+      bud.rotation.x = Math.PI;
+      group.add(bud);
+    }
+  } else if (cropId === 'watermelon') {
+    // Watermelon vines creeping over ground + striped dark/light green oval melons
+    const vineMat = new THREE.MeshStandardMaterial({ color: 0x2f853b, roughness: 0.78 });
+    const melonMat = new THREE.MeshStandardMaterial({
+      color: stageIndex >= 4 ? 0x15803d : 0x4ade80,
+      roughness: 0.42,
+    });
+    const stripeMat = new THREE.MeshStandardMaterial({ color: 0x052e16, roughness: 0.5 });
+
+    for (let v = 0; v < 4; v++) {
+      const ang = (v / 4) * Math.PI * 2 + 0.4;
+      const vineLen = 0.55 + scaleFactor * 0.65;
+      const vine = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.032, vineLen, 5), vineMat);
+      vine.rotation.z = Math.PI / 2;
+      vine.rotation.y = ang;
+      vine.position.set(Math.cos(ang) * vineLen * 0.35, 0.05, Math.sin(ang) * vineLen * 0.35);
+      group.add(vine);
+
+      const leafCluster = new THREE.Mesh(new THREE.DodecahedronGeometry(0.14 + scaleFactor * 0.12, 0), leafMat);
+      leafCluster.scale.set(1.2, 0.45, 1.2);
+      leafCluster.position.set(Math.cos(ang) * vineLen * 0.55, 0.09, Math.sin(ang) * vineLen * 0.55);
+      group.add(leafCluster);
+    }
+
+    if (stageIndex === 2) {
+      const flMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
+      for (let f = 0; f < 4; f++) {
+        const fl = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), flMat);
+        fl.position.set((f - 1.5) * 0.32, 0.16, (f % 2 === 0 ? 1 : -1) * 0.25);
+        group.add(fl);
+      }
+    } else if (stageIndex >= 3) {
+      const positions = [
+        [-0.38, -0.25],
+        [0.42, 0.28],
+        [-0.25, 0.45],
+      ];
+      const r = stageIndex >= 4 ? 0.22 : 0.14;
+      positions.forEach(([mx, mz]) => {
+        const melon = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), melonMat);
+        melon.scale.set(1.25, 0.95, 1.0);
+        melon.position.set(mx, r * 0.85, mz);
+        melon.castShadow = true;
+        group.add(melon);
+
+        const stripe = new THREE.Mesh(new THREE.TorusGeometry(r * 0.92, 0.016, 4, 12), stripeMat);
+        stripe.position.set(mx, r * 0.85, mz);
+        stripe.rotation.y = Math.PI / 2;
+        group.add(stripe);
+      });
+    }
+  } else if (cropId === 'omani_alfalfa') {
+    // Lush dense green alfalfa / Qat fodder rows with purple blossoms at stage 3
+    const blossomMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, roughness: 0.5 });
+    const tuftH = 0.16 + scaleFactor * 0.38;
+    for (let r = -1; r <= 1; r++) {
+      for (let c = -2; c <= 2; c++) {
+        const px = r * 0.55;
+        const pz = c * 0.36;
+        const tuft = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16 + scaleFactor * 0.08, 0), vibrantLeafMat);
+        tuft.scale.set(1.1, tuftH / 0.22, 1.1);
+        tuft.position.set(px, tuftH * 0.45, pz);
+        tuft.castShadow = true;
+        group.add(tuft);
+
+        if (stageIndex >= 3 && (r + c) % 2 === 0) {
+          const fl = new THREE.Mesh(new THREE.SphereGeometry(0.042, 6, 6), blossomMat);
+          fl.position.set(px, tuftH * 0.95, pz);
+          group.add(fl);
+        }
+      }
+    }
   } else if (cropId === 'omani_wheat' || cropId === 'sesame') {
     const rows = 3;
     const cols = 4;
@@ -339,6 +550,7 @@ export const FarmScene3D: React.FC<FarmScene3DProps> = ({
   presetTrigger,
   moveInputRef,
   visualCommand,
+  flijanSpeaking = false,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const onSelectPlotRef = useRef(onSelectPlot);
@@ -347,6 +559,10 @@ export const FarmScene3D: React.FC<FarmScene3DProps> = ({
   onInspectFeatureRef.current = onInspectFeature;
   const onNearbyChangeRef = useRef(onNearbyChange);
   onNearbyChangeRef.current = onNearbyChange;
+  const flijanSpeakingRef = useRef<boolean>(Boolean(flijanSpeaking));
+  useEffect(() => {
+    flijanSpeakingRef.current = Boolean(flijanSpeaking);
+  }, [flijanSpeaking]);
 
   const sceneRefs = useRef<{
     scene: THREE.Scene;
@@ -1444,7 +1660,7 @@ export const FarmScene3D: React.FC<FarmScene3DProps> = ({
           }
         }
 
-        animateOmaniFarmer(refs.farmerRig, movingNorm, dt, elapsed);
+        animateOmaniFarmer(refs.farmerRig, movingNorm, dt, elapsed, flijanSpeakingRef.current);
 
         // Proximity detection around plots & landmarks (fires callback ONLY when target changes)
         if (onNearbyChangeRef.current) {

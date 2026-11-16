@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   ShieldAlert,
-  Download,
   SlidersHorizontal,
   BookOpenCheck,
   ClipboardCheck,
@@ -26,6 +25,8 @@ import {
 } from 'lucide-react';
 import {
   CartoonEpisode,
+  FlijanMood,
+  FlijanPose,
   INITIAL_CARTOON_EPISODES,
 } from '../data/cartoonEpisodesData.ts';
 import {
@@ -40,6 +41,7 @@ import {
   OMANI_PRONUNCIATION_DICTIONARY,
   prepareArabicTextForTts,
 } from '../utils/arabicPronunciation.ts';
+import { environmentalSfx, AmbientSfxPreset } from '../utils/environmentalSfx.ts';
 import { CartoonStageCanvas } from './CartoonStageCanvas.tsx';
 
 const CATEGORIES = [
@@ -100,25 +102,27 @@ export const CartoonVideosView: React.FC = () => {
   const [activeEpisodeId, setActiveEpisodeId] = useState<string>(
     INITIAL_CARTOON_EPISODES[0].id
   );
-  const [videoQuality, setVideoQuality] = useState<'1080p' | '480p'>('1080p');
-  const [playerMode, setPlayerMode] = useState<'mp4' | 'interactive'>('mp4');
 
-  // Interactive Canvas state (for custom AI episodes or optional interactive stage)
+  // Unified Interactive Canvas state (for all 6 Omani Flijan episodes & custom AI episodes)
   const [sceneIndex, setSceneIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [ambientEnabled, setAmbientEnabled] = useState<boolean>(true);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
   const [voiceProfile, setVoiceProfile] = useState<VoiceStudioProfile>('studio');
   const [audioStatusNote, setAudioStatusNote] = useState<string | null>(null);
+  const [ttsFailed, setTtsFailed] = useState<boolean>(false);
+  const [previewMoodOverride, setPreviewMoodOverride] = useState<FlijanMood | null>(null);
+  const [previewPoseOverride, setPreviewPoseOverride] = useState<FlijanPose | null>(null);
 
   // Custom AI Episode Generator state
   const [topicInput, setTopicInput] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [genError, setGenError] = useState<string | null>(null);
 
-  // Produced Media & QA Review server sync state
+  // QA Review Persistence server sync state
   const [reviewsMap, setReviewsMap] = useState<Record<string, EpisodeQaReviewState>>({});
   const [mediaManifest, setMediaManifest] = useState<{ episodes: MediaVideoMeta[] } | null>(null);
   const [voiceReport, setVoiceReport] = useState<{ voices: VoiceReportEntry[] } | null>(null);
@@ -135,9 +139,6 @@ export const CartoonVideosView: React.FC = () => {
     () => allEpisodes.find((ep) => ep.id === activeEpisodeId) || allEpisodes[0],
     [allEpisodes, activeEpisodeId]
   );
-
-  const hasProducedMp4 = Boolean(activeEpisode.video1080pUrl && activeEpisode.video480pUrl);
-  const useConnectedVideoPlayer = hasProducedMp4 && playerMode === 'mp4';
 
   const activeScene = activeEpisode.scenes[sceneIndex] || activeEpisode.scenes[0];
 
@@ -162,8 +163,7 @@ export const CartoonVideosView: React.FC = () => {
     );
   }, [dictSearch]);
 
-  // Video & Audio refs + Web Audio API Studio Mastering Chain
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  // Audio refs + Web Audio API Studio Mastering Chain
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -223,6 +223,8 @@ export const CartoonVideosView: React.FC = () => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+    environmentalSfx.setSpeakingDuck(false);
+    environmentalSfx.stop();
     audioLevelRef.current = 0;
   }, []);
 
@@ -232,37 +234,25 @@ export const CartoonVideosView: React.FC = () => {
     };
   }, [stopAllAudio]);
 
-  // Sync HTML5 video playbackRate cleanly
+  // Sync procedural Web Audio environmental SFX with active scene & speaking state
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.playbackRate = playbackSpeed;
+    environmentalSfx.setMuted(isMuted || !ambientEnabled);
+    environmentalSfx.setSpeakingDuck(isPlaying && !isLoadingAudio);
+    if (isPlaying && !isMuted && ambientEnabled && activeStudioTab === 'videos') {
+      const preset: AmbientSfxPreset =
+        activeScene.ambientFx ||
+        (activeScene.backdrop === 'oasis_falaj'
+          ? 'falaj_water'
+          : activeScene.prop === 'bee'
+            ? 'bees_buzz'
+            : activeScene.backdrop === 'greenhouse'
+              ? 'wind_palms'
+              : 'oasis_birds');
+      environmentalSfx.start(preset);
+    } else if (!isPlaying || !ambientEnabled || activeStudioTab !== 'videos') {
+      environmentalSfx.stop();
     }
-  }, [playbackSpeed, activeEpisode.id, videoQuality]);
-
-  // Switch MP4 resolution smoothly while preserving timestamp
-  const handleQualitySwitch = (nextQuality: '1080p' | '480p') => {
-    if (nextQuality === videoQuality) return;
-    const v = videoRef.current;
-    const savedTime = v ? v.currentTime : 0;
-    const wasPlaying = v ? !v.paused : false;
-    setVideoQuality(nextQuality);
-    setTimeout(() => {
-      const nextV = videoRef.current;
-      if (!nextV) return;
-      const applyResume = () => {
-        if (savedTime > 0 && Number.isFinite(savedTime)) {
-          nextV.currentTime = savedTime;
-        }
-        nextV.playbackRate = playbackSpeed;
-        if (wasPlaying) nextV.play().catch(() => {});
-      };
-      if (nextV.readyState >= 1) {
-        applyResume();
-      } else {
-        nextV.addEventListener('loadedmetadata', applyResume, { once: true });
-      }
-    }, 30);
-  };
+  }, [isPlaying, isLoadingAudio, isMuted, ambientEnabled, activeScene, activeStudioTab]);
 
   // Update AudioAnalyser loop for Flijan's lip-sync in interactive canvas mode
   useEffect(() => {
@@ -430,7 +420,13 @@ export const CartoonVideosView: React.FC = () => {
   const fetchSceneTts = useCallback(
     async (narration: string, mood: string): Promise<string | null> => {
       const vocalized = prepareArabicTextForTts(narration);
-      const key = `${mood}:${vocalized}`;
+      const apiMood =
+        mood === 'happy'
+          ? 'cheerful'
+          : mood === 'warning' || mood === 'curious' || mood === 'proud'
+            ? mood
+            : 'cheerful';
+      const key = `v2-flash-tts:${apiMood}:${vocalized}`;
       const cached = ttsCacheRef.current.get(key);
       if (cached) return cached;
 
@@ -438,7 +434,7 @@ export const CartoonVideosView: React.FC = () => {
         const res = await fetch('/api/cartoon/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: vocalized, mood }),
+          body: JSON.stringify({ text: vocalized, mood: apiMood }),
         });
         const data = await res.json();
         if (res.ok && data.success && data.audioBase64) {
@@ -467,6 +463,7 @@ export const CartoonVideosView: React.FC = () => {
       setIsPlaying(true);
       setIsLoadingAudio(true);
       setAudioStatusNote(null);
+      setTtsFailed(false);
 
       ensureAudioAnalyser();
 
@@ -507,8 +504,12 @@ export const CartoonVideosView: React.FC = () => {
         }
       }
 
+      if (!base64Wav) {
+        setTtsFailed(true);
+      }
+
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setAudioStatusNote('يتم التشغيل بالصوت الاحتياطي للمتصفح (مع اختيار أوضح نبرة عربية)');
+        setAudioStatusNote('تعذر تحميل صوت الاستوديو — يتم التشغيل مؤقتاً بصوت المتصفح');
         const utter = new SpeechSynthesisUtterance(
           targetScene.vocalizedNarration || targetScene.narration
         );
@@ -532,6 +533,7 @@ export const CartoonVideosView: React.FC = () => {
         };
         window.speechSynthesis.speak(utter);
       } else {
+        setAudioStatusNote('تعذر توليد الصوت حالياً؛ تُعرض الترجمة النصية للمشهد.');
         fallbackTimerRef.current = setTimeout(advanceNext, 6000);
       }
     },
@@ -559,23 +561,59 @@ export const CartoonVideosView: React.FC = () => {
     setActiveEpisodeId(ep.id);
     setSceneIndex(0);
     setIsPlaying(false);
-    const epHasVideo = Boolean(ep.video1080pUrl);
-    if (epHasVideo) {
-      setPlayerMode('mp4');
-      if (autoPlay) {
-        setTimeout(() => {
-          videoRef.current?.play().catch(() => {});
-        }, 60);
-      }
-    } else {
-      setPlayerMode('interactive');
-      if (autoPlay) {
-        setTimeout(() => {
-          playSceneAt(ep, 0);
-        }, 50);
-      }
+    setTtsFailed(false);
+    setAudioStatusNote(null);
+    setPreviewMoodOverride(null);
+    setPreviewPoseOverride(null);
+    if (autoPlay) {
+      setTimeout(() => {
+        playSceneAt(ep, 0);
+      }, 50);
     }
   };
+
+  const handleTestFlijanExpression = useCallback(
+    async (
+      mood: FlijanMood,
+      pose: FlijanPose,
+      sampleText: string
+    ) => {
+      stopAllAudio();
+      const session = playSessionRef.current;
+      setPreviewMoodOverride(mood);
+      setPreviewPoseOverride(pose);
+      setIsPlaying(true);
+      setIsLoadingAudio(true);
+      setAudioStatusNote(null);
+      ensureAudioAnalyser();
+
+      const base64Wav = await fetchSceneTts(sampleText, mood);
+      if (playSessionRef.current !== session) return;
+      setIsLoadingAudio(false);
+
+      const finish = () => {
+        if (playSessionRef.current !== session) return;
+        setIsPlaying(false);
+        audioLevelRef.current = 0;
+      };
+
+      if (base64Wav && audioRef.current) {
+        const audioEl = audioRef.current;
+        audioEl.src = `data:audio/wav;base64,${base64Wav}`;
+        audioEl.playbackRate = playbackSpeed;
+        audioEl.muted = isMuted;
+        audioEl.onended = finish;
+        try {
+          await audioEl.play();
+          return;
+        } catch {
+          // fall through
+        }
+      }
+      fallbackTimerRef.current = setTimeout(finish, 3200);
+    },
+    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, stopAllAudio]
+  );
 
   const handleGenerateCustomEpisode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -684,13 +722,8 @@ export const CartoonVideosView: React.FC = () => {
     setReviewsMap((prev) => ({ ...prev, [activeEpisode.id]: next }));
   };
 
-  const activeVideoSrc =
-    videoQuality === '480p' && activeEpisode.video480pUrl
-      ? activeEpisode.video480pUrl
-      : activeEpisode.video1080pUrl;
-
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 overflow-x-hidden">
       <audio ref={audioRef} className="hidden" />
 
       {/* Page Header & Studio Mode Switcher */}
@@ -698,13 +731,13 @@ export const CartoonVideosView: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
             <Clapperboard className="w-4 h-4" />
-            <span>سلسلة التوعية المرئية · صوت متوازن -16 LUFS</span>
+            <span>استوديو فليجان التفاعلي · صوت عُماني متوازن -16 LUFS</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white text-balance">
             استوديو فليجان التعليمي للمزارع العُماني
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 max-w-3xl">
-            أفلام إرشادية متصلة بدقة 1080p و480p مع خفض تلقائي للموسيقى وترجمة متزامنة بالكلمة وقاموس نطق عُماني مدقق.
+            دروس تفاعلية حيّة بشخصية فليجان العُمانية مع تحريك الشفاه والكاميرا ومؤثرات الأفلاج والبيئة الطبيعية ونطق مدقق.
           </p>
         </div>
 
@@ -751,127 +784,12 @@ export const CartoonVideosView: React.FC = () => {
         </div>
       </div>
 
-      {/* TAB 1: CONNECTED MP4 LESSONS + INTERACTIVE AI EPISODES */}
+      {/* TAB 1: UNIFIED INTERACTIVE FLIJAN CANVAS EPISODES */}
       {activeStudioTab === 'videos' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Primary Cinema Stage (8 cols) */}
           <div className="lg:col-span-8 space-y-4">
-            {useConnectedVideoPlayer && activeVideoSrc ? (
-              <div className="bg-stone-950 rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800 shadow-lg">
-                <video
-                  ref={videoRef}
-                  key={`${activeEpisode.id}-${videoQuality}`}
-                  src={activeVideoSrc}
-                  poster={activeEpisode.heroArtwork}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  crossOrigin="anonymous"
-                  onPlay={() => attachElementToStudioChain(videoRef.current)}
-                  className="w-full aspect-video bg-stone-950 block"
-                >
-                  {activeEpisode.subtitlesVttUrl && (
-                    <track
-                      kind="subtitles"
-                      srcLang="ar"
-                      label="الترجمة العربية"
-                      src={activeEpisode.subtitlesVttUrl}
-                      default
-                    />
-                  )}
-                </video>
-
-                {/* Quality, Speed & Audio Download Bar */}
-                <div className="bg-white dark:bg-stone-900 p-4 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
-                      الجودة:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleQualitySwitch('1080p')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold tabular-nums transition-colors ${
-                        videoQuality === '1080p'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
-                      }`}
-                    >
-                      1080p HD {activeVideoMeta ? `(${activeVideoMeta.size1080pMB} MB)` : ''}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQualitySwitch('480p')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold tabular-nums transition-colors ${
-                        videoQuality === '480p'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
-                      }`}
-                    >
-                      480p اتصال ضعيف {activeVideoMeta ? `(${activeVideoMeta.size480pMB} MB)` : ''}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPlaybackSpeed((s) => (s === 1 ? 1.15 : s === 1.15 ? 0.9 : 1))
-                      }
-                      className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-xs font-mono font-bold text-stone-700 dark:text-stone-200 hover:bg-stone-200 tabular-nums"
-                      title="سرعة التشغيل"
-                    >
-                      {playbackSpeed}x
-                    </button>
-
-                    <div className="inline-flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-lg">
-                      <AudioWaveform className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mx-1" />
-                      {(
-                        [
-                          { id: 'studio', label: 'استوديو EQ' },
-                          { id: 'warm', label: 'دافئ' },
-                          { id: 'natural', label: 'طبيعي' },
-                        ] as const
-                      ).map((preset) => (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => setVoiceProfile(preset.id)}
-                          className={`px-2 py-1 rounded-md text-[11px] font-bold transition-colors ${
-                            voiceProfile === preset.id
-                              ? 'bg-emerald-600 text-white shadow-sm'
-                              : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
-                          }`}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <a
-                      href={activeVideoSrc}
-                      download={`${activeEpisode.id}-${videoQuality}.mp4`}
-                      className="px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-xs font-semibold text-stone-700 dark:text-stone-200 flex items-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>تنزيل الفيديو</span>
-                    </a>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        videoRef.current?.pause();
-                        setPlayerMode('interactive');
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-xs font-semibold text-stone-700 dark:text-stone-200"
-                    >
-                      العرض التفاعلي لفليجان
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Interactive Canvas Player (for Custom AI Episodes or Interactive Character Mode) */
-              <div className="space-y-4">
+            <div className="space-y-4">
                 <div className="relative rounded-2xl overflow-hidden bg-stone-950 border border-stone-200 dark:border-stone-800 shadow-lg">
                   <CartoonStageCanvas
                     scene={activeScene}
@@ -880,6 +798,8 @@ export const CartoonVideosView: React.FC = () => {
                     episodeTitle={activeEpisode.title}
                     sceneIndex={sceneIndex}
                     totalScenes={activeEpisode.scenes.length}
+                    overridePose={previewPoseOverride}
+                    overrideMood={previewMoodOverride}
                   />
 
                   {isLoadingAudio && (
@@ -992,20 +912,6 @@ export const CartoonVideosView: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {hasProducedMp4 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            stopAllAudio();
-                            setIsPlaying(false);
-                            setPlayerMode('mp4');
-                          }}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold"
-                        >
-                          العودة للفيلم المتصل MP4
-                        </button>
-                      )}
-
                       <button
                         type="button"
                         onClick={() =>
@@ -1014,6 +920,19 @@ export const CartoonVideosView: React.FC = () => {
                         className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-xs font-mono font-bold text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700"
                       >
                         {playbackSpeed}x
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAmbientEnabled((v) => !v)}
+                        className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${
+                          ambientEnabled
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-500'
+                        }`}
+                        title="تشغيل/كتم أصوات الطبيعة (الفلج والطيور)"
+                      >
+                        {ambientEnabled ? 'أصوات الطبيعة ✓' : 'بدون خلفية'}
                       </button>
 
                       <div className="hidden sm:inline-flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-lg">
@@ -1068,14 +987,114 @@ export const CartoonVideosView: React.FC = () => {
                     </div>
                   </div>
 
-                  {audioStatusNote && (
-                    <div className="text-[11px] text-amber-700 dark:text-amber-400">
-                      {audioStatusNote}
+                  {(audioStatusNote || ttsFailed) && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800">
+                      <span>{audioStatusNote || 'تعذر تحميل صوت الاستوديو لهذه الفقرة.'}</span>
+                      {ttsFailed && (
+                        <button
+                          type="button"
+                          onClick={() => playSceneAt(activeEpisode, sceneIndex)}
+                          className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold shrink-0"
+                        >
+                          إعادة تحميل الصوت
+                        </button>
+                      )}
                     </div>
                   )}
+
+                  {/* Updated Flijan Character Showcase & Expression/Voice Live Tester */}
+                  <div className="pt-3 border-t border-stone-100 dark:border-stone-800 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src="/assets/aistudio/1794816965473_a524a589.jpg"
+                          alt="شخصية فليجان المحدثة"
+                          className="w-10 h-10 rounded-full object-cover object-top border-2 border-emerald-500/70 bg-stone-100 shrink-0"
+                        />
+                        <div>
+                          <div className="text-xs font-bold text-stone-900 dark:text-white">
+                            معاينة شخصية فليجان المحدّثة (الهوية العُمانية ومزامنة الشفاه)
+                          </div>
+                          <div className="text-[11px] text-stone-500 dark:text-stone-400">
+                            جرّب تعابير الوجه والنبرة الصوتية مباشرة مع تحريك الشفاه والرمش الطبيعي
+                          </div>
+                        </div>
+                      </div>
+                      {(previewMoodOverride || previewPoseOverride) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewMoodOverride(null);
+                            setPreviewPoseOverride(null);
+                          }}
+                          className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+                        >
+                          العودة لتعابير المشهد التلقائية
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {(
+                        [
+                          {
+                            mood: 'happy' as FlijanMood,
+                            pose: 'wave' as FlijanPose,
+                            label: 'ترحيب وابتسامة',
+                            sample:
+                              'حَيَّاكُمُ اللَّهُ يَا مُزَارِعِي عُمَانَ! أَنَا فْلَيْجَانُ، جَاهِزٌ لِمُسَاعَدَتِكُمْ فِي مَزَارِعِكُمْ.',
+                          },
+                          {
+                            mood: 'proud' as FlijanMood,
+                            pose: 'celebrate' as FlijanPose,
+                            label: 'حماس وإنجاز',
+                            sample:
+                              'مَا شَاءَ اللَّهُ! الْفَحْصُ الْمُبَكِّرُ وَالتَّقْلِيمُ السَّلِيمُ يَحْمِيَانِ نَخِيلَنَا وَيَزِيدَانِ بَرَكَةَ الْمَحْصُولِ.',
+                          },
+                          {
+                            mood: 'warning' as FlijanMood,
+                            pose: 'caution' as FlijanPose,
+                            label: 'تحذير وإرشاد',
+                            sample:
+                              'انْتَبِهْ يَا أَخِي الْمُزَارِعَ! وُجُودُ نَدْوَةٍ عَسَلِيَّةٍ لَامِعَةٍ أَسْفَلَ السَّعَفِ قَدْ يَكُونُ إِصَابَةً بِدُوبَاسِ النَّخِيلِ.',
+                          },
+                          {
+                            mood: 'curious' as FlijanMood,
+                            pose: 'inspect' as FlijanPose,
+                            label: 'تفكير وفحص',
+                            sample:
+                              'دَعْنَا نَفْحَصْ بَاطِنَ الْخُوصِ بِهُدُوءٍ قَبْلَ اخْتِيَارِ الْمُكَافَحَةِ الْآمِنَةِ لِلنَّحْلِ.',
+                          },
+                        ] as const
+                      ).map((preset) => {
+                        const isSelected =
+                          previewMoodOverride === preset.mood &&
+                          previewPoseOverride === preset.pose;
+                        return (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() =>
+                              handleTestFlijanExpression(
+                                preset.mood,
+                                preset.pose,
+                                preset.sample
+                              )
+                            }
+                            className={`min-h-[40px] px-2.5 py-2 rounded-xl border text-[11px] font-bold transition-all text-center ${
+                              isSelected
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                : 'bg-stone-50 dark:bg-stone-800/70 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:border-emerald-500'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
 
             {/* Episode Metadata, 3-Point Summary & Attribution */}
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-4">
@@ -1090,27 +1109,12 @@ export const CartoonVideosView: React.FC = () => {
                     <span>
                       المدة: {activeVideoMeta ? `${activeVideoMeta.durationSec} ثانية` : activeEpisode.durationLabel}
                     </span>
-                    {activeVideoMeta && (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <span>مستوى الصوت الموحّد: {activeVideoMeta.measuredLufs} LUFS</span>
-                        <span aria-hidden="true">·</span>
-                        <span>خفض الموسيقى أثناء الشرح: -13 dB</span>
-                      </>
-                    )}
+                    <span aria-hidden="true">·</span>
+                    <span>مستوى الصوت الموحّد: -16 LUFS</span>
+                    <span aria-hidden="true">·</span>
+                    <span>خفض الصوت البيئي أثناء الشرح: -12 dB</span>
                   </div>
                 </div>
-
-                {activeEpisode.audioMasterUrl && (
-                  <a
-                    href={activeEpisode.audioMasterUrl}
-                    download={`${activeEpisode.id}-master.mp3`}
-                    className="px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-xs font-semibold text-stone-700 dark:text-stone-200 flex items-center gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>تنزيل الصوت (-16 LUFS)</span>
-                  </a>
-                )}
               </div>
 
               {/* 3-Point Summary Card */}
@@ -1270,15 +1274,7 @@ export const CartoonVideosView: React.FC = () => {
                         <div className="text-[11px] text-stone-500 dark:text-stone-400 flex flex-wrap items-center gap-1.5 tabular-nums">
                           <span>{ep.category}</span>
                           <span aria-hidden="true">·</span>
-                          <span>{meta ? `${meta.durationSec} ث` : ep.durationLabel}</span>
-                          {ep.video1080pUrl && (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                                1080p / 480p
-                              </span>
-                            </>
-                          )}
+                          <span>{meta ? `${meta.durationSec} ث · تفاعلي` : ep.durationLabel}</span>
                           {ep.isCustom && (
                             <>
                               <span aria-hidden="true">·</span>
