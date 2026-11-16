@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 COPY package.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 COPY . .
 ARG VITE_ANDROID_APK_URL
 ENV VITE_ANDROID_APK_URL=${VITE_ANDROID_APK_URL}
@@ -28,4 +28,3 @@ COPY --chown=node:node scripts/cloud-run-start.sh ./cloud-run-start.sh
 EXPOSE 8080
 USER node
 CMD ["sh", "./cloud-run-start.sh"]
-
