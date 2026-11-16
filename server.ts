@@ -2244,7 +2244,7 @@ app.post('/api/scores/submit', async (req, res) => {
       totalQuestions: answers.length,
       streakBonus,
       bestStreak: maxStreak,
-      submissionId: submission.id
+      submissionId: submission?.id || null
     });
   } catch (error: any) {
     console.error('Score submit error:', error);
