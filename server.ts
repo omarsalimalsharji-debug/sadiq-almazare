@@ -2188,13 +2188,16 @@ async function persistVerifiedLeaderboardEntry(input: {
   const profileRef = firestore.collection('users').doc(input.userId);
   const leaderboardRef = firestore.collection('leaderboard_entries').doc(input.userId);
   const nonceId = crypto.createHash('sha256').update(input.clientNonce).digest('hex');
-  const nonceRef = firestore.collection('score_submission_dedup').doc(nonceId);
+  const nonceRef = firestore.collection('score_server_state').doc(input.userId);
 
   await firestore.runTransaction(async (transaction) => {
     const profileSnapshot = await transaction.get(profileRef);
     const leaderboardSnapshot = await transaction.get(leaderboardRef);
     const nonceSnapshot = await transaction.get(nonceRef);
-    if (nonceSnapshot.exists) {
+    const recentNonceHashes = Array.isArray(nonceSnapshot.data()?.recentNonceHashes)
+      ? (nonceSnapshot.data()?.recentNonceHashes as unknown[]).filter((value): value is string => typeof value === 'string').slice(-64)
+      : [];
+    if (recentNonceHashes.includes(nonceId)) {
       const replayError: any = new Error('Score submission has already been applied');
       replayError.code = 'score/replayed';
       throw replayError;
@@ -2235,10 +2238,9 @@ async function persistVerifiedLeaderboardEntry(input: {
       lastGameType,
       updatedAt: now,
     });
-    transaction.create(nonceRef, {
-      userId: input.userId,
-      score: input.score,
-      createdAt: now,
+    transaction.set(nonceRef, {
+      recentNonceHashes: [...recentNonceHashes, nonceId].slice(-64),
+      updatedAt: now,
     });
   });
 }
