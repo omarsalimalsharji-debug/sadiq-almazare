@@ -383,6 +383,7 @@ const defaultStorage: StorageSchema = {
 };
 
 // Load or initialize storage
+let persistStorageMigration = false;
 let storage: StorageSchema = { ...defaultStorage };
 if (fs.existsSync(STORAGE_FILE)) {
   try {
@@ -393,8 +394,9 @@ if (fs.existsSync(STORAGE_FILE)) {
         ? { ...parsed.legacyFarmArchive }
         : {};
     for (const key of ['virtualCrops', 'virtualFarms', 'farmFriendships', 'farmCompetitions', 'farmReports', 'bannedUserIds', 'pointRules']) {
-      if (parsed[key] !== undefined && legacyFarmArchive[key] === undefined) {
-        legacyFarmArchive[key] = parsed[key];
+      if (parsed[key] !== undefined) {
+        persistStorageMigration = true;
+        if (legacyFarmArchive[key] === undefined) legacyFarmArchive[key] = parsed[key];
       }
     }
     const hasValidAdminAuth =
@@ -455,6 +457,9 @@ function saveStorage() {
     console.error('Failed to save storage.json:', e);
   }
 }
+
+// Persist legacy farm records in their archive before removing their old top-level fields.
+if (persistStorageMigration) saveStorage();
 
 // Nonce set to prevent score replaying
 const submittedNonces = new Set<string>();
