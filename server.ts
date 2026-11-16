@@ -2146,9 +2146,9 @@ async function verifyFirebaseIdToken(idToken: string): Promise<{ localId: string
     signal: AbortSignal.timeout(6000),
   });
   if (!response.ok) throw new Error('Firebase rejected the sign-in token');
-  const result = await response.json() as { users?: Array<{ localId?: string; displayName?: string }> };
+  const result = await response.json() as { users?: Array<{ localId?: string; displayName?: string; emailVerified?: boolean }> };
   const identity = result.users?.[0];
-  if (!identity?.localId) throw new Error('Firebase identity is missing');
+  if (!identity?.localId || identity.emailVerified !== true) throw new Error('Firebase identity is missing or unverified');
   return { localId: identity.localId, displayName: identity.displayName };
 }
 

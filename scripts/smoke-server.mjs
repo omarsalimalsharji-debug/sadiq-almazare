@@ -72,6 +72,9 @@ try {
   assert.equal(illustration.status, 200);
   assert.ok((await illustration.text()).includes('نخلة عمانية'));
 
+  const beforeLeaderboardResponse = await fetch(`${baseUrl}/api/scores/leaderboard`, { signal: AbortSignal.timeout(3000) });
+  const beforeLeaderboard = await beforeLeaderboardResponse.json();
+
   const score = await fetch(`${baseUrl}/api/scores/submit`, {
     signal: AbortSignal.timeout(5000),
     method: 'POST',
@@ -93,7 +96,7 @@ try {
 
   const leaderboard = await fetch(`${baseUrl}/api/scores/leaderboard`, { signal: AbortSignal.timeout(3000) });
   const leaderboardResult = await leaderboard.json();
-  assert.equal(leaderboardResult.totalSubmissions, 0, 'A guest result must never enter the public leaderboard');
+  assert.equal(leaderboardResult.totalSubmissions, beforeLeaderboard.totalSubmissions, 'A guest result must never enter the public leaderboard');
 
   const persisted = JSON.parse(await readFile(path.join(dataDir, 'storage.json'), 'utf8'));
   assert.deepEqual(persisted.legacyFarmArchive.virtualFarms['legacy-smoke-user'], seedFarm);
