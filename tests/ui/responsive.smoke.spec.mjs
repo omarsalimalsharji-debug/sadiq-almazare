@@ -48,3 +48,18 @@ test('image challenge displays a local SVG illustration', async ({ page }) => {
   const imagePath = new URL(await illustration.getAttribute('src'), page.url()).pathname;
   expect(imagePath).toMatch(/^\/assets\/challenge\/[^/]+\.svg$/);
 });
+
+test('diagnosis and Flijan learning screens render on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'الفحص' }).click();
+  await expect(page.getByRole('heading', { name: 'اكتشاف أمراض النباتات والحشرات' })).toBeVisible();
+  let overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow, 'Diagnosis screen must fit a phone width').toBeLessThanOrEqual(1);
+
+  await page.getByRole('button', { name: 'فليجان' }).click();
+  await expect(page.getByRole('heading', { name: 'استوديو فليجان التعليمي للمزارع العُماني' })).toBeVisible();
+  overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow, 'Flijan learning screen must fit a phone width').toBeLessThanOrEqual(1);
+});
