@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Runtime data and native build credentials
+data/
+android/.gradle/
+android/local.properties
+android/**/build/
+*.jks
+*.keystore
