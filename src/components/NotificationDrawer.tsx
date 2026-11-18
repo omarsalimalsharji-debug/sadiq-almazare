@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';\nimport { mergeNotifications, markNotificationsRead, NotificationRecord } from '../utils/notificationState.ts';
 import { 
   X, 
   Bell, 
@@ -41,7 +41,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     setLoading(true);
     setFetchError(null);
     try {
-      const res = await fetch('/api/notifications');
+      const res = await fetch(`/api/notifications?governorate=${encodeURIComponent(governorate)}`, { cache: 'no-store' });
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.notifications)) {
         setNotifications(data.notifications);
@@ -59,16 +59,12 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
 
   useEffect(() => {
     fetchNotifs();
-  }, [isOpen]);
+  }, [isOpen, governorate]);
 
   const markAllAsRead = async () => {
+    markNotificationsRead(notifications.map((notification) => notification.id));
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     onNotificationsCountChange(0);
-    try {
-      await fetch('/api/notifications/read-all', { method: 'POST' });
-    } catch {
-      // keep local state optimistic without noisy error
-    }
   };
 
   if (!isOpen) return null;
