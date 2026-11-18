@@ -27,6 +27,7 @@ import {
   Sun,
   Focus,
   FlaskConical,
+  Square,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -62,6 +63,8 @@ import {
   playDiagnosisSuccessSound,
   playSoftNoticeSound,
 } from '../utils/soundEffects.ts';
+import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
+import { speakMurshid, stopAllMurshidAudio } from '../utils/murshidAudio.ts';
 
 type ProblemType = 'مرض' | 'حشرة' | 'نقص عناصر' | 'سليم';
 type SeverityLevel = 'منخفضة' | 'متوسطة' | 'عالية';
@@ -207,6 +210,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showScientificDetails, setShowScientificDetails] = useState<boolean>(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState<boolean>(false);
+  const [murshidSpeaking, setMurshidSpeaking] = useState<boolean>(false);
 
   // Firebase Auth & History state
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
@@ -220,7 +224,10 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       setFbUser(user);
     });
-    return () => unsubAuth();
+    return () => {
+      unsubAuth();
+      stopAllMurshidAudio();
+    };
   }, []);
 
   useEffect(() => {
@@ -1068,9 +1075,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
               /* Honest Unclear / Non-Agri Photo Card (Zero Fabricated Diagnosis) */
               <div className="rounded-3xl border border-amber-400/50 bg-amber-50/90 dark:bg-amber-950/30 p-5 sm:p-6 space-y-4 shadow-lg">
                 <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
-                    <AlertTriangle className="w-6 h-6" />
-                  </div>
+                  <MurshidCharacterSvg expression="surprised" className="w-16 h-18 shrink-0" />
                   <div className="space-y-1">
                     <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
                       {result.problemName}
@@ -1129,6 +1134,61 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                   <div
                     className={`rounded-3xl border ${theme.borderCls} bg-white/95 dark:bg-[#132247]/95 p-5 sm:p-6 space-y-5 shadow-xl shadow-slate-950/5 dark:shadow-black/40`}
                   >
+                    {/* Murshid Diagnosis Companion Banner */}
+                    <div className="rounded-2xl bg-emerald-50/70 dark:bg-[#0b1329]/80 border border-emerald-200/70 dark:border-sky-300/15 p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <MurshidCharacterSvg
+                          expression={
+                            result.problemType === 'سليم' || isBeneficialInsect
+                              ? 'celebrate'
+                              : result.severity === 'عالية' || result.severity === 'حرجة'
+                                ? 'surprised'
+                                : 'explain'
+                          }
+                          className="w-14 h-16 shrink-0"
+                        />
+                        <div className="min-w-0 text-xs">
+                          <div className="font-bold text-emerald-700 dark:text-emerald-300">
+                            تعليق مُرشد على الفحص
+                          </div>
+                          <p className="text-stone-700 dark:text-slate-200 leading-relaxed line-clamp-2">
+                            {result.problemName} — {result.conditionSummary || result.visibleSymptoms}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (murshidSpeaking) {
+                            stopAllMurshidAudio();
+                            setMurshidSpeaking(false);
+                            return;
+                          }
+                          setMurshidSpeaking(true);
+                          speakMurshid(
+                            `${result.problemName}. ${result.conditionSummary || result.visibleSymptoms}`,
+                            {
+                              onSpeakingChange: setMurshidSpeaking,
+                              onEnd: () => setMurshidSpeaking(false),
+                            }
+                          );
+                        }}
+                        className="min-h-[44px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                      >
+                        {murshidSpeaking ? (
+                          <>
+                            <Square className="w-4 h-4 fill-current" />
+                            <span>إيقاف الصوت</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-4 h-4" />
+                            <span>ملخص بصوت مُرشد</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
                     {/* 1. Primary Header: Category + Arabic & English Names */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-200/80 dark:border-sky-300/15 pb-4">
                       <div className="space-y-2">

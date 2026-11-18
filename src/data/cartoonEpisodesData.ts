@@ -1,17 +1,25 @@
+import { MurshidExpression } from './murshidDialogue.ts';
+
 export type CartoonBackdrop =
   | 'oasis_falaj'
   | 'palm_grove'
   | 'greenhouse'
   | 'sunny_field';
 
-export type FlijanPose =
+export type MurshidPose =
+  | 'welcome'
   | 'wave'
   | 'explain'
   | 'inspect'
+  | 'think'
+  | 'surprised'
+  | 'encourage'
+  | 'gentle_sad'
   | 'celebrate'
-  | 'caution';
+  | 'caution'
+  | 'idle';
 
-export type FlijanMood = 'happy' | 'curious' | 'warning' | 'proud';
+export type MurshidStageMood = 'happy' | 'curious' | 'warning' | 'proud' | MurshidExpression;
 
 export type CartoonProp =
   | 'water_drop'
@@ -22,7 +30,7 @@ export type CartoonProp =
   | 'fertilizer_bag'
   | 'dubas_bug';
 
-export type CameraPreset = 'wide' | 'flijan_close' | 'prop_focus' | 'pan_oasis';
+export type CameraPreset = 'wide' | 'murshid_close' | 'prop_focus' | 'pan_oasis';
 export type AmbientFxType = 'falaj_water' | 'oasis_birds' | 'wind_palms' | 'bees_buzz';
 
 export interface CartoonScene {
@@ -34,8 +42,8 @@ export interface CartoonScene {
   vocalizedNarration?: string;
   subtitle: string;
   backdrop: CartoonBackdrop;
-  flijanPose: FlijanPose;
-  flijanMood: FlijanMood;
+  murshidPose: MurshidPose;
+  murshidMood: MurshidStageMood;
   prop: CartoonProp;
   cameraPreset?: CameraPreset;
   ambientFx?: AmbientFxType;
@@ -73,21 +81,21 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
       'قلّم السعف الكثيف وأزل الحشائش لزيادة التهوية وأشعة الشمس بين النخيل',
       'التزم بتوصيات المرشد الزراعي والمبيدات المصرّح بها وفق المرسوم 160/2023',
     ],
-    heroArtwork: '/assets/aistudio/1794816965473_a524a589.jpg',
-    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان المحدّثة وصوت استوديو بالذكاء الصوتي — صديق المزارع',
+    heroArtwork: '/media/posters/oman_palm_weevil_care.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية مُرشد الحديثة ومؤثرات صوتية بيئية — صديق المزارع',
     scenes: [
       {
         id: 'hook',
         sceneHeading: 'مراقبة بساتين النخيل',
         narration:
-          'حيّاكم الله يا أهل النخل والخير في عُمان! معكم فليجان، واليوم نتعرف معاً على عدوّ خفي يصيب السعف ويضعف الثمر: حشرة دوباس النخيل.',
+          'حيّاكم الله يا أهل النخل والخير في عُمان! معكم مُرشد، واليوم نتعرف معاً على عدوّ خفي يصيب السعف ويضعف الثمر: حشرة دوباس النخيل.',
         vocalizedNarration:
-          'حَيَّاكُمُ اللَّهُ يَا أَهْلَ النَّخْلِ وَالْخَيْرِ فِي عُمَانَ! مَعَكُمْ فْلَيْجَانُ، وَالْيَوْمَ نَتَعَرَّفُ مَعاً عَلَى عَدُوٍّ خَفِيٍّ يُصِيبُ السَّعَفَ وَيُضْعِفُ الثَّمَرَ: حَشَرَةُ دُوبَاسِ النَّخِيلِ.',
+          'حَيَّاكُمُ اللَّهُ يَا أَهْلَ النَّخْلِ وَالْخَيْرِ فِي عُمَانَ! مَعَكُمْ مُرْشِدٌ، وَالْيَوْمَ نَتَعَرَّفُ مَعاً عَلَى عَدُوٍّ خَفِيٍّ يُصِيبُ السَّعَفَ وَيُضْعِفُ الثَّمَرَ: حَشَرَةُ دُوبَاسِ النَّخِيلِ.',
         subtitle:
-          'حيّاكم الله! اليوم يكشف فليجان كيف نكتشف دوباس النخيل مبكراً ونحمي مزارعنا.',
+          'حيّاكم الله! اليوم يكشف مُرشد كيف نكتشف دوباس النخيل مبكراً ونحمي مزارعنا.',
         backdrop: 'palm_grove',
-        flijanPose: 'wave',
-        flijanMood: 'happy',
+        murshidPose: 'welcome',
+        murshidMood: 'welcome',
         prop: 'dubas_bug',
         cameraPreset: 'wide',
         ambientFx: 'oasis_birds',
@@ -102,8 +110,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'اللمعان اللزج والندوة العسلية أسفل السعف مؤشر واضح على بداية إصابة الدوباس.',
         backdrop: 'palm_grove',
-        flijanPose: 'inspect',
-        flijanMood: 'warning',
+        murshidPose: 'caution',
+        murshidMood: 'surprised',
         prop: 'magnifying_glass',
         cameraPreset: 'prop_focus',
         ambientFx: 'wind_palms',
@@ -118,10 +126,10 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'التقليم وفتح الإضاءة والرش الآمن حسب إرشادات الوزارة توقف انتشار الدوباس.',
         backdrop: 'oasis_falaj',
-        flijanPose: 'explain',
-        flijanMood: 'curious',
+        murshidPose: 'explain',
+        murshidMood: 'explain',
         prop: 'sun_shield',
-        cameraPreset: 'flijan_close',
+        cameraPreset: 'murshid_close',
         ambientFx: 'falaj_water',
       },
       {
@@ -134,8 +142,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'فحص مبكر، تقليم متوازن، ومكافحة مأمونة تضمن نخيلاً قوياً وإنتاجاً وفيراً.',
         backdrop: 'palm_grove',
-        flijanPose: 'celebrate',
-        flijanMood: 'proud',
+        murshidPose: 'celebrate',
+        murshidMood: 'celebrate',
         prop: 'palm_tree',
         cameraPreset: 'pan_oasis',
         ambientFx: 'oasis_birds',
@@ -153,21 +161,21 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
       'وجّه النقاطات مباشرة نحو منطقة الجذور لا الممرات',
       'وفّر قرابة 45% من مياه الفلج وحافظ على خضرة المزرعة',
     ],
-    heroArtwork: '/assets/images/hero_oman_farm.jpg',
-    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية ومؤثرات الفلج الطبيعية — صديق المزارع',
+    heroArtwork: '/media/posters/oman_falaj_drip.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية مُرشد الحديثة ومؤثرات الفلج الطبيعية — صديق المزارع',
     scenes: [
       {
         id: 'hook',
         sceneHeading: 'نداء الأفلاج العُمانية',
         narration:
-          'أهلاً بكم يا مزارعي سلطنة عُمان! أنا فليجان، واليوم نكشف سرّ الحفاظ على مياه أفلاجنا وآبارنا بذكاء.',
+          'أهلاً بكم يا مزارعي سلطنة عُمان! أنا مُرشد، واليوم نكشف سرّ الحفاظ على مياه أفلاجنا وآبارنا بذكاء.',
         vocalizedNarration:
-          'أَهْلاً بِكُمْ يَا مُزَارِعِي سَلْطَنَةِ عُمَانَ! أَنَا فْلَيْجَانُ، وَالْيَوْمَ نَكْشِفُ سِرَّ الْحِفَاظِ عَلَى مِيَاهِ أَفْلَاجِنَا وَآبَارِنَا بِذَكَاءٍ.',
+          'أَهْلاً بِكُمْ يَا مُزَارِعِي سَلْطَنَةِ عُمَانَ! أَنَا مُرْشِدٌ، وَالْيَوْمَ نَكْشِفُ سِرَّ الْحِفَاظِ عَلَى مِيَاهِ أَفْلَاجِنَا وَآبَارِنَا بِذَكَاءٍ.',
         subtitle:
-          'أهلاً بكم في مزرعة فليجان؛ كيف نحافظ على كل قطرة من مياه الأفلاج والآبار؟',
+          'أهلاً بكم مع مُرشد؛ كيف نحافظ على كل قطرة من مياه الأفلاج والآبار؟',
         backdrop: 'oasis_falaj',
-        flijanPose: 'wave',
-        flijanMood: 'happy',
+        murshidPose: 'welcome',
+        murshidMood: 'welcome',
         prop: 'water_drop',
         cameraPreset: 'pan_oasis',
         ambientFx: 'falaj_water',
@@ -182,8 +190,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'الري بالغمر وقت الظهيرة يضيع بالبخر ويجهد جذور المحاصيل.',
         backdrop: 'sunny_field',
-        flijanPose: 'caution',
-        flijanMood: 'warning',
+        murshidPose: 'caution',
+        murshidMood: 'surprised',
         prop: 'sun_shield',
       },
       {
@@ -196,8 +204,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'شغّل شبكة التنقيط فجراً أو مساءً لتوصيل الماء مباشرة إلى الجذور.',
         backdrop: 'palm_grove',
-        flijanPose: 'explain',
-        flijanMood: 'curious',
+        murshidPose: 'explain',
+        murshidMood: 'explain',
         prop: 'water_drop',
       },
       {
@@ -210,8 +218,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'توفير 45% من المياه ومحصول أقوى عبر التنقيط المنتظم.',
         backdrop: 'oasis_falaj',
-        flijanPose: 'celebrate',
-        flijanMood: 'proud',
+        murshidPose: 'celebrate',
+        murshidMood: 'celebrate',
         prop: 'palm_tree',
       },
     ],
@@ -227,8 +235,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
       'أغلق جروح التقليم وفصل الفسائل فوراً بمادة مطهرة',
       'ثبّت المصائد الفيرمونية بعيداً وأبلغ المرشد عند الاشتباه',
     ],
-    heroArtwork: '/assets/aistudio/1794816965473_a524a589.jpg',
-    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية ومؤثرات بيئية حية — صديق المزارع',
+    heroArtwork: '/media/posters/oman_palm_weevil_care.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية مُرشد الحديثة ومؤثرات بيئية حية — صديق المزارع',
     scenes: [
       {
         id: 'hook',
@@ -240,8 +248,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'النخلة ثروة وطنية، وسوسة النخيل الحمراء تتسلل بصمت إذا أهملنا الفحص.',
         backdrop: 'palm_grove',
-        flijanPose: 'wave',
-        flijanMood: 'curious',
+        murshidPose: 'welcome',
+        murshidMood: 'think',
         prop: 'palm_tree',
       },
       {
@@ -254,8 +262,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'راقب قاعدة الجذع: الإفرازات الصمغية أو نشارة الخشب الرطبة إنذار مبكر.',
         backdrop: 'palm_grove',
-        flijanPose: 'inspect',
-        flijanMood: 'warning',
+        murshidPose: 'inspect',
+        murshidMood: 'surprised',
         prop: 'magnifying_glass',
       },
       {
@@ -268,8 +276,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'طهّر جروح التقليم فوراً واستخدم المصائد الفيرمونية في محيط المزرعة.',
         backdrop: 'oasis_falaj',
-        flijanPose: 'explain',
-        flijanMood: 'happy',
+        murshidPose: 'explain',
+        murshidMood: 'explain',
         prop: 'palm_tree',
       },
       {
@@ -282,8 +290,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'الفحص الأسبوعي والتبليغ الفوري يحميان نخيل عُمان كلها.',
         backdrop: 'palm_grove',
-        flijanPose: 'celebrate',
-        flijanMood: 'proud',
+        murshidPose: 'celebrate',
+        murshidMood: 'celebrate',
         prop: 'palm_tree',
       },
     ],
@@ -299,8 +307,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
       'قلّم الأوراق السفلية المتزاحمة لتنفس النباتات',
       'رش زيت النيم أو بيكربونات البوتاسيوم في الصباح الباكر',
     ],
-    heroArtwork: '/assets/images/plant_diagnosis_lab.jpg',
-    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية ومؤثرات بيئية حية — صديق المزارع',
+    heroArtwork: '/media/posters/oman_greenhouse_care.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية مُرشد الحديثة ومؤثرات بيئية حية — صديق المزارع',
     scenes: [
       {
         id: 'hook',
@@ -312,8 +320,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'المسحوق الأبيض على أوراق الطماطم والخيار هو مرض البياض الدقيقي.',
         backdrop: 'greenhouse',
-        flijanPose: 'inspect',
-        flijanMood: 'curious',
+        murshidPose: 'inspect',
+        murshidMood: 'think',
         prop: 'magnifying_glass',
       },
       {
@@ -326,8 +334,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'تزاحم الأوراق وقلة التهوية يهيئان بيئة مثالية لانتشار الفطر.',
         backdrop: 'greenhouse',
-        flijanPose: 'caution',
-        flijanMood: 'warning',
+        murshidPose: 'caution',
+        murshidMood: 'surprised',
         prop: 'water_drop',
       },
       {
@@ -340,8 +348,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'افتح التهوية وخفف الأوراق ثم رش زيت النيم أو البيكربونات صباحاً.',
         backdrop: 'greenhouse',
-        flijanPose: 'explain',
-        flijanMood: 'happy',
+        murshidPose: 'explain',
+        murshidMood: 'explain',
         prop: 'sun_shield',
       },
       {
@@ -354,8 +362,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'الوقاية المنتظمة تحافظ على خضرة المحصول بدون متبقيات ضارة.',
         backdrop: 'greenhouse',
-        flijanPose: 'celebrate',
-        flijanMood: 'proud',
+        murshidPose: 'celebrate',
+        murshidMood: 'celebrate',
         prop: 'fertilizer_bag',
       },
     ],
@@ -371,8 +379,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
       'اختر المكافحة الحيوية أولاً وتنسيق مواعيد الرش مع النحالين',
       'نفّذ الرش الضروري مساءً بعد غروب الشمس وعودة النحل للخلايا',
     ],
-    heroArtwork: '/assets/images/hero_oman_farm.jpg',
-    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية وصوت طنين المنحل العُماني — صديق المزارع',
+    heroArtwork: '/media/posters/oman_honeybee_orchard.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية مُرشد الحديثة وصوت طنين المنحل العُماني — صديق المزارع',
     scenes: [
       {
         id: 'hook',
@@ -384,8 +392,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'نحل العسل العُماني شريك أساسي في التلقيح ووفرة الثمار.',
         backdrop: 'sunny_field',
-        flijanPose: 'wave',
-        flijanMood: 'happy',
+        murshidPose: 'welcome',
+        murshidMood: 'smile',
         prop: 'bee',
       },
       {
@@ -398,8 +406,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'الرش النهاري أثناء الإزهار يهدد المناحل ويضعف عقد المحاصيل.',
         backdrop: 'sunny_field',
-        flijanPose: 'caution',
-        flijanMood: 'warning',
+        murshidPose: 'caution',
+        murshidMood: 'surprised',
         prop: 'bee',
       },
       {
@@ -412,8 +420,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'اعتمد المكافحة الحيوية أو نفذ الرش مساءً بعد عودة النحل للخلايا.',
         backdrop: 'oasis_falaj',
-        flijanPose: 'explain',
-        flijanMood: 'curious',
+        murshidPose: 'explain',
+        murshidMood: 'explain',
         prop: 'sun_shield',
       },
       {
@@ -426,8 +434,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'حماية النحل تحفظ التوازن البيئي وتزيد بركة المزرعة والعسل.',
         backdrop: 'oasis_falaj',
-        flijanPose: 'celebrate',
-        flijanMood: 'proud',
+        murshidPose: 'celebrate',
+        murshidMood: 'celebrate',
         prop: 'bee',
       },
     ],
@@ -443,21 +451,21 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
       'قسّم الجرعات إلى دفعات خفيفة أسبوعية بدل دفعة ثقيلة',
       'اروِ التربة بماء بارد أولاً في الصباح قبل التسميد',
     ],
-    heroArtwork: '/assets/images/plant_diagnosis_lab.jpg',
-    musicAttribution: 'عرض تفاعلي مباشر بشخصية فليجان العُمانية ومؤثرات بيئية حية — صديق المزارع',
+    heroArtwork: '/media/posters/oman_soil_compost.jpg',
+    musicAttribution: 'عرض تفاعلي مباشر بشخصية مُرشد الحديثة ومؤثرات بيئية حية — صديق المزارع',
     scenes: [
       {
         id: 'hook',
         sceneHeading: 'هل الإكثار من السماد يسرّع النمو؟',
         narration:
-          'يظن بعض المزارعين أن مضاعفة السماد تضاعف الثمار، لكن فليجان ينبهنا: الزيادة في الحر تحرق الجذور!',
+          'يظن بعض المزارعين أن مضاعفة السماد تضاعف الثمار، لكن مُرشد ينبهنا: الزيادة في الحر تحرق الجذور!',
         vocalizedNarration:
-          'يَظُنُّ بَعْضُ الْمُزَارِعِينَ أَنَّ مُضَاعَفَةَ السَّمَادِ تُضَاعِفُ الثِّمَارَ، لَكِنَّ فْلَيْجَانَ يُنَبِّهُنَا: الزِّيَادَةُ فِي الْحَرِّ تَحْرِقُ الْجُذُورَ!',
+          'يَظُنُّ بَعْضُ الْمُزَارِعِينَ أَنَّ مُضَاعَفَةَ السَّمَادِ تُضَاعِفُ الثِّمَارَ، لَكِنَّ مُرْشِداً يُنَبِّهُنَا: الزِّيَادَةُ فِي الْحَرِّ تَحْرِقُ الْجُذُورَ!',
         subtitle:
           'مضاعفة السماد في قيظ الصيف ترفع الملوحة وتضر الشعيرات الجذرية.',
         backdrop: 'sunny_field',
-        flijanPose: 'caution',
-        flijanMood: 'warning',
+        murshidPose: 'caution',
+        murshidMood: 'surprised',
         prop: 'fertilizer_bag',
       },
       {
@@ -470,8 +478,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'السماد العضوي المتحلل يرفع خصوبة التربة ويخفف الإجهاد الحراري.',
         backdrop: 'palm_grove',
-        flijanPose: 'explain',
-        flijanMood: 'happy',
+        murshidPose: 'explain',
+        murshidMood: 'explain',
         prop: 'fertilizer_bag',
       },
       {
@@ -484,8 +492,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'قسّم السماد لدفعات خفيفة صباحاً بعد ترطيب التربة بالماء.',
         backdrop: 'oasis_falaj',
-        flijanPose: 'inspect',
-        flijanMood: 'curious',
+        murshidPose: 'inspect',
+        murshidMood: 'think',
         prop: 'water_drop',
       },
       {
@@ -498,8 +506,8 @@ export const INITIAL_CARTOON_EPISODES: CartoonEpisode[] = [
         subtitle:
           'التغذية المتوازنة تمنح النبات مناعة طبيعية وتقلل الحاجة للمبيدات.',
         backdrop: 'palm_grove',
-        flijanPose: 'celebrate',
-        flijanMood: 'proud',
+        murshidPose: 'celebrate',
+        murshidMood: 'celebrate',
         prop: 'palm_tree',
       },
     ],

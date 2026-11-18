@@ -120,11 +120,11 @@ export const SeasonalBanner: React.FC<SeasonalBannerProps> = ({ hijri, config, o
           )}
           {(isEidFitr || isEidAdha) && (
             <button
-              onClick={() => onNavigate('virtual_farm')}
+              onClick={() => onNavigate('murshid_adventures')}
               className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-[#0b1329] font-bold text-xs shadow-md flex items-center gap-1.5 transition-colors whitespace-nowrap"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{lang === 'ar' ? 'دخول المزرعة الاحتفالية 3D' : 'Open Festive 3D Farm'}</span>
+              <span>{lang === 'ar' ? 'العب مغامرات مرشد الاحتفالية' : "Play Festive Murshid's Adventures"}</span>
               <ArrowIcon className="w-4 h-4" />
             </button>
           )}

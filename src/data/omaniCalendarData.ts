@@ -1,6 +1,6 @@
 /**
  * Interactive Omani Agricultural Calendar Dataset
- * Aligned strictly with the 14 project crops in VirtualFarmView & Oman Ministry seasonal manuals.
+ * Aligned with the 14 project crops & Oman Ministry of Agriculture seasonal manuals.
  */
 
 export type CalendarActivityPhase =

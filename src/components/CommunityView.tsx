@@ -14,8 +14,12 @@ import {
   ShieldAlert,
   Loader2,
   Share2,
+  Volume2,
+  Square,
 } from 'lucide-react';
 import { UserProfile } from '../types/index.ts';
+import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
+import { speakMurshid, stopAllMurshidAudio } from '../utils/murshidAudio.ts';
 
 interface Comment {
   id: string;
@@ -79,6 +83,13 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
   const [aiCropFocus, setAiCropFocus] = useState<string>('نخيل التمر');
   const [aiInput, setAiInput] = useState<string>('');
   const [aiLoading, setAiLoading] = useState<boolean>(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      stopAllMurshidAudio();
+    };
+  }, []);
   const [aiMessages, setAiMessages] = useState<AiChatMessage[]>([
     {
       id: 'ai-welcome',
@@ -329,6 +340,23 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
     }
   };
 
+  const handleSpeakAdvisorMsg = (msg: AiChatMessage) => {
+    if (speakingMsgId === msg.id) {
+      stopAllMurshidAudio();
+      setSpeakingMsgId(null);
+      return;
+    }
+    const stepsPart =
+      msg.practicalSteps && msg.practicalSteps.length > 0
+        ? ` الخطوات العملية: ${msg.practicalSteps.join('، ')}.`
+        : '';
+    speakMurshid(`${msg.text}${stepsPart}`, {
+      onSpeakingChange: (speaking) => {
+        setSpeakingMsgId(speaking ? msg.id : null);
+      },
+    });
+  };
+
   const handleShareAdviceToForum = (msg: AiChatMessage) => {
     const formatted = `${msg.text}${
       msg.practicalSteps?.length
@@ -423,12 +451,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
           {/* Chat Context Bar */}
           <div className="p-4 sm:p-5 border-b border-stone-100 dark:border-sky-300/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50/70 dark:bg-[#0e1936]">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <Sparkles className="w-5 h-5" />
-              </div>
+              <MurshidCharacterSvg
+                expression={aiLoading ? 'think' : speakingMsgId ? 'speak' : 'explain'}
+                isSpeaking={Boolean(speakingMsgId)}
+                className="w-12 h-14 shrink-0"
+              />
               <div>
                 <div className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white">
-                  المستشار الزراعي العُماني المباشر
+                  مستشار مُرشد الزراعي المباشر
                 </div>
                 <div className="text-[11px] text-stone-500 dark:text-slate-300/80">
                   مخصص لمحافظة {user.governorate} · ملتزم بقرار حظر المبيدات 160/2023
@@ -491,16 +521,36 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
                     </div>
                   )}
 
-                  {msg.role === 'assistant' && msg.id !== 'ai-welcome' && (
+                  {msg.role === 'assistant' && (
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                       <button
                         type="button"
-                        onClick={() => handleShareAdviceToForum(msg)}
-                        className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                        onClick={() => handleSpeakAdvisorMsg(msg)}
+                        className="min-h-[36px] px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 flex items-center gap-1.5 transition-colors"
                       >
-                        <Share2 className="w-3.5 h-3.5" />
-                        <span>مشاركة هذه الإرشادات في الديوانية</span>
+                        {speakingMsgId === msg.id ? (
+                          <>
+                            <Square className="w-3 h-3 fill-current" />
+                            <span>إيقاف الصوت</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5" />
+                            <span>اسمع الإجابة بصوت مرشد</span>
+                          </>
+                        )}
                       </button>
+
+                      {msg.id !== 'ai-welcome' && (
+                        <button
+                          type="button"
+                          onClick={() => handleShareAdviceToForum(msg)}
+                          className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>مشاركة هذه الإرشادات في الديوانية</span>
+                        </button>
+                      )}
                     </div>
                   )}
 

@@ -41,7 +41,7 @@ const HelpSupportView = lazy(() => import('./components/HelpSupportView.tsx').th
 const AdminView = lazy(() => import('./components/AdminView.tsx').then(m => ({ default: m.AdminView })));
 const QuranPlayer = lazy(() => import('./components/QuranPlayer.tsx').then(m => ({ default: m.QuranPlayer })));
 const RadioPlayer = lazy(() => import('./components/RadioPlayer.tsx').then(m => ({ default: m.RadioPlayer })));
-const VirtualFarmView = lazy(() => import('./components/VirtualFarm/VirtualFarmView.tsx').then(m => ({ default: m.VirtualFarmView })));
+const MurshidAdventuresGame = lazy(() => import('./components/MurshidAdventuresGame.tsx').then(m => ({ default: m.MurshidAdventuresGame })));
 import {
   SeasonalConfig,
   DEFAULT_SEASONAL_CONFIG,
@@ -403,8 +403,12 @@ export default function App() {
           }
         >
 
-        {activePage === 'virtual_farm' && (
-          <VirtualFarmView user={user} />
+        {activePage === 'murshid_adventures' && (
+          <MurshidAdventuresGame
+            user={user}
+            onScoreUpdated={handleScoreUpdated}
+            onBackToGames={() => setActivePage('games')}
+          />
         )}
 
         {activePage === 'plant_diagnosis' && (
@@ -424,7 +428,7 @@ export default function App() {
             user={user}
             onScoreUpdated={handleScoreUpdated}
             onNavigateToLeaderboard={() => setActivePage('leaderboard')}
-            onOpenVirtualFarm={() => setActivePage('virtual_farm')}
+            onOpenMurshidAdventures={() => setActivePage('murshid_adventures')}
           />
         )}
 
@@ -433,7 +437,7 @@ export default function App() {
             user={user}
             onScoreUpdated={handleScoreUpdated}
             onNavigateToLeaderboard={() => setActivePage('leaderboard')}
-            onOpenVirtualFarm={() => setActivePage('virtual_farm')}
+            onOpenMurshidAdventures={() => setActivePage('murshid_adventures')}
             initialGameType="cultural"
           />
         )}

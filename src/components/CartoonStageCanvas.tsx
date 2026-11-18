@@ -3,9 +3,10 @@ import {
   CartoonBackdrop,
   CartoonProp,
   CartoonScene,
-  FlijanMood,
-  FlijanPose,
+  MurshidPose,
+  MurshidStageMood,
 } from '../data/cartoonEpisodesData.ts';
+import { drawModernMurshidCharacter } from '../utils/murshidCanvasRenderer.ts';
 
 interface CartoonStageCanvasProps {
   scene: CartoonScene;
@@ -15,210 +16,12 @@ interface CartoonStageCanvasProps {
   sceneIndex: number;
   totalScenes: number;
   canvasRefExternal?: React.MutableRefObject<HTMLCanvasElement | null>;
-  overridePose?: FlijanPose | null;
-  overrideMood?: FlijanMood | null;
+  overridePose?: MurshidPose | null;
+  overrideMood?: MurshidStageMood | null;
 }
 
 const WIDTH = 1280;
 const HEIGHT = 720;
-const FLIJAN_SPRITE_SRC = '/assets/aistudio/1794816965473_a524a589.jpg';
-
-interface MattedFlijanSprites {
-  bodyCanvas: HTMLCanvasElement;
-  headCanvas: HTMLCanvasElement;
-  width: number;
-  height: number;
-}
-
-let cachedFlijanSprites: MattedFlijanSprites | null = null;
-let loadingFlijanPromise: Promise<MattedFlijanSprites | null> | null = null;
-
-/**
- * Edge-seeded flood-fill background matting on Flijan's official portrait (800x800).
- * Preserves 100% of his bright white dishdasha, face, eyes, and teeth, while removing
- * the uniform cream studio backdrop cleanly with soft edge alpha feathering.
- */
-function loadAndMatteFlijanSprites(): Promise<MattedFlijanSprites | null> {
-  if (cachedFlijanSprites) return Promise.resolve(cachedFlijanSprites);
-  if (loadingFlijanPromise) return loadingFlijanPromise;
-
-  loadingFlijanPromise = new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const w = img.naturalWidth || 800;
-        const h = img.naturalHeight || 800;
-        const fullCanvas = document.createElement('canvas');
-        fullCanvas.width = w;
-        fullCanvas.height = h;
-        const fctx = fullCanvas.getContext('2d', { willReadFrequently: true });
-        if (!fctx) {
-          resolve(null);
-          return;
-        }
-        fctx.drawImage(img, 0, 0, w, h);
-        const imgData = fctx.getImageData(0, 0, w, h);
-        const data = imgData.data;
-
-        // Sample corner background color (~231, 225, 215)
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        const visited = new Uint8Array(w * h);
-        const isBgMask = new Uint8Array(w * h);
-        const stack = new Int32Array(w * h);
-        let sp = 0;
-
-        const isBackgroundPixel = (idx4: number, yPos: number): boolean => {
-          const r = data[idx4];
-          const g = data[idx4 + 1];
-          const b = data[idx4 + 2];
-          // Check distance from warm cream studio backdrop
-          const dr = r - bgR;
-          const dg = g - bgG;
-          const db = b - bgB;
-          const dist = Math.abs(dr) + Math.abs(dg) + Math.abs(db);
-          // Warm neutral tone check prevents eating darker sandal/shadow outlines
-          const chromaSpread = Math.max(r, g, b) - Math.min(r, g, b);
-          const lum = (r + g + b) / 3;
-          // At the very bottom floor shadow (y > 94% height), allow slightly darker floor shadow to dissolve cleanly
-          const maxDist = yPos > h * 0.92 ? 68 : 42;
-          return dist <= maxDist && chromaSpread <= 32 && lum >= (yPos > h * 0.92 ? 155 : 190);
-        };
-
-        // Seed flood fill from all 4 outer edges
-        for (let x = 0; x < w; x++) {
-          const topIdx = x;
-          if (!visited[topIdx] && isBackgroundPixel(topIdx * 4, 0)) {
-            visited[topIdx] = 1;
-            stack[sp++] = topIdx;
-          }
-          const botIdx = (h - 1) * w + x;
-          if (!visited[botIdx] && isBackgroundPixel(botIdx * 4, h - 1)) {
-            visited[botIdx] = 1;
-            stack[sp++] = botIdx;
-          }
-        }
-        for (let y = 0; y < h; y++) {
-          const leftIdx = y * w;
-          if (!visited[leftIdx] && isBackgroundPixel(leftIdx * 4, y)) {
-            visited[leftIdx] = 1;
-            stack[sp++] = leftIdx;
-          }
-          const rightIdx = y * w + (w - 1);
-          if (!visited[rightIdx] && isBackgroundPixel(rightIdx * 4, y)) {
-            visited[rightIdx] = 1;
-            stack[sp++] = rightIdx;
-          }
-        }
-
-        while (sp > 0) {
-          const pos = stack[--sp];
-          isBgMask[pos] = 1;
-          const px = pos % w;
-          const py = (pos - px) / w;
-
-          if (px > 0) {
-            const n = pos - 1;
-            if (!visited[n] && isBackgroundPixel(n * 4, py)) {
-              visited[n] = 1;
-              stack[sp++] = n;
-            }
-          }
-          if (px + 1 < w) {
-            const n = pos + 1;
-            if (!visited[n] && isBackgroundPixel(n * 4, py)) {
-              visited[n] = 1;
-              stack[sp++] = n;
-            }
-          }
-          if (py > 0) {
-            const n = pos - w;
-            if (!visited[n] && isBackgroundPixel(n * 4, py - 1)) {
-              visited[n] = 1;
-              stack[sp++] = n;
-            }
-          }
-          if (py + 1 < h) {
-            const n = pos + w;
-            if (!visited[n] && isBackgroundPixel(n * 4, py + 1)) {
-              visited[n] = 1;
-              stack[sp++] = n;
-            }
-          }
-        }
-
-        // Apply transparency + 1-pixel edge feathering
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const pos = y * w + x;
-            const i4 = pos * 4;
-            if (isBgMask[pos]) {
-              data[i4 + 3] = 0;
-            } else {
-              // Count adjacent background neighbors for anti-aliased edge smoothing
-              let bgNeighbors = 0;
-              if (x > 0 && isBgMask[pos - 1]) bgNeighbors++;
-              if (x + 1 < w && isBgMask[pos + 1]) bgNeighbors++;
-              if (y > 0 && isBgMask[pos - w]) bgNeighbors++;
-              if (y + 1 < h && isBgMask[pos + w]) bgNeighbors++;
-              if (bgNeighbors > 0) {
-                const dist =
-                  Math.abs(data[i4] - bgR) +
-                  Math.abs(data[i4 + 1] - bgG) +
-                  Math.abs(data[i4 + 2] - bgB);
-                if (dist < 75) {
-                  data[i4 + 3] = bgNeighbors >= 2 ? 120 : 200;
-                }
-              }
-            }
-          }
-        }
-        fctx.putImageData(imgData, 0, 0);
-
-        // Split cleanly at collar/neck line (~28.4% of height = y:227 on 800x800)
-        const neckSplitY = Math.round(h * 0.285); // ~228
-
-        const headCanvas = document.createElement('canvas');
-        headCanvas.width = w;
-        headCanvas.height = h;
-        const hctx = headCanvas.getContext('2d');
-        if (hctx) {
-          hctx.drawImage(fullCanvas, 0, 0, w, neckSplitY + 4, 0, 0, w, neckSplitY + 4);
-        }
-
-        const bodyCanvas = document.createElement('canvas');
-        bodyCanvas.width = w;
-        bodyCanvas.height = h;
-        const bctx = bodyCanvas.getContext('2d');
-        if (bctx) {
-          bctx.drawImage(
-            fullCanvas,
-            0,
-            neckSplitY - 2,
-            w,
-            h - (neckSplitY - 2),
-            0,
-            neckSplitY - 2,
-            w,
-            h - (neckSplitY - 2)
-          );
-        }
-
-        cachedFlijanSprites = { bodyCanvas, headCanvas, width: w, height: h };
-        resolve(cachedFlijanSprites);
-      } catch {
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = FLIJAN_SPRITE_SRC;
-  });
-
-  return loadingFlijanPromise;
-}
 
 function roundRectPath(
   ctx: CanvasRenderingContext2D,
@@ -482,7 +285,7 @@ function drawBackdrop(
     ctx.stroke();
 
     for (let px = 140; px <= 1140; px += 120) {
-      if (Math.abs(px - 375) < 120) continue; // Keep foreground clear around Flijan
+      if (Math.abs(px - 375) < 120) continue; // Keep foreground clear around Murshid
       const plantBob = Math.sin(t * 2 + px) * 2;
       ctx.fillStyle = '#16a34a';
       ctx.beginPath();
@@ -710,211 +513,6 @@ function drawPropVisual(
   ctx.restore();
 }
 
-/**
- * Draws the official 3D-style Omani Flijan mascot sprite with articulated head/body,
- * expressive pose lean, calibrated blinking eyelids, mood eyebrows, and RMS lip-sync mouth.
- */
-function drawModernFlijanSprite(
-  ctx: CanvasRenderingContext2D,
-  sprites: MattedFlijanSprites,
-  anchorX: number,
-  groundY: number,
-  t: number,
-  pose: FlijanPose,
-  mood: FlijanMood,
-  mouthOpen: number,
-  isPlaying: boolean
-) {
-  // Display scale: 800x800 sprite maps onto ~490px tall figure on stage (1280x720)
-  const targetSize = 515;
-  const s = targetSize / sprites.height; // ~0.64375
-
-  // Natural rhythmic breathing + talking bounce + expressive pose kinematics
-  const talkEnergy = isPlaying ? 0.45 + mouthOpen * 0.9 : 0.2;
-  const breathY = Math.sin(t * 2.8) * 3.2 - mouthOpen * 4.5;
-  let bodyTilt = Math.sin(t * 1.7) * 0.014;
-  let headTilt = Math.sin(t * 2.3) * 0.028;
-  let headNodY = Math.sin(t * 3.1) * 1.5;
-
-  if (pose === 'wave') {
-    bodyTilt = Math.sin(t * 4.2) * 0.028;
-    headTilt = -0.04 + Math.sin(t * 4.2) * 0.035;
-  } else if (pose === 'explain') {
-    bodyTilt = 0.025 + Math.sin(t * 3.6) * 0.02 * talkEnergy;
-    headTilt = 0.04 + Math.sin(t * 4.6) * 0.035;
-  } else if (pose === 'inspect') {
-    bodyTilt = 0.045;
-    headTilt = 0.075 + Math.sin(t * 2.2) * 0.02;
-    headNodY += 3;
-  } else if (pose === 'celebrate') {
-    bodyTilt = Math.sin(t * 5.2) * 0.032;
-    headTilt = Math.sin(t * 5.2) * 0.05;
-    headNodY -= Math.abs(Math.sin(t * 5.2)) * 5;
-  } else if (pose === 'caution') {
-    bodyTilt = -0.02;
-    headTilt = -0.03 + Math.sin(t * 3.8) * 0.02;
-  }
-
-  // Exact pivot coordinates in the 800x800 sprite:
-  // Feet rest near y=760; Neck collar pivot is at (400, 226)
-  const spriteFeetY = 762;
-  const spriteCenterX = sprites.width / 2; // 400
-  const neckPivotX = 400;
-  const neckPivotY = 226;
-
-  ctx.save();
-  ctx.translate(anchorX, groundY);
-
-  // Soft realistic ground shadow under Flijan's sandals
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
-  ctx.beginPath();
-  ctx.ellipse(0, -4, 88, 16, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Subtle warm speech aura when Flijan is actively explaining
-  if (isPlaying && mouthOpen > 0.08) {
-    const aura = ctx.createRadialGradient(0, -250, 20, 0, -250, 195);
-    aura.addColorStop(0, `rgba(16, 185, 129, ${0.14 * mouthOpen})`);
-    aura.addColorStop(1, 'rgba(16, 185, 129, 0)');
-    ctx.fillStyle = aura;
-    ctx.beginPath();
-    ctx.arc(0, -250, 195, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Apply body posture transform relative to feet anchor
-  ctx.translate(0, breathY);
-  ctx.rotate(bodyTilt);
-  ctx.scale(s, s);
-  ctx.translate(-spriteCenterX, -spriteFeetY);
-
-  // 1) Draw Body Layer (white Omani dishdasha, furakha, arms, hands, sandals)
-  ctx.drawImage(sprites.bodyCanvas, 0, 0);
-
-  // 2) Draw Articulated Head Layer pivoted cleanly at neck collar (400, 226)
-  ctx.save();
-  ctx.translate(neckPivotX, neckPivotY + headNodY);
-  ctx.rotate(headTilt);
-  ctx.translate(-neckPivotX, -neckPivotY);
-
-  ctx.drawImage(sprites.headCanvas, 0, 0);
-
-  // 3) Calibrated Facial Rig on 800x800 Head Coordinates:
-  //    Left eye center:  (374, 143)
-  //    Right eye center: (421, 143)
-  //    Mouth center:     (397, 181)
-  const blinkPhase = t % 3.6;
-  const isBlinking = blinkPhase > 3.44;
-  if (isBlinking) {
-    const blinkAmt = Math.sin(((blinkPhase - 3.44) / 0.16) * Math.PI);
-    ctx.save();
-    ctx.globalAlpha = Math.min(1, blinkAmt * 1.15);
-    for (const ex of [374, 421]) {
-      const ey = 143;
-      const lidGrad = ctx.createRadialGradient(ex, ey - 2, 2, ex, ey, 16);
-      lidGrad.addColorStop(0, '#dd9468');
-      lidGrad.addColorStop(1, '#ba7147');
-      ctx.fillStyle = lidGrad;
-      ctx.beginPath();
-      ctx.ellipse(ex, ey, 14, 10, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Clean dark closed lash arc
-      ctx.strokeStyle = '#331d12';
-      ctx.lineWidth = 2.6;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.arc(ex, ey - 1, 11, 0.25, Math.PI - 0.25);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // Expressive eyebrow cues for warning / curious moods
-  if (mood === 'warning' || mood === 'curious') {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(42, 24, 14, 0.65)';
-    ctx.lineWidth = 2.8;
-    ctx.lineCap = 'round';
-    if (mood === 'warning') {
-      // Gentle concerned inward brow line
-      ctx.beginPath();
-      ctx.moveTo(362, 123);
-      ctx.lineTo(385, 126);
-      ctx.moveTo(432, 123);
-      ctx.lineTo(409, 126);
-      ctx.stroke();
-    } else {
-      // Raised curious brow accent above right eye
-      ctx.beginPath();
-      ctx.moveTo(410, 120);
-      ctx.quadraticCurveTo(421, 115, 432, 121);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // 4) Audio-Reactive Lip Sync Overlay (preserves crisp portrait smile when silent)
-  const openAmt = Math.max(0, Math.min(1, mouthOpen));
-  if (openAmt > 0.045 || mood === 'warning') {
-    const mx = 397;
-    const my = 181;
-    // Soft feathered skin patch seamlessly covering static portrait mouth
-    const patchGrad = ctx.createRadialGradient(mx, my, 4, mx, my, 17);
-    patchGrad.addColorStop(0, '#dd946a');
-    patchGrad.addColorStop(0.75, 'rgba(218, 142, 98, 0.94)');
-    patchGrad.addColorStop(1, 'rgba(218, 142, 98, 0)');
-    ctx.fillStyle = patchGrad;
-    ctx.beginPath();
-    ctx.ellipse(mx, my, 17, 11, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (openAmt > 0.045) {
-      // Animated speaking mouth driven live by RMS audio amplitude
-      const jawOpen = 2.5 + openAmt * 7.5;
-      const mouthHalfW = 10.5 - openAmt * 1.4;
-
-      // Inner dark mouth cavity
-      ctx.fillStyle = '#5c1412';
-      ctx.beginPath();
-      ctx.ellipse(mx, my + 0.5, mouthHalfW, jawOpen, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Warm tongue tint on wide vowels
-      if (openAmt > 0.25) {
-        ctx.fillStyle = '#c95c5c';
-        ctx.beginPath();
-        ctx.ellipse(mx, my + jawOpen * 0.45, mouthHalfW * 0.65, jawOpen * 0.42, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Crisp upper teeth highlight
-      ctx.fillStyle = '#fff9f5';
-      ctx.beginPath();
-      ctx.roundRect(mx - mouthHalfW * 0.72, my - jawOpen * 0.72, mouthHalfW * 1.44, Math.min(3.5, jawOpen * 0.55), 1.5);
-      ctx.fill();
-
-      // Natural lip outline
-      ctx.strokeStyle = '#7c2d20';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.ellipse(mx, my + 0.5, mouthHalfW, jawOpen, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    } else if (mood === 'warning') {
-      // Focused empathetic O / slight concern curve when paused on a warning beat
-      ctx.strokeStyle = '#7c2d20';
-      ctx.lineWidth = 2.2;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.arc(mx, my + 4, 8, Math.PI + 0.35, -0.35);
-      ctx.stroke();
-    }
-  }
-
-  ctx.restore(); // end head
-  ctx.restore(); // end character
-}
-
 export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
   scene,
   isPlaying,
@@ -928,22 +526,9 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
 }) => {
   const internalRef = useRef<HTMLCanvasElement | null>(null);
   const smoothedMouthRef = useRef<number>(0);
-  const spritesRef = useRef<MattedFlijanSprites | null>(cachedFlijanSprites);
   const camStateRef = useRef<{ scale: number; tx: number; ty: number }>({ scale: 1, tx: 0, ty: 0 });
   const fadeAlphaRef = useRef<number>(0);
   const prevSceneIdRef = useRef<string>('');
-
-  useEffect(() => {
-    let mounted = true;
-    loadAndMatteFlijanSprites().then((sprites) => {
-      if (mounted && sprites) {
-        spritesRef.current = sprites;
-      }
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     const key = `${scene.id}:${sceneIndex}`;
@@ -967,14 +552,14 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
     let lastTime = performance.now();
     let elapsedSec = 0;
 
-    const effectivePose = overridePose || scene.flijanPose;
-    const effectiveMood = overrideMood || scene.flijanMood;
+    const effectivePose = overridePose || scene.murshidPose;
+    const effectiveMood = overrideMood || scene.murshidMood;
     const preset =
       scene.cameraPreset ||
       (effectivePose === 'inspect'
         ? 'prop_focus'
         : effectivePose === 'explain'
-          ? 'flijan_close'
+          ? 'murshid_close'
           : effectivePose === 'celebrate'
             ? 'pan_oasis'
             : 'wide');
@@ -995,7 +580,7 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
       let targetScale = 1.0;
       let targetTx = 0;
       let targetTy = 0;
-      if (preset === 'flijan_close') {
+      if (preset === 'murshid_close') {
         targetScale = 1.18;
         targetTx = 120;
         targetTy = -26;
@@ -1018,7 +603,7 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
 
       ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-      // Apply camera zoom & gentle pan to the world + Flijan stage
+      // Apply camera zoom & gentle pan to the world + Murshid stage
       ctx.save();
       ctx.translate(WIDTH / 2 + camStateRef.current.tx, HEIGHT / 2 + camStateRef.current.ty);
       ctx.scale(camStateRef.current.scale, camStateRef.current.scale);
@@ -1027,19 +612,16 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
       drawBackdrop(ctx, scene.backdrop, elapsedSec);
       drawPropVisual(ctx, scene.prop, elapsedSec);
 
-      if (spritesRef.current) {
-        drawModernFlijanSprite(
-          ctx,
-          spritesRef.current,
-          380,
-          632,
-          elapsedSec,
-          effectivePose,
-          effectiveMood,
-          smoothedMouthRef.current,
-          isPlaying
-        );
-      }
+      drawModernMurshidCharacter(
+        ctx,
+        380,
+        632,
+        elapsedSec,
+        effectivePose,
+        effectiveMood,
+        smoothedMouthRef.current,
+        isPlaying
+      );
       ctx.restore();
 
       // Smooth crossfade aperture veil on scene transitions
@@ -1050,7 +632,7 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
         ctx.restore();
       }
 
-      // Clean top-right Flijan scene heading plaque (RTL)
+      // Clean top-right Murshid scene heading plaque (RTL)
       ctx.save();
       ctx.fillStyle = 'rgba(15, 23, 42, 0.76)';
       roundRectPath(ctx, 44, 30, 560, 84, 18);
@@ -1063,7 +645,7 @@ export const CartoonStageCanvas: React.FC<CartoonStageCanvasProps> = ({
       ctx.textAlign = 'right';
       ctx.fillStyle = '#34d399';
       ctx.font = 'bold 17px Tahoma, Arial, sans-serif';
-      ctx.fillText('فليجان · الإرشاد الزراعي العُماني', 580, 60);
+      ctx.fillText('مُرشد · الإرشاد الزراعي العُماني', 580, 60);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 23px Tahoma, Arial, sans-serif';

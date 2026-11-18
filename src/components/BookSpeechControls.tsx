@@ -14,6 +14,7 @@ import {
   getSortedArabicVoices,
   pickBestArabicVoice,
 } from '../utils/arabicSpeech.ts';
+import { stopAllMurshidAudio } from '../utils/murshidAudio.ts';
 
 interface BookSpeechControlsProps {
   paragraphs: string[];
@@ -137,6 +138,7 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
       }
 
       const runId = ++playbackRunIdRef.current;
+      stopAllMurshidAudio();
       try {
         window.speechSynthesis.cancel();
       } catch {

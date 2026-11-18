@@ -31,43 +31,6 @@
       },
       "required": ["uid", "email", "notificationsEnabled", "createdAt", "updatedAt"]
     },
-    "VirtualFarm": {
-      "title": "VirtualFarm",
-      "description": "Player virtual farm state and resources",
-      "type": "object",
-      "properties": {
-        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
-        "farmName": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "coins": { "type": "number" },
-        "waterLiters": { "type": "number" },
-        "maxWaterLiters": { "type": "number" },
-        "sizeLevel": { "type": "number" },
-        "greenhouseLevel": { "type": "number" },
-        "greenhouseTemp": { "type": "number" },
-        "greenhouseHumidity": { "type": "number" },
-        "xp": { "type": "number" },
-        "level": { "type": "number" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["ownerId", "farmName", "coins", "waterLiters", "maxWaterLiters", "sizeLevel", "greenhouseLevel", "xp", "level", "updatedAt"]
-    },
-    "FarmPlot": {
-      "title": "FarmPlot",
-      "description": "Individual plot inside a virtual farm",
-      "type": "object",
-      "properties": {
-        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
-        "plotIndex": { "type": "number" },
-        "isGreenhouse": { "type": "boolean" },
-        "cropId": { "type": "string", "maxLength": 64 },
-        "stageIndex": { "type": "number" },
-        "moisture": { "type": "number" },
-        "nutrients": { "type": "number" },
-        "health": { "type": "number" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["ownerId", "plotIndex", "isGreenhouse", "stageIndex", "moisture", "nutrients", "health", "updatedAt"]
-    },
     "SeasonalConfig": {
       "title": "SeasonalConfig",
       "description": "Official Islamic calendar and seasonal theme configuration managed by Admin",
@@ -196,14 +159,6 @@
     "/users/{userId}/diagnoses/{diagnosisId}": {
       "schema": { "$ref": "#/entities/PlantDiagnosis" },
       "description": "User plant pathology and pest diagnosis log"
-    },
-    "/farms/{farmId}": {
-      "schema": { "$ref": "#/entities/VirtualFarm" },
-      "description": "Virtual farm owned by userId == farmId"
-    },
-    "/farms/{farmId}/plots/{plotId}": {
-      "schema": { "$ref": "#/entities/FarmPlot" },
-      "description": "Subcollection of plots belonging to a farm"
     },
     "/friendships/{friendshipId}": {
       "schema": { "$ref": "#/entities/Friendship" },

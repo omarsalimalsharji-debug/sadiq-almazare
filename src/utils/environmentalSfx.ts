@@ -1,7 +1,7 @@
 export type AmbientSfxPreset = 'falaj_water' | 'oasis_birds' | 'wind_palms' | 'bees_buzz';
 
 /**
- * Procedural Web Audio API Environmental Soundscapes for Flijan's Omani Farm Stage.
+ * Procedural Web Audio API Environmental Soundscapes for Murshid's Omani Farm Stage.
  * Zero external audio file 404s; supports speaking-voice ducking (-13 dB equivalent) and mute control.
  */
 class EnvironmentalSfxEngine {
@@ -81,7 +81,7 @@ class EnvironmentalSfxEngine {
   public setSpeakingDuck(speaking: boolean) {
     this.speakingDucked = speaking;
     if (this.ctx && this.duckGain) {
-      // Lower ambient bed cleanly when Flijan is speaking (-12 to -13 dB feel)
+      // Lower ambient bed cleanly when Murshid is speaking (-12 to -13 dB feel)
       this.duckGain.gain.setTargetAtTime(speaking ? 0.24 : 1.0, this.ctx.currentTime, 0.14);
     }
   }

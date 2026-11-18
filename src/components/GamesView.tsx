@@ -19,6 +19,8 @@ import {
   Loader2,
   LogIn,
   CloudCheck,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import {
@@ -38,11 +40,23 @@ import {
   signInWithGoogleFarmer,
 } from '../firebase.ts';
 
+import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
+import { MURSHID_PHRASES, pickVariedPhrase } from '../data/murshidDialogue.ts';
+import {
+  getMurshidAudioPrefs,
+  playGentleErrorSfx,
+  playSuccessSfx,
+  setMurshidMuted,
+  speakMurshid,
+  stopAllMurshidAudio,
+  subscribeMurshidAudioPrefs,
+} from '../utils/murshidAudio.ts';
+
 interface GamesViewProps {
   user: UserProfile;
   onScoreUpdated: (newTotal: number) => void;
   onNavigateToLeaderboard: () => void;
-  onOpenVirtualFarm?: () => void;
+  onOpenMurshidAdventures?: () => void;
   initialGameType?: string;
 }
 
@@ -125,7 +139,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
   user,
   onScoreUpdated,
   onNavigateToLeaderboard,
-  onOpenVirtualFarm,
+  onOpenMurshidAdventures,
   initialGameType,
 }) => {
   const [selectedGame, setSelectedGame] = useState<GameKey | null>(
@@ -171,11 +185,23 @@ export const GamesView: React.FC<GamesViewProps> = ({
   const [timeLeft, setTimeLeft] = useState<number>(30);
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
 
+  // Murshid Voice & Expression Feedback state
+  const [isMuted, setIsMuted] = useState<boolean>(() => getMurshidAudioPrefs().muted);
+  const [murshidSpeaking, setMurshidSpeaking] = useState<boolean>(false);
+  const [feedbackPhrase, setFeedbackPhrase] = useState<string>('');
+
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsubAuth = onAuthStateChanged(auth, (u) => {
       setFbUser(u);
     });
-    return () => unsub();
+    const unsubPrefs = subscribeMurshidAudioPrefs((prefs) => {
+      setIsMuted(prefs.muted);
+    });
+    return () => {
+      unsubAuth();
+      unsubPrefs();
+      stopAllMurshidAudio();
+    };
   }, []);
 
   const handleStartGame = async (key: GameKey) => {
@@ -286,6 +312,22 @@ export const GamesView: React.FC<GamesViewProps> = ({
       setBestStreak(newStreak);
     }
 
+    if (isCorrect) {
+      playSuccessSfx();
+      const phrase = pickVariedPhrase(MURSHID_PHRASES.correct, currentQIndex + newStreak);
+      setFeedbackPhrase(phrase);
+      if (!isMuted) {
+        speakMurshid(phrase, { muted: isMuted, onSpeakingChange: setMurshidSpeaking });
+      }
+    } else {
+      playGentleErrorSfx();
+      const phrase = pickVariedPhrase(MURSHID_PHRASES.wrongGentle, currentQIndex);
+      setFeedbackPhrase(phrase);
+      if (!isMuted) {
+        speakMurshid(phrase, { muted: isMuted, onSpeakingChange: setMurshidSpeaking });
+      }
+    }
+
     setAnswersLog((prev) => [
       ...prev,
       {
@@ -312,9 +354,17 @@ export const GamesView: React.FC<GamesViewProps> = ({
     if (hintUsed || isAnswerSubmitted) return;
     setHintUsed(true);
     setShowHintForCurrent(true);
+    const curQ = currentQuestions[currentQIndex];
+    const hintText = curQ?.hint || 'فكّر في طبيعة المناخ والزراعة في سلطنة عُمان.';
+    setFeedbackPhrase(hintText);
+    if (!isMuted) {
+      speakMurshid(hintText, { muted: isMuted, onSpeakingChange: setMurshidSpeaking });
+    }
   };
 
   const handleNextQuestion = () => {
+    stopAllMurshidAudio(setMurshidSpeaking);
+    setFeedbackPhrase('');
     if (currentQIndex + 1 < currentQuestions.length) {
       setCurrentQIndex((prev) => prev + 1);
       setSelectedOption(null);
@@ -513,24 +563,27 @@ export const GamesView: React.FC<GamesViewProps> = ({
         </button>
       </div>
 
-      {/* Featured 3D Virtual Farm Card */}
-      {!selectedGame && onOpenVirtualFarm && (
-        <div className="rounded-3xl bg-gradient-to-r from-emerald-900 via-teal-900 to-stone-900 text-white p-6 border border-emerald-500/40 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4" />
-              <span>لعبة ثلاثية الأبعاد واقعية · مجانية 100%</span>
+      {/* Featured Murshid's Agricultural Adventures Card */}
+      {!selectedGame && onOpenMurshidAdventures && (
+        <div className="rounded-3xl bg-gradient-to-l from-emerald-900 via-teal-900 to-[#0e1936] text-white p-5 sm:p-6 border border-emerald-400/35 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <MurshidCharacterSvg expression="welcome" className="w-20 h-24 shrink-0" />
+            <div className="space-y-1">
+              <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4" />
+                <span>لعبة تعليمية خفيفة وسريعة · 5 مراحل تفاعلية</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-extrabold">مغامرات مرشد الزراعية</h2>
+              <p className="text-xs text-slate-200 max-w-xl">
+                رافق الشخصية العُمانية «مرشد» في تحدي التعرف على النباتات، إنقاذ النبتة، صيد الآفات، ترتيب مراحل الزراعة، واختبار الذكاء الزراعي بالصوت العربي!
+              </p>
             </div>
-            <h2 className="text-xl font-extrabold">🌴 مزرعتي الافتراضية (3D)</h2>
-            <p className="text-xs text-stone-200 max-w-xl">
-              ازرع النخيل العُماني والخضراوات، أدر البيت المحمي والفلج، وتنافس مع الأصدقاء ولاعبي سلطنة عُمان بنمو حقيقي مستمر!
-            </p>
           </div>
           <button
-            onClick={onOpenVirtualFarm}
-            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow-md shrink-0"
+            onClick={onOpenMurshidAdventures}
+            className="min-h-[46px] px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md shrink-0 whitespace-nowrap"
           >
-            دخول مزرعتي الآن
+            ابدأ مغامرات مرشد
           </button>
         </div>
       )}
@@ -683,9 +736,11 @@ export const GamesView: React.FC<GamesViewProps> = ({
         </div>
       ) : gameFinished ? (
         <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 p-6 sm:p-8 text-center max-w-xl mx-auto shadow-sm space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-500/10 border border-amber-300/40 text-amber-600 flex items-center justify-center shadow-inner">
-            <Trophy className="w-10 h-10" />
-          </div>
+          <MurshidCharacterSvg
+            expression={verifiedResult && verifiedResult.correctCount > 0 ? 'celebrate' : 'encourage'}
+            isSpeaking={murshidSpeaking}
+            className="w-24 h-28 mx-auto"
+          />
 
           <div>
             <h2 className="text-2xl font-bold text-stone-900 dark:text-white">
@@ -827,6 +882,20 @@ export const GamesView: React.FC<GamesViewProps> = ({
                 <span>{timeLeft} ث</span>
               </div>
 
+              <button
+                type="button"
+                onClick={() => setMurshidMuted(!isMuted)}
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700"
+                title={isMuted ? 'تشغيل صوت مرشد' : 'كتم صوت مرشد'}
+                aria-label={isMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
+              >
+                {isMuted ? (
+                  <VolumeX className="w-4 h-4 text-rose-500" />
+                ) : (
+                  <Volume2 className="w-4 h-4 text-emerald-600" />
+                )}
+              </button>
+
               <span className="text-stone-500 font-mono">
                 {currentQIndex + 1} / {currentQuestions.length}
               </span>
@@ -843,6 +912,46 @@ export const GamesView: React.FC<GamesViewProps> = ({
             />
           </div>
 
+          {/* Live Murshid Companion Bar */}
+          <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-emerald-50/70 dark:bg-[#0e1936] border border-emerald-200/70 dark:border-sky-300/15">
+            <div className="flex items-center gap-3 min-w-0">
+              <MurshidCharacterSvg
+                expression={
+                  isAnswerSubmitted
+                    ? selectedOption === curQuestion.correctIndex
+                      ? 'celebrate'
+                      : 'gentle_sad'
+                    : showHintForCurrent
+                      ? 'explain'
+                      : 'think'
+                }
+                isSpeaking={murshidSpeaking}
+                className="w-14 h-16 shrink-0"
+              />
+              <div className="min-w-0 text-xs">
+                <div className="font-bold text-emerald-700 dark:text-emerald-300">
+                  مُرشد · مرافِق المسابقة
+                </div>
+                <p className="text-stone-700 dark:text-slate-200 leading-relaxed truncate sm:whitespace-normal">
+                  {feedbackPhrase || 'اقرأ السؤال جيداً واختر الإجابة الأدق، أو اطلب تلميح مُرشد!'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                speakMurshid(curQuestion.question, {
+                  muted: isMuted,
+                  onSpeakingChange: setMurshidSpeaking,
+                })
+              }
+              className="min-h-[44px] px-3 py-2 rounded-xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/20 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:border-emerald-500 flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">قراءة السؤال</span>
+            </button>
+          </div>
+
           {/* Lifelines */}
           <div className="flex flex-wrap items-center gap-2">
             {curQuestion.options.length >= 4 && (
@@ -850,7 +959,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
                 type="button"
                 disabled={fiftyUsed || isAnswerSubmitted}
                 onClick={handleUseFiftyFifty}
-                className="px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:border-emerald-500 disabled:opacity-40 flex items-center gap-1.5"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:border-emerald-500 disabled:opacity-40 flex items-center gap-1.5"
               >
                 <Scissors className="w-3.5 h-3.5 text-emerald-600" />
                 <span>حذف إجابتين (50/50)</span>
@@ -860,10 +969,10 @@ export const GamesView: React.FC<GamesViewProps> = ({
               type="button"
               disabled={hintUsed || isAnswerSubmitted}
               onClick={handleUseHint}
-              className="px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:border-amber-500 disabled:opacity-40 flex items-center gap-1.5"
+              className="min-h-[44px] px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:border-amber-500 disabled:opacity-40 flex items-center gap-1.5"
             >
               <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-              <span>تلميح فليجان</span>
+              <span>تلميح مُرشد</span>
             </button>
           </div>
 

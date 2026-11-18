@@ -77,8 +77,9 @@ export const OMANI_PRONUNCIATION_DICTIONARY: DictionaryEntry[] = [
   { term: 'الجداد', vocalized: 'الْجِدَاد', category: 'محصول وري' },
 
   // Advisory & Mascot Terms
-  { term: 'فليجان', vocalized: 'فْلَيْجَان', category: 'مصطلح إرشادي', notes: 'الشخصية الإرشادية الكرتونية' },
-  { term: 'فلجان', vocalized: 'فَلْجَان', category: 'مصطلح إرشادي' },
+  { term: 'مُرشد', vocalized: 'مُرْشِد', category: 'مصطلح إرشادي', notes: 'الشخصية الإرشادية الرسمية الحديثة' },
+  { term: 'مرشد', vocalized: 'مُرْشِد', category: 'مصطلح إرشادي', notes: 'الشخصية الإرشادية الرسمية الحديثة' },
+  { term: 'المرشد', vocalized: 'الْمُرْشِد', category: 'مصطلح إرشادي' },
   { term: 'صديق المزارع', vocalized: 'صَدِيقُ الْمُزَارِع', category: 'مصطلح إرشادي' },
   { term: 'زيت النيم', vocalized: 'زَيْتُ النِّيم', category: 'مصطلح إرشادي' },
   { term: 'بيكربونات البوتاسيوم', vocalized: 'بِيكَرْبُونَاتُ الْبُوتَاسْيُوم', category: 'مصطلح إرشادي' },

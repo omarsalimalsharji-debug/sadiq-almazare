@@ -21,10 +21,11 @@ import {
   Droplets,
   Thermometer,
   Clapperboard,
-  Sprout,
   Clock,
   BookMarked,
-  Bell
+  Bell,
+  Volume2,
+  Square
 } from 'lucide-react';
 import { ActivePage, UserProfile } from '../types/index.ts';
 import { SeasonalBanner } from './SeasonalBanner.tsx';
@@ -36,6 +37,14 @@ import {
 } from '../utils/islamicCalendar.ts';
 import { TRANSLATIONS } from '../utils/i18n.ts';
 import { useLocation } from '../context/LocationContext.tsx';
+import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
+import { MURSHID_PHRASES, pickVariedPhrase } from '../data/murshidDialogue.ts';
+import {
+  getMurshidAudioPrefs,
+  speakMurshid,
+  stopAllMurshidAudio,
+  subscribeMurshidAudioPrefs,
+} from '../utils/murshidAudio.ts';
 
 interface HomeViewProps {
   onNavigate: (page: ActivePage) => void;
@@ -86,7 +95,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
   }, [lang]);
 
   // Live weather summary from backend Open-Meteo integration
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<Array<{
+    id: string;
+    title: string;
+    severity: 'high' | 'medium';
+    recommendation: string;
+  }>>([]);
   const [currentWeather, setCurrentWeather] = useState<{
     temperature: number;
     humidity: number;
@@ -95,6 +109,43 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [loadingWeather, setLoadingWeather] = useState<boolean>(true);
   const [heroImgFailed, setHeroImgFailed] = useState<boolean>(false);
   const [labImgFailed, setLabImgFailed] = useState<boolean>(false);
+  const [murshidSpeaking, setMurshidSpeaking] = useState<boolean>(false);
+  const [welcomeSeed, setWelcomeSeed] = useState<number>(0);
+  const [murshidMuted, setMurshidMutedState] = useState<boolean>(() => getMurshidAudioPrefs().muted);
+
+  useEffect(() => {
+    const unsub = subscribeMurshidAudioPrefs((prefs) => {
+      setMurshidMutedState(prefs.muted);
+    });
+    return () => {
+      unsub();
+      stopAllMurshidAudio();
+    };
+  }, []);
+
+  const firstName = user.name.split(' ')[0] || user.name;
+  const welcomeGreetingText = pickVariedPhrase(
+    MURSHID_PHRASES.homeWelcome(firstName, lang === 'ar' ? location.wilayat : location.wilayatEn),
+    welcomeSeed
+  );
+
+  const handleToggleMurshidWelcome = () => {
+    if (murshidSpeaking) {
+      stopAllMurshidAudio(setMurshidSpeaking);
+      return;
+    }
+    const nextSeed = welcomeSeed + 1;
+    setWelcomeSeed(nextSeed);
+    const phrase = pickVariedPhrase(
+      MURSHID_PHRASES.homeWelcome(firstName, lang === 'ar' ? location.wilayat : location.wilayatEn),
+      nextSeed
+    );
+    speakMurshid(phrase, {
+      muted: murshidMuted,
+      mood: 'cheerful',
+      onSpeakingChange: setMurshidSpeaking,
+    });
+  };
 
   useEffect(() => {
     let active = true;
@@ -112,7 +163,30 @@ export const HomeView: React.FC<HomeViewProps> = ({
       .then((data) => {
         if (!active) return;
         if (data.success && data.live) {
-          setAlerts(data.live.alerts || []);
+          const rawAlerts = Array.isArray(data.live.alerts) ? data.live.alerts : [];
+          setAlerts(
+            rawAlerts.map((item: any, idx: number) => {
+              if (typeof item === 'string') {
+                return {
+                  id: `home-alt-${idx}`,
+                  title: lang === 'ar' ? 'تنبيه مناخي ميداني' : 'Field Climate Advisory',
+                  severity:
+                    idx === 0 && (data.live.windSpeed >= 20 || data.live.temperature >= 36)
+                      ? 'high'
+                      : 'medium',
+                  recommendation: item,
+                };
+              }
+              return {
+                id: String(item?.id || `home-alt-${idx}`),
+                title: String(
+                  item?.title || (lang === 'ar' ? 'تنبيه مناخي ميداني' : 'Field Climate Advisory')
+                ),
+                severity: item?.severity === 'high' ? 'high' : 'medium',
+                recommendation: String(item?.recommendation || item?.message || ''),
+              };
+            })
+          );
           setCurrentWeather({
             temperature: data.live.temperature,
             humidity: data.live.humidity,
@@ -159,21 +233,21 @@ export const HomeView: React.FC<HomeViewProps> = ({
       accentBg: 'bg-emerald-500/12',
     },
     {
-      id: 'virtual_farm',
-      title: t.virtualFarm,
+      id: 'murshid_adventures',
+      title: lang === 'ar' ? 'مغامرات مرشد الزراعية' : t.virtualFarm,
       desc: lang === 'ar'
-        ? 'مزرعتك التفاعلية ثلاثية الأبعاد ببيئة النخيل والأفلاج العمانية'
-        : 'Interactive 3D Omani oasis farm with palms, irrigation, and harvests',
-      icon: Sprout,
+        ? 'لعبة تعليمية سريعة وممتعة من 5 مراحل تفاعلية مع الشخصية العُمانية مرشد'
+        : 'Fast, fun 5-stage educational agricultural game with Murshid',
+      icon: Gamepad2,
       accentText: 'text-teal-600 dark:text-teal-300',
       accentBg: 'bg-teal-500/12',
     },
     {
       id: 'cartoon_videos',
-      title: t.flijan,
+      title: t.murshidStudio,
       desc: lang === 'ar'
-        ? 'حلقات فليجان الكرتونية التوعوية في الإرشاد الزراعي العماني'
-        : 'Flijan educational cartoon series tailored for Omani farmers',
+        ? 'حلقات مُرشد الكرتونية التوعوية في الإرشاد الزراعي العماني'
+        : 'Murshid educational cartoon series tailored for Omani farmers',
       icon: Clapperboard,
       accentText: 'text-sky-600 dark:text-sky-300',
       accentBg: 'bg-sky-500/12',
@@ -280,10 +354,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <button
-                onClick={() => onNavigate('virtual_farm')}
+                onClick={() => onNavigate('murshid_adventures')}
                 className="min-h-[46px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0b1329] font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-950/40 transition-transform active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
               >
-                <Sprout className="w-4 h-4" />
+                <Gamepad2 className="w-4 h-4" />
                 <span>{t.enterFarmBtn}</span>
               </button>
 
@@ -300,7 +374,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 className="min-h-[46px] px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 border border-white/15 font-semibold text-xs sm:text-sm transition-colors flex items-center gap-2 whitespace-nowrap"
               >
                 <Clapperboard className="w-4 h-4 text-sky-300" />
-                <span>{t.flijan}</span>
+                <span>{t.murshidStudio}</span>
               </button>
             </div>
           </div>
@@ -336,6 +410,44 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </button>
           </div>
         </div>
+      </section>
+
+      {/* Murshid Welcome Companion Strip */}
+      <section className="rounded-2xl bg-gradient-to-l from-emerald-900 via-teal-900 to-[#0e1936] text-white p-4 sm:p-5 border border-emerald-400/25 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <MurshidCharacterSvg
+            expression={murshidSpeaking ? 'speak' : 'welcome'}
+            isSpeaking={murshidSpeaking}
+            className="w-16 h-18 sm:w-20 sm:h-22 shrink-0"
+          />
+          <div className="min-w-0 space-y-1">
+            <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span>{lang === 'ar' ? 'مُرشد · مستشارك الزراعي العُماني' : 'Murshid · Your Omani Agri Companion'}</span>
+            </div>
+            <p className="text-xs sm:text-sm text-emerald-50 font-medium leading-relaxed">
+              «{welcomeGreetingText}»
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleToggleMurshidWelcome}
+          className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0"
+        >
+          {murshidSpeaking ? (
+            <>
+              <Square className="w-3.5 h-3.5 fill-current" />
+              <span>{lang === 'ar' ? 'إيقاف الصوت' : 'Stop Voice'}</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-4 h-4" />
+              <span>{lang === 'ar' ? 'استمع لترحيب مرشد' : 'Hear Murshid'}</span>
+            </>
+          )}
+        </button>
       </section>
 
       {/* 2. Live Oman Time Clock, Hijri/Gregorian Dates & Live Weather Telemetry Strip */}
@@ -552,9 +664,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
             {alerts.length > 0 ? (
               <div className="space-y-2.5">
-                {alerts.slice(0, 2).map((alt) => (
+                {alerts.slice(0, 2).map((alt, idx) => (
                   <div
-                    key={alt.id}
+                    key={alt.id || `home-alt-fallback-${idx}`}
                     className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0b1329]/75 border border-slate-200/80 dark:border-sky-300/10 text-xs space-y-1"
                   >
                     <div className="font-bold text-slate-900 dark:text-white flex items-center justify-between gap-2">

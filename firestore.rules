@@ -59,35 +59,6 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
-    function isValidFarm(data) {
-      return data.keys().hasAll(['ownerId', 'farmName', 'coins', 'waterLiters', 'maxWaterLiters', 'sizeLevel', 'greenhouseLevel', 'xp', 'level', 'updatedAt'])
-        && data.keys().hasOnly(['ownerId', 'farmName', 'coins', 'waterLiters', 'maxWaterLiters', 'sizeLevel', 'greenhouseLevel', 'greenhouseTemp', 'greenhouseHumidity', 'xp', 'level', 'updatedAt'])
-        && isValidId(data.ownerId)
-        && data.farmName is string && data.farmName.size() >= 1 && data.farmName.size() <= 80
-        && data.coins is number && data.coins >= 0 && data.coins <= 100000000
-        && data.waterLiters is number && data.waterLiters >= 0 && data.waterLiters <= 100000
-        && data.maxWaterLiters is number && data.maxWaterLiters >= 100 && data.maxWaterLiters <= 100000
-        && data.sizeLevel is number && data.sizeLevel >= 1 && data.sizeLevel <= 10
-        && data.greenhouseLevel is number && data.greenhouseLevel >= 0 && data.greenhouseLevel <= 5
-        && data.xp is number && data.xp >= 0 && data.xp <= 10000000
-        && data.level is number && data.level >= 1 && data.level <= 200
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidPlot(data) {
-      return data.keys().hasAll(['ownerId', 'plotIndex', 'isGreenhouse', 'stageIndex', 'moisture', 'nutrients', 'health', 'updatedAt'])
-        && data.keys().hasOnly(['ownerId', 'plotIndex', 'isGreenhouse', 'cropId', 'stageIndex', 'moisture', 'nutrients', 'health', 'updatedAt'])
-        && isValidId(data.ownerId)
-        && data.plotIndex is number && data.plotIndex >= 0 && data.plotIndex <= 50
-        && data.isGreenhouse is bool
-        && (!('cropId' in data) || (data.cropId is string && data.cropId.size() <= 64))
-        && data.stageIndex is number && data.stageIndex >= 0 && data.stageIndex <= 10
-        && data.moisture is number && data.moisture >= 0 && data.moisture <= 100
-        && data.nutrients is number && data.nutrients >= 0 && data.nutrients <= 100
-        && data.health is number && data.health >= 0 && data.health <= 100
-        && data.updatedAt is timestamp;
-    }
-
     function isValidFriendship(data) {
       return data.keys().hasAll(['requesterId', 'recipientId', 'status', 'createdAt', 'updatedAt'])
         && data.keys().hasOnly(['requesterId', 'recipientId', 'status', 'createdAt', 'updatedAt'])
@@ -260,57 +231,7 @@ service cloud.firestore {
       }
     }
 
-    // --- 3. Virtual Farms & Plots ---
-    match /farms/{farmId} {
-      allow get: if isValidId(farmId) && (isOwner(farmId) || isAdmin());
-      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-
-      allow create: if isVerified() && isValidId(farmId) && isOwner(farmId)
-        && isValidFarm(incoming())
-        && incoming().ownerId == request.auth.uid
-        && incoming().updatedAt == request.time;
-
-      allow update: if isVerified() && isValidId(farmId) && isValidFarm(incoming()) && (
-        isAdmin() || (
-          isOwner(farmId)
-          && incoming().ownerId == existing().ownerId
-          && incoming().updatedAt == request.time
-          && incoming().diff(existing()).affectedKeys().hasOnly([
-            'farmName', 'coins', 'waterLiters', 'maxWaterLiters', 'sizeLevel',
-            'greenhouseLevel', 'greenhouseTemp', 'greenhouseHumidity', 'xp', 'level', 'updatedAt'
-          ])
-        )
-      );
-
-      allow delete: if isAdmin() && isValidId(farmId);
-
-      match /plots/{plotId} {
-        allow get: if isValidId(farmId) && isValidId(plotId)
-          && (isOwner(farmId) || isAdmin())
-          && exists(/databases/$(database)/documents/farms/$(farmId));
-        allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-
-        allow create: if isVerified() && isValidId(farmId) && isValidId(plotId) && isOwner(farmId)
-          && exists(/databases/$(database)/documents/farms/$(farmId))
-          && get(/databases/$(database)/documents/farms/$(farmId)).data.ownerId == request.auth.uid
-          && isValidPlot(incoming())
-          && incoming().ownerId == request.auth.uid
-          && incoming().updatedAt == request.time;
-
-        allow update: if isVerified() && isValidId(farmId) && isValidId(plotId) && isValidPlot(incoming()) && (
-          isAdmin() || (
-            isOwner(farmId)
-            && incoming().ownerId == existing().ownerId
-            && incoming().updatedAt == request.time
-            && incoming().diff(existing()).affectedKeys().hasOnly([
-              'cropId', 'stageIndex', 'moisture', 'nutrients', 'health', 'updatedAt'
-            ])
-          )
-        );
-      }
-    }
-
-    // --- 4. Friendships & Competition Invites ---
+    // --- 3. Friendships & Competition Invites ---
     match /friendships/{friendshipId} {
       allow get: if isValidId(friendshipId) && isSignedIn()
         && (existing().requesterId == request.auth.uid || existing().recipientId == request.auth.uid || isAdmin());

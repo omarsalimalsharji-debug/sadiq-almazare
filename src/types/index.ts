@@ -13,7 +13,7 @@ export type ActivePage =
   | 'weather'
   | 'community'
   | 'games'
-  | 'virtual_farm'
+  | 'murshid_adventures'
   | 'cultural_quiz'
   | 'leaderboard'
   | 'library'

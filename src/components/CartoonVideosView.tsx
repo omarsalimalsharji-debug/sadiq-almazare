@@ -25,10 +25,23 @@ import {
 } from 'lucide-react';
 import {
   CartoonEpisode,
-  FlijanMood,
-  FlijanPose,
+  MurshidPose,
+  MurshidStageMood,
   INITIAL_CARTOON_EPISODES,
 } from '../data/cartoonEpisodesData.ts';
+import {
+  MURSHID_EXPRESSION_PRESETS,
+  MurshidExpression,
+} from '../data/murshidDialogue.ts';
+import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
+import {
+  getMurshidAudioPrefs,
+  initArabicVoices,
+  registerExternalMurshidAudioStopper,
+  setMurshidMuted,
+  stopAllMurshidAudio,
+  subscribeMurshidAudioPrefs,
+} from '../utils/murshidAudio.ts';
 import {
   ADDITIONAL_VOICE_LICENSES_AUDIT,
   EpisodeQaReviewState,
@@ -86,8 +99,41 @@ export const CartoonVideosView: React.FC = () => {
 
   const [customEpisodes, setCustomEpisodes] = useState<CartoonEpisode[]>(() => {
     try {
-      const saved = localStorage.getItem('farmer_flijan_custom_episodes');
-      return saved ? JSON.parse(saved) : [];
+      const sanitizeEpisode = (ep: any): CartoonEpisode => ({
+        ...ep,
+        title: String(ep?.title || '').replace(/فليجان|فلجان/g, 'مُرشد'),
+        takeaway: String(ep?.takeaway || '').replace(/فليجان|فلجان/g, 'مُرشد'),
+        musicAttribution: ep?.musicAttribution
+          ? String(ep.musicAttribution).replace(/فليجان|فلجان/g, 'مُرشد')
+          : undefined,
+        scenes: Array.isArray(ep?.scenes)
+          ? ep.scenes.map((sc: any) => ({
+              ...sc,
+              narration: String(sc?.narration || '').replace(/فليجان|فلجان/g, 'مُرشد'),
+              vocalizedNarration: sc?.vocalizedNarration
+                ? String(sc.vocalizedNarration).replace(/فليجان|فلجان/g, 'مُرشد')
+                : undefined,
+              subtitle: String(sc?.subtitle || '').replace(/فليجان|فلجان/g, 'مُرشد'),
+              murshidPose: (sc?.murshidPose || sc?.flijanPose || 'explain') as MurshidPose,
+              murshidMood: (sc?.murshidMood || sc?.flijanMood || 'explain') as MurshidStageMood,
+            }))
+          : [],
+      });
+
+      const currentSaved = localStorage.getItem('farmer_murshid_custom_episodes');
+      if (currentSaved) {
+        const parsed = JSON.parse(currentSaved);
+        return Array.isArray(parsed) ? parsed.map(sanitizeEpisode) : [];
+      }
+      const legacySaved = localStorage.getItem('farmer_flijan_custom_episodes');
+      if (legacySaved) {
+        const parsed = JSON.parse(legacySaved);
+        const migrated = Array.isArray(parsed) ? parsed.map(sanitizeEpisode) : [];
+        localStorage.setItem('farmer_murshid_custom_episodes', JSON.stringify(migrated.slice(0, 8)));
+        localStorage.removeItem('farmer_flijan_custom_episodes');
+        return migrated;
+      }
+      return [];
     } catch {
       return [];
     }
@@ -103,19 +149,19 @@ export const CartoonVideosView: React.FC = () => {
     INITIAL_CARTOON_EPISODES[0].id
   );
 
-  // Unified Interactive Canvas state (for all 6 Omani Flijan episodes & custom AI episodes)
+  // Unified Interactive Canvas state (for all 6 Omani Murshid episodes & custom AI episodes)
   const [sceneIndex, setSceneIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(() => getMurshidAudioPrefs().muted);
   const [ambientEnabled, setAmbientEnabled] = useState<boolean>(true);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
   const [voiceProfile, setVoiceProfile] = useState<VoiceStudioProfile>('studio');
   const [audioStatusNote, setAudioStatusNote] = useState<string | null>(null);
   const [ttsFailed, setTtsFailed] = useState<boolean>(false);
-  const [previewMoodOverride, setPreviewMoodOverride] = useState<FlijanMood | null>(null);
-  const [previewPoseOverride, setPreviewPoseOverride] = useState<FlijanPose | null>(null);
+  const [previewMoodOverride, setPreviewMoodOverride] = useState<MurshidStageMood | null>(null);
+  const [previewPoseOverride, setPreviewPoseOverride] = useState<MurshidPose | null>(null);
 
   // Custom AI Episode Generator state
   const [topicInput, setTopicInput] = useState<string>('');
@@ -176,6 +222,7 @@ export const CartoonVideosView: React.FC = () => {
   const makeupGainRef = useRef<GainNode | null>(null);
   const audioLevelRef = useRef<number>(0);
   const ttsCacheRef = useRef<Map<string, string>>(new Map());
+  const ttsCooldownUntilRef = useRef<number>(0);
   const playSessionRef = useRef<number>(0);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -200,9 +247,17 @@ export const CartoonVideosView: React.FC = () => {
   }, [fetchReviewsAndManifest]);
 
   useEffect(() => {
+    initArabicVoices();
+    const unsubPrefs = subscribeMurshidAudioPrefs((prefs) => {
+      setIsMuted(prefs.muted);
+    });
+    return unsubPrefs;
+  }, []);
+
+  useEffect(() => {
     try {
       localStorage.setItem(
-        'farmer_flijan_custom_episodes',
+        'farmer_murshid_custom_episodes',
         JSON.stringify(customEpisodes.slice(0, 8))
       );
     } catch {
@@ -210,7 +265,7 @@ export const CartoonVideosView: React.FC = () => {
     }
   }, [customEpisodes]);
 
-  const stopAllAudio = useCallback(() => {
+  const cleanupLocalAudio = useCallback(() => {
     playSessionRef.current += 1;
     if (fallbackTimerRef.current) {
       clearTimeout(fallbackTimerRef.current);
@@ -226,13 +281,17 @@ export const CartoonVideosView: React.FC = () => {
     environmentalSfx.setSpeakingDuck(false);
     environmentalSfx.stop();
     audioLevelRef.current = 0;
+    setIsPlaying(false);
+    setIsLoadingAudio(false);
   }, []);
 
   useEffect(() => {
+    const unregister = registerExternalMurshidAudioStopper(cleanupLocalAudio);
     return () => {
-      stopAllAudio();
+      unregister();
+      cleanupLocalAudio();
     };
-  }, [stopAllAudio]);
+  }, [cleanupLocalAudio]);
 
   // Sync procedural Web Audio environmental SFX with active scene & speaking state
   useEffect(() => {
@@ -254,7 +313,7 @@ export const CartoonVideosView: React.FC = () => {
     }
   }, [isPlaying, isLoadingAudio, isMuted, ambientEnabled, activeScene, activeStudioTab]);
 
-  // Update AudioAnalyser loop for Flijan's lip-sync in interactive canvas mode
+  // Update AudioAnalyser loop for Murshid's lip-sync in interactive canvas mode
   useEffect(() => {
     if (!isPlaying) {
       audioLevelRef.current = 0;
@@ -421,14 +480,22 @@ export const CartoonVideosView: React.FC = () => {
     async (narration: string, mood: string): Promise<string | null> => {
       const vocalized = prepareArabicTextForTts(narration);
       const apiMood =
-        mood === 'happy'
+        mood === 'happy' || mood === 'welcome' || mood === 'smile' || mood === 'explain' || mood === 'encourage' || mood === 'speak'
           ? 'cheerful'
-          : mood === 'warning' || mood === 'curious' || mood === 'proud'
-            ? mood
-            : 'cheerful';
-      const key = `v2-flash-tts:${apiMood}:${vocalized}`;
+          : mood === 'warning' || mood === 'surprised' || mood === 'gentle_sad'
+            ? 'warning'
+            : mood === 'curious' || mood === 'think' || mood === 'idle'
+              ? 'curious'
+              : mood === 'proud' || mood === 'celebrate'
+                ? 'proud'
+                : 'cheerful';
+      const key = `v3-murshid-tts:${apiMood}:${vocalized}`;
       const cached = ttsCacheRef.current.get(key);
       if (cached) return cached;
+
+      if (Date.now() < ttsCooldownUntilRef.current) {
+        return null;
+      }
 
       try {
         const res = await fetch('/api/cartoon/tts', {
@@ -441,6 +508,11 @@ export const CartoonVideosView: React.FC = () => {
           ttsCacheRef.current.set(key, data.audioBase64);
           return data.audioBase64;
         }
+        if (data?.fallback === 'browser_tts' || data?.quotaExceeded || res.status === 429) {
+          const retryMs = (Number(data?.retryAfterSec) || 600) * 1000;
+          ttsCooldownUntilRef.current = Date.now() + retryMs;
+          return null;
+        }
       } catch {
         // Handled by caller
       }
@@ -451,7 +523,7 @@ export const CartoonVideosView: React.FC = () => {
 
   const playSceneAt = useCallback(
     async (episode: CartoonEpisode, idx: number) => {
-      stopAllAudio();
+      stopAllMurshidAudio();
       const session = playSessionRef.current;
       const targetScene = episode.scenes[idx];
       if (!targetScene) {
@@ -467,14 +539,9 @@ export const CartoonVideosView: React.FC = () => {
 
       ensureAudioAnalyser();
 
-      const nextScene = episode.scenes[idx + 1];
-      if (nextScene) {
-        fetchSceneTts(nextScene.vocalizedNarration || nextScene.narration, nextScene.flijanMood).catch(() => {});
-      }
-
       const base64Wav = await fetchSceneTts(
         targetScene.vocalizedNarration || targetScene.narration,
-        targetScene.flijanMood
+        targetScene.murshidMood
       );
 
       if (playSessionRef.current !== session) return;
@@ -537,7 +604,7 @@ export const CartoonVideosView: React.FC = () => {
         fallbackTimerRef.current = setTimeout(advanceNext, 6000);
       }
     },
-    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, stopAllAudio]
+    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed]
   );
 
   useEffect(() => {
@@ -549,15 +616,14 @@ export const CartoonVideosView: React.FC = () => {
 
   const handlePlayPause = () => {
     if (isPlaying) {
-      stopAllAudio();
-      setIsPlaying(false);
+      stopAllMurshidAudio();
     } else {
       playSceneAt(activeEpisode, sceneIndex);
     }
   };
 
   const handleSelectEpisode = (ep: CartoonEpisode, autoPlay = true) => {
-    stopAllAudio();
+    stopAllMurshidAudio();
     setActiveEpisodeId(ep.id);
     setSceneIndex(0);
     setIsPlaying(false);
@@ -572,13 +638,13 @@ export const CartoonVideosView: React.FC = () => {
     }
   };
 
-  const handleTestFlijanExpression = useCallback(
+  const handleTestMurshidExpression = useCallback(
     async (
-      mood: FlijanMood,
-      pose: FlijanPose,
+      mood: MurshidStageMood,
+      pose: MurshidPose,
       sampleText: string
     ) => {
-      stopAllAudio();
+      stopAllMurshidAudio();
       const session = playSessionRef.current;
       setPreviewMoodOverride(mood);
       setPreviewPoseOverride(pose);
@@ -610,16 +676,41 @@ export const CartoonVideosView: React.FC = () => {
           // fall through
         }
       }
+
+      if (!isMuted && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        setAudioStatusNote('تم تشغيل صوت مُرشد عبر نطق المتصفح الموحّد');
+        const utter = new SpeechSynthesisUtterance(sampleText);
+        const voices = window.speechSynthesis.getVoices();
+        const bestArabicVoice =
+          voices.find((v) => v.lang.toLowerCase() === 'ar-om') ||
+          voices.find((v) => v.lang.toLowerCase() === 'ar-sa') ||
+          voices.find((v) => v.lang.toLowerCase().startsWith('ar'));
+        if (bestArabicVoice) {
+          utter.voice = bestArabicVoice;
+          utter.lang = bestArabicVoice.lang;
+        } else {
+          utter.lang = 'ar-OM';
+        }
+        utter.pitch = 1.03;
+        utter.rate = playbackSpeed;
+        utter.onend = finish;
+        utter.onerror = () => {
+          fallbackTimerRef.current = setTimeout(finish, 3200);
+        };
+        window.speechSynthesis.speak(utter);
+        return;
+      }
+
       fallbackTimerRef.current = setTimeout(finish, 3200);
     },
-    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, stopAllAudio]
+    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed]
   );
 
   const handleGenerateCustomEpisode = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = topicInput.trim();
     if (!clean) {
-      setGenError('اكتب موضوعاً زراعياً أولاً ليصمم فليجان حلقته التوعوية.');
+      setGenError('اكتب موضوعاً زراعياً أولاً ليصمم مُرشد حلقته التوعوية.');
       return;
     }
 
@@ -731,13 +822,13 @@ export const CartoonVideosView: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
             <Clapperboard className="w-4 h-4" />
-            <span>استوديو فليجان التفاعلي · صوت عُماني متوازن -16 LUFS</span>
+            <span>استوديو مُرشد التفاعلي · صوت عُماني متوازن -16 LUFS</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white text-balance">
-            استوديو فليجان التعليمي للمزارع العُماني
+            استوديو مُرشد التعليمي للمزارع العُماني
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 max-w-3xl">
-            دروس تفاعلية حيّة بشخصية فليجان العُمانية مع تحريك الشفاه والكاميرا ومؤثرات الأفلاج والبيئة الطبيعية ونطق مدقق.
+            دروس تفاعلية حيّة بشخصية مُرشد العُمانية العصرية مع تحريك الشفاه والكاميرا ومؤثرات الأفلاج والبيئة الطبيعية ونطق مدقق.
           </p>
         </div>
 
@@ -784,7 +875,7 @@ export const CartoonVideosView: React.FC = () => {
         </div>
       </div>
 
-      {/* TAB 1: UNIFIED INTERACTIVE FLIJAN CANVAS EPISODES */}
+      {/* TAB 1: UNIFIED INTERACTIVE MURSHID CANVAS EPISODES */}
       {activeStudioTab === 'videos' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Primary Cinema Stage (8 cols) */}
@@ -805,7 +896,7 @@ export const CartoonVideosView: React.FC = () => {
                   {isLoadingAudio && (
                     <div className="absolute inset-0 bg-stone-950/45 backdrop-blur-[1px] flex flex-col items-center justify-center text-white gap-2">
                       <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-                      <span className="text-xs font-semibold">فليجان يستعد للتحدث...</span>
+                      <span className="text-xs font-semibold">مُرشد يستعد للتحدث...</span>
                     </div>
                   )}
 
@@ -974,8 +1065,8 @@ export const CartoonVideosView: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() => setIsMuted((m) => !m)}
-                        className="p-2 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700"
+                        onClick={() => setMurshidMuted(!isMuted)}
+                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700"
                         title={isMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
                       >
                         {isMuted ? (
@@ -1002,21 +1093,21 @@ export const CartoonVideosView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Updated Flijan Character Showcase & Expression/Voice Live Tester */}
-                  <div className="pt-3 border-t border-stone-100 dark:border-stone-800 space-y-2.5">
+                  {/* Updated Murshid Character Showcase & 10-Expression Live Tester */}
+                  <div className="pt-3 border-t border-stone-100 dark:border-stone-800 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <img
-                          src="/assets/aistudio/1794816965473_a524a589.jpg"
-                          alt="شخصية فليجان المحدثة"
-                          className="w-10 h-10 rounded-full object-cover object-top border-2 border-emerald-500/70 bg-stone-100 shrink-0"
+                      <div className="flex items-center gap-3">
+                        <MurshidCharacterSvg
+                          expression={(previewMoodOverride as MurshidExpression) || 'welcome'}
+                          isSpeaking={isPlaying && !isLoadingAudio}
+                          className="w-12 h-14 shrink-0"
                         />
                         <div>
                           <div className="text-xs font-bold text-stone-900 dark:text-white">
-                            معاينة شخصية فليجان المحدّثة (الهوية العُمانية ومزامنة الشفاه)
+                            معاينة شخصية مُرشد الجديدة (الهوية العُمانية العصرية و١٠ تعابير تفاعلية)
                           </div>
                           <div className="text-[11px] text-stone-500 dark:text-stone-400">
-                            جرّب تعابير الوجه والنبرة الصوتية مباشرة مع تحريك الشفاه والرمش الطبيعي
+                            اضغط على أي تعبير لاختبار حركات الوجه والرمش والصوت مع مزامنة الشفاه مباشرة
                           </div>
                         </div>
                       </div>
@@ -1027,67 +1118,50 @@ export const CartoonVideosView: React.FC = () => {
                             setPreviewMoodOverride(null);
                             setPreviewPoseOverride(null);
                           }}
-                          className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+                          className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline min-h-[44px] px-2"
                         >
                           العودة لتعابير المشهد التلقائية
                         </button>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {(
-                        [
-                          {
-                            mood: 'happy' as FlijanMood,
-                            pose: 'wave' as FlijanPose,
-                            label: 'ترحيب وابتسامة',
-                            sample:
-                              'حَيَّاكُمُ اللَّهُ يَا مُزَارِعِي عُمَانَ! أَنَا فْلَيْجَانُ، جَاهِزٌ لِمُسَاعَدَتِكُمْ فِي مَزَارِعِكُمْ.',
-                          },
-                          {
-                            mood: 'proud' as FlijanMood,
-                            pose: 'celebrate' as FlijanPose,
-                            label: 'حماس وإنجاز',
-                            sample:
-                              'مَا شَاءَ اللَّهُ! الْفَحْصُ الْمُبَكِّرُ وَالتَّقْلِيمُ السَّلِيمُ يَحْمِيَانِ نَخِيلَنَا وَيَزِيدَانِ بَرَكَةَ الْمَحْصُولِ.',
-                          },
-                          {
-                            mood: 'warning' as FlijanMood,
-                            pose: 'caution' as FlijanPose,
-                            label: 'تحذير وإرشاد',
-                            sample:
-                              'انْتَبِهْ يَا أَخِي الْمُزَارِعَ! وُجُودُ نَدْوَةٍ عَسَلِيَّةٍ لَامِعَةٍ أَسْفَلَ السَّعَفِ قَدْ يَكُونُ إِصَابَةً بِدُوبَاسِ النَّخِيلِ.',
-                          },
-                          {
-                            mood: 'curious' as FlijanMood,
-                            pose: 'inspect' as FlijanPose,
-                            label: 'تفكير وفحص',
-                            sample:
-                              'دَعْنَا نَفْحَصْ بَاطِنَ الْخُوصِ بِهُدُوءٍ قَبْلَ اخْتِيَارِ الْمُكَافَحَةِ الْآمِنَةِ لِلنَّحْلِ.',
-                          },
-                        ] as const
-                      ).map((preset) => {
-                        const isSelected =
-                          previewMoodOverride === preset.mood &&
-                          previewPoseOverride === preset.pose;
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {MURSHID_EXPRESSION_PRESETS.map((preset) => {
+                        const targetPose: MurshidPose =
+                          preset.id === 'welcome'
+                            ? 'welcome'
+                            : preset.id === 'celebrate'
+                              ? 'celebrate'
+                              : preset.id === 'think'
+                                ? 'think'
+                                : preset.id === 'surprised'
+                                  ? 'surprised'
+                                  : preset.id === 'gentle_sad'
+                                    ? 'gentle_sad'
+                                    : preset.id === 'encourage'
+                                      ? 'encourage'
+                                      : preset.id === 'idle'
+                                        ? 'idle'
+                                        : 'explain';
+                        const isSelected = previewMoodOverride === preset.id;
                         return (
                           <button
-                            key={preset.label}
+                            key={preset.id}
                             type="button"
                             onClick={() =>
-                              handleTestFlijanExpression(
-                                preset.mood,
-                                preset.pose,
-                                preset.sample
+                              handleTestMurshidExpression(
+                                preset.id,
+                                targetPose,
+                                preset.sampleVocalizedAr
                               )
                             }
-                            className={`min-h-[40px] px-2.5 py-2 rounded-xl border text-[11px] font-bold transition-all text-center ${
+                            className={`min-h-[44px] px-2.5 py-2 rounded-xl border text-[11px] font-bold transition-all text-center whitespace-nowrap ${
                               isSelected
                                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                                 : 'bg-stone-50 dark:bg-stone-800/70 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:border-emerald-500'
                             }`}
                           >
-                            {preset.label}
+                            {preset.labelAr}
                           </button>
                         );
                       })}
@@ -1155,10 +1229,10 @@ export const CartoonVideosView: React.FC = () => {
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 space-y-3 shadow-sm">
               <h2 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>اطلب درساً تفاعلياً جديداً من فليجان</span>
+                <span>اطلب درساً تفاعلياً جديداً من مُرشد</span>
               </h2>
               <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
-                اكتب أي استفسار زراعي وسينشئ فليجان قصة مترابطة مع قاموس النطق العُماني فوراً.
+                اكتب أي استفسار زراعي وسينشئ مُرشد قصة مترابطة مع قاموس النطق العُماني فوراً.
               </p>
 
               <form onSubmit={handleGenerateCustomEpisode} className="space-y-2.5">
@@ -1211,7 +1285,7 @@ export const CartoonVideosView: React.FC = () => {
 
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 space-y-3 shadow-sm">
               <h2 className="text-sm font-bold text-stone-900 dark:text-white">
-                مكتبة دروس فليجان المرئية ({filteredEpisodes.length})
+                مكتبة دروس مُرشد المرئية ({filteredEpisodes.length})
               </h2>
 
               <div className="flex flex-wrap gap-1.5">

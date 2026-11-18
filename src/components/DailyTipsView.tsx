@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { Lightbulb, MapPin, Droplets, Sprout, ShieldAlert } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Lightbulb, MapPin, Droplets, Sprout, ShieldAlert, Volume2, Square } from 'lucide-react';
 import { useLocation } from '../context/LocationContext.tsx';
+import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
+import { speakMurshid, stopAllMurshidAudio } from '../utils/murshidAudio.ts';
 
 const DAILY_AGRICULTURAL_TIPS = [
   {
@@ -66,6 +68,13 @@ const TIP_CATEGORIES = [
 export const DailyTipsView: React.FC = () => {
   const { location, agroAdvice } = useLocation();
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
+  const [murshidSpeaking, setMurshidSpeaking] = useState<boolean>(false);
+
+  useEffect(() => {
+    return () => {
+      stopAllMurshidAudio();
+    };
+  }, []);
 
   const todayTip = useMemo(() => {
     const now = new Date();
@@ -98,9 +107,9 @@ export const DailyTipsView: React.FC = () => {
       </div>
 
       {/* Featured Today Tip Card */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-[#132247] via-emerald-950 to-[#0e1936] text-white shadow-md border border-emerald-500/30 space-y-3">
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-[#132247] via-emerald-950 to-[#0e1936] text-white shadow-md border border-emerald-500/30 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+          <span className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
             نصيحة اليوم المختارة · {todayTip.category}
           </span>
           <span className="text-xs text-slate-300 font-mono">
@@ -113,11 +122,46 @@ export const DailyTipsView: React.FC = () => {
           </span>
         </div>
 
-        <h2 className="text-xl font-bold text-white">{todayTip.title}</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <MurshidCharacterSvg
+            expression={murshidSpeaking ? 'speak' : 'explain'}
+            isSpeaking={murshidSpeaking}
+            className="w-16 h-18 sm:w-20 sm:h-22 shrink-0"
+          />
+          <div className="flex-1 space-y-2">
+            <h2 className="text-xl font-bold text-white">{todayTip.title}</h2>
+            <p className="text-sm leading-relaxed text-emerald-50 text-justify">{todayTip.tip}</p>
+          </div>
+        </div>
 
-        <p className="text-sm leading-relaxed text-emerald-50 text-justify">{todayTip.tip}</p>
-
-        <div className="pt-2 text-[11px] text-emerald-300">المصدر المعتمد: {todayTip.source}</div>
+        <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-white/10">
+          <div className="text-[11px] text-emerald-300">المصدر المعتمد: {todayTip.source}</div>
+          <button
+            type="button"
+            onClick={() => {
+              if (murshidSpeaking) {
+                stopAllMurshidAudio(setMurshidSpeaking);
+              } else {
+                speakMurshid(`${todayTip.title}. ${todayTip.tip}`, {
+                  onSpeakingChange: setMurshidSpeaking,
+                });
+              }
+            }}
+            className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold flex items-center gap-2 transition-colors whitespace-nowrap"
+          >
+            {murshidSpeaking ? (
+              <>
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>إيقاف الصوت</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-4 h-4" />
+                <span>استمع لنصيحة اليوم بصوت مرشد</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Location-Aware Regional Agricultural Guidance */}
