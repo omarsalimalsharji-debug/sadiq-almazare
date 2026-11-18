@@ -138,7 +138,8 @@ interface PlantDiagnosisViewProps {
   initialFocus?: 'auto' | 'insect';
 }
 
-const SOUND_PREF_KEY = 'sadiq_diagnosis_sound_enabled';\nconst LOCAL_DIAGNOSIS_HISTORY_KEY = 'sadiq_diagnosis_history_v1';
+const SOUND_PREF_KEY = 'sadiq_diagnosis_sound_enabled';
+const LOCAL_DIAGNOSIS_HISTORY_KEY = 'sadiq_diagnosis_history_v1';
 
 const MANDATORY_ADVISORY_TEXT =
   'التشخيص عبر الصورة تقديري استرشادي ولا يغني عن الفحص الميداني لدى المهندس الزراعي أو دوائر التنمية الزراعية في الحالات الملتبسة أو الشديدة.';
@@ -526,7 +527,11 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       const diag: SmartDiagnosisResult = data.diagnosis;
       lastAnalyzedSignatureRef.current = signature;
       setResult(diag);
-      if (!diag.needsClearerPhoto) {\n        persistDiagnosisLocally(diag, effectiveLocationLabel, observations.trim());\n      }\n\n      if (diag.needsClearerPhoto) {
+      if (!diag.needsClearerPhoto) {
+        persistDiagnosisLocally(diag, effectiveLocationLabel, observations.trim());
+      }
+
+      if (diag.needsClearerPhoto) {
         playSoftNoticeSound(soundEnabled);
       } else {
         playDiagnosisSuccessSound(soundEnabled);
