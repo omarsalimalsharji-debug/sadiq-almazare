@@ -11,6 +11,8 @@ import crypto from 'crypto';
 import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { initializeApp as initializeAdminApp, cert } from 'firebase-admin/app';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { GoogleGenAI, Type } from '@google/genai';
 import { 
   INITIAL_BOOKS, 
@@ -33,6 +35,42 @@ import {
 } from './src/data/omanLocationsData.ts';
 
 dotenv.config();
+
+// Firebase Admin is required to verify farmer identity for private calendar data.
+// Configure FIREBASE_SERVICE_ACCOUNT_JSON in the server environment (never commit this secret).
+let firebaseAdminAuth: ReturnType<typeof getAdminAuth> | null = null;
+try {
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (serviceAccountJson) {
+    const serviceAccount = JSON.parse(serviceAccountJson);
+    const adminApp = initializeAdminApp({ credential: cert(serviceAccount) }, 'sadiq-almazare-admin');
+    firebaseAdminAuth = getAdminAuth(adminApp);
+  }
+} catch (error) {
+  console.error('Firebase Admin initialization failed; private farmer APIs will remain locked.');
+}
+
+interface FarmerAuthenticatedRequest extends express.Request {
+  farmerUid?: string;
+}
+
+async function requireFarmerAuth(req: FarmerAuthenticatedRequest, res: express.Response, next: express.NextFunction) {
+  if (!firebaseAdminAuth) {
+    return res.status(503).json({ success: false, error: 'خدمة الحسابات غير مهيأة حالياً. يرجى المحاولة لاحقاً.' });
+  }
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'يرجى تسجيل الدخول بحساب المزارع لحفظ التذكيرات.' });
+  }
+  try {
+    const decoded = await firebaseAdminAuth.verifyIdToken(token);
+    req.farmerUid = decoded.uid;
+    return next();
+  } catch {
+    return res.status(401).json({ success: false, error: 'انتهت جلسة الحساب أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول مجدداً.' });
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2651,19 +2689,16 @@ app.post('/api/admin/broadcast-alert', requireAdmin, (req, res) => {
   return res.json({ success: true, notification: alert });
 });
 
-// --- 9C. Interactive Agricultural Calendar Reminders & Notifications ---
-app.get('/api/calendar/reminders', (req, res) => {
-  const userId = String(req.query?.userId || '').trim();
-  const list = userId
-    ? storage.calendarReminders.filter((r) => r.userId === userId)
-    : storage.calendarReminders;
+// --- 9C. Farmer-owned Agricultural Calendar Reminders & Notifications ---
+app.get('/api/calendar/reminders', requireFarmerAuth, (req: FarmerAuthenticatedRequest, res) => {
+  const list = storage.calendarReminders.filter((r) => r.userId === req.farmerUid);
   const sorted = [...list].sort((a, b) => b.createdAt - a.createdAt);
   const unreadNotificationsCount = storage.notifications.filter((n: any) => !n.read).length;
   return res.json({ success: true, reminders: sorted, unreadNotificationsCount });
 });
 
-app.post('/api/calendar/reminders', writeRateLimit, (req, res) => {
-  const userId = String(req.body?.userId || 'usr-oman-default').trim().slice(0, 80);
+app.post('/api/calendar/reminders', requireFarmerAuth, writeRateLimit, (req: FarmerAuthenticatedRequest, res) => {
+  const userId = req.farmerUid!;
   const cropId = String(req.body?.cropId || '').trim().slice(0, 60);
   const cropName = String(req.body?.cropName || '').trim().slice(0, 80);
   const monthIndexRaw = Number(req.body?.monthIndex);
@@ -2693,30 +2728,16 @@ app.post('/api/calendar/reminders', writeRateLimit, (req, res) => {
   if (existingIdx !== -1) {
     reminder = {
       ...storage.calendarReminders[existingIdx],
-      cropName,
-      phase,
-      cadence,
-      governorate,
-      title,
-      message,
+      cropName, phase, cadence, governorate, title, message,
       enabled: true,
       lastDispatchedAt: pushImmediately ? now : storage.calendarReminders[existingIdx].lastDispatchedAt,
     };
     storage.calendarReminders[existingIdx] = reminder;
   } else {
     reminder = {
-      id: `calrem-${now}-${Math.random().toString(36).slice(2, 6)}`,
-      userId,
-      cropId,
-      cropName,
-      monthIndex,
-      phase,
-      cadence,
-      governorate,
-      title,
-      message,
-      enabled: true,
-      createdAt: now,
+      id: `calrem-${now}-${crypto.randomBytes(4).toString('hex')}`,
+      userId, cropId, cropName, monthIndex, phase, cadence, governorate, title, message,
+      enabled: true, createdAt: now,
       lastDispatchedAt: pushImmediately ? now : undefined,
     };
     storage.calendarReminders.unshift(reminder);
@@ -2726,42 +2747,32 @@ app.post('/api/calendar/reminders', writeRateLimit, (req, res) => {
   let createdNotification: any = null;
   if (pushImmediately) {
     createdNotification = {
-      id: `notif-cal-${now}-${Math.random().toString(36).slice(2, 6)}`,
-      title,
-      message,
-      type: 'crop_advice',
-      targetGovernorate: governorate,
-      timestamp: now,
-      read: false,
-      calendarKey: `manual-${cropId}-${monthIndex}`,
+      id: `notif-cal-${now}-${crypto.randomBytes(4).toString('hex')}`,
+      title, message, type: 'crop_advice',
+      targetGovernorate: governorate, timestamp: now, read: false,
+      calendarKey: `manual-${userId}-${cropId}-${monthIndex}`,
+      targetUserId: userId,
     };
     storage.notifications.unshift(createdNotification);
     storage.notifications = storage.notifications.slice(0, 150);
   }
 
   saveStorage();
-  const unreadCount = storage.notifications.filter((n: any) => !n.read).length;
+  const unreadCount = storage.notifications.filter((n: any) => !n.read && (!n.targetUserId || n.targetUserId === userId)).length;
   return res.status(existingIdx !== -1 ? 200 : 201).json({
-    success: true,
-    reminder,
-    notification: createdNotification,
-    unreadCount,
+    success: true, reminder, notification: createdNotification, unreadCount,
   });
 });
 
-app.patch('/api/calendar/reminders/:id', writeRateLimit, (req, res) => {
-  const reminder = storage.calendarReminders.find((r) => r.id === req.params.id);
-  if (!reminder) {
-    return res.status(404).json({ error: 'التنبيه المجدول غير موجود.' });
-  }
+app.patch('/api/calendar/reminders/:id', requireFarmerAuth, writeRateLimit, (req: FarmerAuthenticatedRequest, res) => {
+  const reminder = storage.calendarReminders.find((r) => r.id === req.params.id && r.userId === req.farmerUid);
+  if (!reminder) return res.status(404).json({ error: 'التنبيه المجدول غير موجود.' });
 
-  if (typeof req.body?.enabled === 'boolean') {
+  if (typeof req.body?.enabled === 'boolean) {
     reminder.enabled = req.body.enabled;
   }
-  if (
-    typeof req.body?.cadence === 'string' &&
-    ['daily_dawn', 'every_2_days', 'weekly', 'monthly_start'].includes(req.body.cadence)
-  ) {
+  if (typeof req.body?.cadence === 'string' &&
+    ['daily_dawn', 'every_2_days', 'weekly', 'monthly_start'].includes(req.body.cadence)) {
     reminder.cadence = req.body.cadence as CalendarReminder['cadence'];
   }
 
@@ -2770,100 +2781,32 @@ app.patch('/api/calendar/reminders/:id', writeRateLimit, (req, res) => {
     const now = Date.now();
     reminder.lastDispatchedAt = now;
     createdNotification = {
-      id: `notif-cal-${now}-${Math.random().toString(36).slice(2, 6)}`,
-      title: reminder.title,
-      message: reminder.message,
-      type: 'crop_advice',
-      targetGovernorate: reminder.governorate,
-      timestamp: now,
-      read: false,
-      calendarKey: `dispatch-${reminder.cropId}-${reminder.monthIndex}`,
+      id: `notif-cal-${now}-${crypto.randomBytes(4).toString('hex')}`,
+      title: reminder.title, message: reminder.message, type: 'crop_advice',
+      targetGovernorate: reminder.governorate, timestamp: now, read: false,
+      calendarKey: `dispatch-${req.farmerUid}-${reminder.cropId}-${reminder.monthIndex}`,
+      targetUserId: req.farmerUid,
     };
     storage.notifications.unshift(createdNotification);
     storage.notifications = storage.notifications.slice(0, 150);
   }
 
   saveStorage();
-  const unreadCount = storage.notifications.filter((n: any) => !n.read).length;
-  return res.json({
-    success: true,
-    reminder,
-    notification: createdNotification,
-    unreadCount,
-  });
+  const unreadCount = storage.notifications.filter((n: any) => !n.read && (!n.targetUserId || n.targetUserId === req.farmerUid)).length;
+  return res.json({ success: true, reminder, notification: createdNotification, unreadCount });
 });
 
-app.delete('/api/calendar/reminders/:id', (req, res) => {
+app.delete('/api/calendar/reminders/:id', requireFarmerAuth, (req: FarmerAuthenticatedRequest, res) => {
   const beforeLen = storage.calendarReminders.length;
-  storage.calendarReminders = storage.calendarReminders.filter((r) => r.id !== req.params.id);
+  storage.calendarReminders = storage.calendarReminders.filter(
+    (r) => !(r.id === req.params.id && r.userId === req.farmerUid)
+  );
   if (storage.calendarReminders.length === beforeLen) {
     return res.status(404).json({ error: 'التنبيه المجدول غير موجود.' });
   }
   saveStorage();
-  const unreadCount = storage.notifications.filter((n: any) => !n.read).length;
+  const unreadCount = storage.notifications.filter((n: any) => !n.read && (!n.targetUserId || n.targetUserId === req.farmerUid)).length;
   return res.json({ success: true, unreadCount });
-});
-
-app.post('/api/calendar/sync-alerts', writeRateLimit, (req, res) => {
-  const governorate = String(req.body?.governorate || 'سلطنة عُمان').trim().slice(0, 80);
-  const monthIndexRaw = Number(req.body?.monthIndex);
-  const monthIndex = Number.isInteger(monthIndexRaw) && monthIndexRaw >= 0 && monthIndexRaw <= 11
-    ? monthIndexRaw
-    : new Date().getMonth();
-  const alertsInput = Array.isArray(req.body?.alerts) ? req.body.alerts.slice(0, 20) : [];
-
-  if (alertsInput.length === 0) {
-    return res.status(400).json({ error: 'لا توجد تنبيهات لمزامنتها.' });
-  }
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const existingKeys = new Set<string>(
-    storage.notifications
-      .map((n: any) => n?.calendarKey)
-      .filter((k: any): k is string => typeof k === 'string')
-  );
-
-  let addedCount = 0;
-  let skippedCount = 0;
-  const now = Date.now();
-
-  for (let i = 0; i < alertsInput.length; i++) {
-    const item = alertsInput[i];
-    const cropId = String(item?.cropId || '').trim().slice(0, 60);
-    const title = String(item?.title || '').trim().slice(0, 140);
-    const message = String(item?.message || '').trim().slice(0, 600);
-    if (!cropId || !title || !message) continue;
-
-    const dedupKey = `calendar-${cropId}-${monthIndex}-${todayStr}`;
-    if (existingKeys.has(dedupKey)) {
-      skippedCount++;
-      continue;
-    }
-
-    existingKeys.add(dedupKey);
-    storage.notifications.unshift({
-      id: `notif-sync-${now + i}-${Math.random().toString(36).slice(2, 6)}`,
-      title,
-      message,
-      type: 'crop_advice',
-      targetGovernorate: governorate,
-      timestamp: now + i,
-      read: false,
-      calendarKey: dedupKey,
-    });
-    addedCount++;
-  }
-
-  storage.notifications = storage.notifications.slice(0, 150);
-  saveStorage();
-
-  const unreadCount = storage.notifications.filter((n: any) => !n.read).length;
-  return res.json({
-    success: true,
-    addedCount,
-    skippedCount,
-    unreadCount,
-  });
 });
 
 // --- 10. Radio Stations Management APIs ---
