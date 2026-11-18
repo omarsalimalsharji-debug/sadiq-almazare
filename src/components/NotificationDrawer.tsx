@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { auth } from '../firebase.ts';
 import { 
   X, 
   Bell, 
@@ -42,7 +43,8 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     setLoading(true);
     setFetchError(null);
     try {
-      const res = await fetch('/api/notifications');
+      const token = await auth.currentUser?.getIdToken().catch(() => null);
+      const res = await fetch('/api/notifications', { cache: 'no-store', headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.notifications)) {
         setNotifications(data.notifications);
@@ -80,7 +82,8 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     onNotificationsCountChange(0);
     try {
-      await fetch('/api/notifications/read-all', { method: 'POST' });
+      const token = await auth.currentUser?.getIdToken().catch(() => null);
+      await fetch('/api/notifications/read-all', { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {} });
     } catch {
       // keep local state optimistic without noisy error
     }
