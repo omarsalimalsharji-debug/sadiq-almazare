@@ -20,7 +20,6 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  LogIn,
   ShieldCheck,
   Search,
   Clapperboard,
