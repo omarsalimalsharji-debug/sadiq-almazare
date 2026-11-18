@@ -1606,8 +1606,9 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
 راعِ البيئة المناخية للمنطقة المذكورة عند كتابة omaniFarmingNote والنصائح الوقائية، وحلل الصورة بدقة علمية الآن وأخرج JSON فقط.`,
   });
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-4-hydrogen',
+  // Keep Gemini 4 Hydrogen as primary; use stable Gemini 3.8 Flash only when the primary is temporarily unavailable.
+  const generateDiagnosis = (model: string) => ai.models.generateContent({
+    model,
     contents: { parts },
     config: {
       systemInstruction,
@@ -1704,6 +1705,41 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       },
     },
   });
+
+  let response: any = null;
+  let lastModelError: any = null;
+  const diagnosisModels = ['gemini-4-hydrogen', 'gemini-3.8-flash'];
+
+  for (let modelIndex = 0; modelIndex < diagnosisModels.length; modelIndex++) {
+    const model = diagnosisModels[modelIndex];
+    const attempts = modelIndex === 0 ? 2 : 1;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        response = await generateDiagnosis(model);
+        break;
+      } catch (error: any) {
+        lastModelError = error;
+        const status = Number(error?.status || error?.code || error?.error?.code);
+        const errorText = String(error?.message || error?.error?.message || '');
+        const transientFailure =
+          status === 429 ||
+          [500, 502, 503, 504].includes(status) ||
+          /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|overloaded/i.test(errorText);
+
+        if (!transientFailure) throw error;
+        console.warn(`[AgriVision] ${model} temporarily unavailable (attempt ${attempt + 1}/${attempts}); ${modelIndex === 0 ? 'retrying or switching to fallback' : 'fallback exhausted'}.`);
+
+        if (attempt + 1 < attempts) {
+          await new Promise((resolve) => setTimeout(resolve, 700));
+        }
+      }
+    }
+    if (response) break;
+  }
+
+  if (!response) {
+    throw lastModelError || new Error('خدمة التشخيص غير متاحة مؤقتاً.');
+  }
 
   const parsed = JSON.parse(response.text || '{}');
 
@@ -1999,13 +2035,18 @@ async function handleSmartDiagnosisRequest(
     return res.json({ success: true, cached: fromCache, diagnosis });
   } catch (error: any) {
     console.error('Smart agricultural diagnosis error:', error);
-    const message = String(error?.message || '');
-    const isRate = message.includes('429') || message.toLowerCase().includes('quota');
-    return res.status(isRate ? 503 : 500).json({
-      error: isRate
-        ? 'خادم التشخيص الذكي مشغول حالياً. يرجى الانتظار بضع لحظات ثم إعادة المحاولة.'
-        : 'تعذر إتمام التشخيص الذكي حالياً. يرجى التأكد من وضوح الصورة وتوفر الاتصال بالإنترنت والمحاولة مرة أخرى.',
-      details: error?.message,
+    const message = String(error?.message || error?.error?.message || '');
+    const status = Number(error?.status || error?.code || error?.error?.code);
+    const isUnavailable =
+      status === 429 ||
+      [500, 502, 503, 504].includes(status) ||
+      /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|overloaded|quota/i.test(message);
+
+    if (isUnavailable) res.setHeader('Retry-After', '5');
+    return res.status(isUnavailable ? 503 : 500).json({
+      error: isUnavailable
+        ? 'خدمة التشخيص مشغولة مؤقتاً حتى بعد تجربة النموذج الاحتياطي. لم نعتمد تشخيصاً لهذه الصورة؛ يرجى إعادة المحاولة بعد قليل.'
+        : 'تعذر إتمام التشخيص. لم نعتمد نتيجة غير مكتملة؛ يرجى المحاولة مرة أخرى أو استخدام صورة أوضح.',
     });
   }
 }
