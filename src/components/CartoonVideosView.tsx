@@ -180,7 +180,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
   const [ambientEnabled, setAmbientEnabled] = useState<boolean>(true);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
-  const [voiceProfile, setVoiceProfile] = useState<VoiceStudioProfile>('studio');
+  const [voiceProfile, setVoiceProfile] = useState<VoiceStudioProfile>('warm');
   const [audioStatusNote, setAudioStatusNote] = useState<string | null>(null);
   const [ttsFailed, setTtsFailed] = useState<boolean>(false);
   const [previewMoodOverride, setPreviewMoodOverride] = useState<MurshidStageMood | null>(null);
@@ -514,7 +514,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
               : mood === 'proud' || mood === 'celebrate'
                 ? 'proud'
                 : 'cheerful';
-      const key = `v3-murshid-tts:${apiMood}:${vocalized}`;
+      const key = `v4-murshid-puck-tts:${apiMood}:${vocalized}`;
       const cached = ttsCacheRef.current.get(key);
       if (cached) return cached;
 
