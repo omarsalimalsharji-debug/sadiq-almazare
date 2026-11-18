@@ -5,8 +5,6 @@ import {
   MapPin, 
   Edit3, 
   Check, 
-  LogIn,
-  LogOut,
   Cloud
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -18,8 +16,6 @@ import { useLocation } from '../context/LocationContext.tsx';
 import {
   auth,
   db,
-  signInWithGoogleFarmer,
-  signOutFirebase,
   handleFirestoreError,
   OperationType,
 } from '../firebase.ts';
@@ -51,7 +47,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
-  const [authLoading, setAuthLoading] = useState<boolean>(false);
 
   const selectedGovObj =
     OMAN_ADMINISTRATIVE_DATA.find((g) => g.id === govId) || OMAN_ADMINISTRATIVE_DATA[0];
@@ -112,37 +107,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setTimeout(() => setSavedMsg(null), 3500);
   };
 
-  const handleGoogleConnect = async () => {
-    setAuthLoading(true);
-    setSyncError(null);
-    try {
-      const signed = await signInWithGoogleFarmer();
-      if (signed) {
-        onUpdateUser({
-          id: signed.uid,
-          name: signed.displayName || user.name,
-        });
-        setSavedMsg('تم ربط حسابك السحابي بنجاح.');
-        setTimeout(() => setSavedMsg(null), 3500);
-      }
-    } catch {
-      setSyncError('تعذر إتمام تسجيل الدخول بحساب Google حالياً.');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleGoogleDisconnect = async () => {
-    setAuthLoading(true);
-    try {
-      await signOutFirebase();
-      setSavedMsg('تم تسجيل الخروج من الجلسة السحابية.');
-      setTimeout(() => setSavedMsg(null), 3000);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
   const bookmarkedBooks = INITIAL_BOOKS.filter(b => user.bookmarkedBookIds?.includes(b.id));
 
   return (
@@ -158,7 +122,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           الملف الشخصي
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-0.5">
-          إدارة بياناتك ومحافظتك والاطلاع على رصيد نقاطك والكتب المحفوظة والمزامنة السحابية.
+          إدارة بياناتك ومحافظتك والاطلاع على رصيد نقاطك والكتب المحفوظة دون الحاجة إلى حساب.
         </p>
       </div>
 
@@ -229,43 +193,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </div>
 
-        {/* Firebase Cloud Sync Card */}
-        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0e1936] border border-slate-200 dark:border-sky-300/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <Cloud className={`w-5 h-5 shrink-0 ${fbUser ? 'text-emerald-500' : 'text-slate-400'}`} />
-            <div>
-              <div className="font-bold text-slate-900 dark:text-white">
-                {fbUser ? 'الحساب السحابي مربوط (Firebase Auth)' : 'المزامنة السحابية عبر حساب Google'}
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-300 mt-0.5">
-                {fbUser
-                  ? `البريد الموثق: ${fbUser.email || fbUser.displayName || fbUser.uid}`
-                  : 'اربط حسابك لحفظ ملفك وتشخيصاتك وإنجازاتك عبر الأجهزة بأمان.'}
-              </div>
-            </div>
+        {/* Local-first farmer profile */}
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0e1936] border border-slate-200 dark:border-sky-300/15 flex items-center gap-3 text-xs">
+          <Cloud className="w-5 h-5 shrink-0 text-emerald-500" />
+          <div>
+            <div className="font-bold text-slate-900 dark:text-white">ملفك الزراعي متاح دون تسجيل دخول</div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-300 mt-0.5">تُحفظ تفضيلات الملف والموقع على هذا الجهاز، ويمكنك استخدام خدمات التطبيق مباشرة.</div>
           </div>
-
-          {fbUser ? (
-            <button
-              type="button"
-              disabled={authLoading}
-              onClick={handleGoogleDisconnect}
-              className="min-h-[44px] px-4 py-2 rounded-xl border border-slate-300 dark:border-sky-300/20 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#132247] font-bold flex items-center gap-1.5 shrink-0"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>تسجيل خروج</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={authLoading}
-              onClick={handleGoogleConnect}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shrink-0"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>{authLoading ? 'جاري الربط...' : 'ربط بحساب Google'}</span>
-            </button>
-          )}
         </div>
 
         {/* Edit Form */}

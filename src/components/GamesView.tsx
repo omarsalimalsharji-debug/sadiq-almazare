@@ -17,7 +17,6 @@ import {
   Lightbulb,
   Scissors,
   Loader2,
-  LogIn,
   CloudCheck,
   Volume2,
   VolumeX,
@@ -40,7 +39,6 @@ import {
   db,
   handleFirestoreError,
   OperationType,
-  signInWithGoogleFarmer,
 } from '../firebase.ts';
 
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
@@ -181,10 +179,9 @@ export const GamesView: React.FC<GamesViewProps> = ({
   // Firebase sync state
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
   const [firebaseSyncStatus, setFirebaseSyncStatus] = useState<
-    'idle' | 'syncing' | 'synced' | 'needs_auth' | 'error'
+    'idle' | 'syncing' | 'synced' | 'error'
   >('idle');
   const [firebaseSyncedRound, setFirebaseSyncedRound] = useState<boolean>(false);
-  const [authBusy, setAuthBusy] = useState<boolean>(false);
 
   // Speed timer
   const [timeLeft, setTimeLeft] = useState<number>(30);
@@ -467,15 +464,27 @@ export const GamesView: React.FC<GamesViewProps> = ({
     const clientNonce = `game_${selectedGame}_${Date.now()}_${Math.random()
       .toString(36)
       .substring(2, 7)}`;
+    let anonymousFarmerId = '';
+    try {
+      anonymousFarmerId = localStorage.getItem('farmer_anon_device_id') || '';
+      if (!anonymousFarmerId) {
+        anonymousFarmerId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `farmer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem('farmer_anon_device_id', anonymousFarmerId);
+      }
+    } catch {
+      anonymousFarmerId = `farmer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
 
     try {
       const response = await fetch('/api/scores/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.id,
-          userName: user.name,
-          userGovernorate: `${user.governorate} (${user.wilayat})`,
+          userId: user.id && user.id !== 'usr-oman-default' ? user.id : anonymousFarmerId,
+          userName: user.name?.trim() || 'مزارع عُماني',
+          userGovernorate: `${user.governorate || 'سلطنة عُمان'} (${user.wilayat || 'غير محدد'})`,
           gameType: selectedGame,
           answers: answersLog,
           clientNonce,
@@ -521,33 +530,13 @@ export const GamesView: React.FC<GamesViewProps> = ({
           selectedGame
         );
       } else {
-        setFirebaseSyncStatus('needs_auth');
+        setFirebaseSyncStatus('idle');
       }
     } catch (err: any) {
       console.error(err);
       setServerError(err.message || 'حدث خطأ أثناء الاتصال بالخادم للتحقق من النقاط.');
     } finally {
       setSubmittingToServer(false);
-    }
-  };
-
-  const handleConnectGoogleAndSync = async () => {
-    if (!verifiedResult || !selectedGame) return;
-    setAuthBusy(true);
-    try {
-      const signedIn = await signInWithGoogleFarmer();
-      if (signedIn) {
-        await syncScoreToFirebase(
-          signedIn,
-          verifiedResult.verifiedScore,
-          verifiedResult.bestStreak ?? bestStreak,
-          selectedGame
-        );
-      }
-    } catch (err: any) {
-      setServerError(err?.message || 'تعذر تسجيل الدخول بحساب Google.');
-    } finally {
-      setAuthBusy(false);
     }
   };
 
@@ -560,7 +549,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
             <Gamepad2 className="w-4 h-4" />
-            <span>مسابقات الذكاء الاصطناعي · متزامنة مع Firebase</span>
+            <span>مسابقات زراعية مفتوحة لجميع المزارعين</span>
           </div>
           <h1 className="text-2xl font-bold text-stone-900 dark:text-white mt-1">
             الألعاب الزراعية والمسابقات التفاعلية
@@ -817,19 +806,8 @@ export const GamesView: React.FC<GamesViewProps> = ({
                   جاري مزامنة النقاط مع لوحة Firebase...
                 </div>
               ) : (
-                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2.5">
-                  <div className="text-xs text-amber-900 dark:text-amber-200">
-                    سجّل الدخول بحساب Google لإدراج هذه الجولة في لوحة المتصدرين الدائمة على Firebase.
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleConnectGoogleAndSync}
-                    disabled={authBusy}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    <span>{authBusy ? 'جاري الربط...' : 'ربط حساب Google وحفظ النقاط'}</span>
-                  </button>
+                <div className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                  تم اعتماد نتيجة الجولة على لوحة التطبيق. لا يلزم تسجيل الدخول للمشاركة أو جمع النقاط.
                 </div>
               )}
             </div>

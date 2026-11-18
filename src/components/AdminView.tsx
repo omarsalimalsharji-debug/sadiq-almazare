@@ -451,7 +451,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setStatusMsg({ ok: true, text: 'تم بث التنبيه بنجاح إلى جميع مستخدمي المنصة!' });
+        setStatusMsg({ ok: true, text: 'تم نشر التنبيه في مركز الإشعارات للمحافظة المحددة. يظهر للمزارعين عند فتح التطبيق أو تحديث المركز.' });
         onBroadcastSuccess(alertTitle);
         setAlertTitle('');
         setAlertMessage('');

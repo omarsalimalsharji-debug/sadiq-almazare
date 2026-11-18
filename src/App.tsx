@@ -29,7 +29,7 @@ import { HomeView } from './components/HomeView.tsx';
 import { CategoryHubView, HubPageId } from './components/CategoryHubView.tsx';
 const PlantDiagnosisView = lazy(() => import('./components/PlantDiagnosisView.tsx').then(m => ({ default: m.PlantDiagnosisView })));
 const PestDiagnosisView = lazy(() => import('./components/PestDiagnosisView.tsx').then(m => ({ default: m.PestDiagnosisView })));
-const CartoonVideosView = lazy(() => import('./components/CartoonVideosView.tsx').then(m => ({ default: m.CartoonVideosView })));
+const CartoonVideosView = lazy(() => import('./components/MurshidVideosLibrary.tsx').then(m => ({ default: m.MurshidVideosLibrary })));
 const GamesView = lazy(() => import('./components/GamesView.tsx').then(m => ({ default: m.GamesView })));
 const LeaderboardView = lazy(() => import('./components/LeaderboardView.tsx').then(m => ({ default: m.LeaderboardView })));
 const LibraryView = lazy(() => import('./components/LibraryView.tsx').then(m => ({ default: m.LibraryView })));
@@ -51,8 +51,7 @@ import {
   DEFAULT_SEASONAL_CONFIG,
   computeOmaniHijriState,
 } from './utils/islamicCalendar.ts';
-import { auth } from './firebase.ts';
-import { onAuthStateChanged } from 'firebase/auth';
+import { countUnreadNotifications, dispatchDueLocalReminders, notifyNewServerNotifications } from './utils/notificationState.ts';
 
 const VALID_PAGES: Set<ActivePage> = new Set([
   'home',
@@ -276,24 +275,35 @@ export default function App() {
         .catch(() => {});
     };
     const fetchNotificationsCount = () => {
-      fetch('/api/notifications')
+      const governorate = user.governorate || '';
+      fetch(`/api/notifications?governorate=${encodeURIComponent(governorate)}`, { cache: 'no-store' })
         .then((res) => res.json())
         .then((data) => {
           if (data.success && Array.isArray(data.notifications)) {
-            setUnreadNotifsCount(data.notifications.filter((n: any) => !n.read).length);
+            notifyNewServerNotifications(data.notifications, governorate);
+            setUnreadNotifsCount(countUnreadNotifications(data.notifications, governorate));
           }
         })
         .catch(() => {});
     };
     fetchSeasonalConfig();
+    dispatchDueLocalReminders();
     fetchNotificationsCount();
+    const refreshNotifications = () => fetchNotificationsCount();
+    window.addEventListener('sadiq-local-notification-added', refreshNotifications);
+    window.addEventListener('sadiq-notifications-read', refreshNotifications);
     const timer = setInterval(() => {
       setSeasonalTick(Date.now());
       fetchSeasonalConfig();
+      dispatchDueLocalReminders();
       fetchNotificationsCount();
     }, 60000);
-    return () => clearInterval(timer);
-  }, []);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('sadiq-local-notification-added', refreshNotifications);
+      window.removeEventListener('sadiq-notifications-read', refreshNotifications);
+    };
+  }, [user.governorate]);
 
   const hijriState = React.useMemo(
     () => computeOmaniHijriState(seasonalConfig),
@@ -366,26 +376,7 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // Firebase Auth Session Sync (keeps Google farmer session intact across reloads)
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (fbUser) => {
-      if (fbUser) {
-        const isBootstrapAdmin =
-          fbUser.email?.toLowerCase() === 'alsharji73@gmail.com' && fbUser.emailVerified;
-        setUser((prev) => {
-          if (prev.id === 'admin-omar' || prev.isModerator) return prev;
-          return {
-            ...prev,
-            id: fbUser.uid,
-            name: fbUser.displayName || prev.name,
-            role: isBootstrapAdmin ? 'مدير التطبيق' : prev.role,
-            isAdmin: isBootstrapAdmin || prev.isAdmin,
-          };
-        });
-      }
-    });
-    return () => unsub();
-  }, []);
+  // Farmer browsing is anonymous; staff access remains protected by the server session.
 
   // Ramadan Smart Mode (follows automatic Hijri occasion unless overridden)
   const [isRamadanMode, setIsRamadanMode] = useState<boolean>(() => {
@@ -488,6 +479,7 @@ export default function App() {
         isOpen={isNotifDrawerOpen}
         onClose={() => setIsNotifDrawerOpen(false)}
         onNotificationsCountChange={setUnreadNotifsCount}
+        governorate={user.governorate}
       />
 
       {/* Login / Role Switching Modal */}
@@ -499,6 +491,8 @@ export default function App() {
           setUser(newUser);
           if (newUser.isAdmin || newUser.isModerator || options?.mustChangePassword) {
             setActivePage('admin');
+          } else if (activePage === 'admin') {
+            setActivePage('home');
           }
         }}
       />
@@ -721,7 +715,7 @@ export default function App() {
           <HelpSupportView />
         )}
 
-        {activePage === 'admin' && (
+        {activePage === 'admin' && (user.isAdmin || user.isModerator) && (
           <AdminView
             user={user}
             seasonalConfig={seasonalConfig}
@@ -730,6 +724,13 @@ export default function App() {
               setUnreadNotifsCount(prev => prev + 1);
             }}
           />
+        )}
+        {activePage === 'admin' && !user.isAdmin && !user.isModerator && (
+          <div className="mx-auto w-full max-w-xl rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-950/30">
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">هذه المنطقة مخصصة للإدارة</h2>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">يمكنك متابعة جميع الخدمات الزراعية دون تسجيل دخول. يلزم دخول إداري مصرح به للوصول إلى لوحة الإدارة.</p>
+            <button type="button" onClick={() => setIsLoginModalOpen(true)} className="mt-4 min-h-11 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-500">دخول الإدارة</button>
+          </div>
         )}
         </Suspense>
         </ErrorBoundary>

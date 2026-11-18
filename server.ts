@@ -2616,18 +2616,20 @@ app.delete('/api/community/posts/:postId/comments/:commentId', requireStaff, (re
 });
 
 // --- 9. Notifications APIs ---
-app.get('/api/notifications', optionalFarmerAuth, (req: FarmerAuthenticatedRequest, res) => {
-  const visible = storage.notifications.filter((n: any) => !n.targetUserId || n.targetUserId === req.farmerUid);
-  return res.json({ success: true, notifications: visible });
+app.get('/api/notifications', (req, res) => {
+  const governorate = String(req.query.governorate || '').replace(/^محافظة\s*/, '').trim();
+  const visible = storage.notifications.filter((n: any) => {
+    if (n.targetUserId) return false;
+    const target = String(n.targetGovernorate || '').replace(/^محافظة\s*/, '').trim();
+    const nationwide = !target || /كافة المحافظات|كافة محافظات|جميع المحافظات|جميع محافظات|سلطنة عُمان/i.test(target);
+    return nationwide || !governorate || target.includes(governorate) || governorate.includes(target);
+  });
+  return res.setHeader('Cache-Control', 'no-store').json({ success: true, notifications: visible.map((notification: any) => ({ ...notification, read: false })) });
 });
 
-app.post('/api/notifications/read-all', optionalFarmerAuth, (req: FarmerAuthenticatedRequest, res) => {
-  storage.notifications = storage.notifications.map((n: any) =>
-    !n.targetUserId || n.targetUserId === req.farmerUid ? { ...n, read: true } : n
-  );
-  saveStorage();
-  const visible = storage.notifications.filter((n: any) => !n.targetUserId || n.targetUserId === req.farmerUid);
-  return res.json({ success: true, notifications: visible });
+// Read state is device-local; never mark a shared broadcast as read for every farmer.
+app.post('/api/notifications/read-all', (_req, res) => {
+  return res.json({ success: true });
 });
 
 // --- 9B. Farmer Support Tickets & Feedback APIs ---
@@ -2979,8 +2981,10 @@ function getMuscatDayKey(ts = Date.now()): string {
 const cartoonTtsCache = new Map<string, string>();
 let cartoonTtsCooldownUntil = 0;
 
-const MEDIA_STORE_DIR = path.join(__dirname, 'media_store');
+const MEDIA_STORE_DIR = path.join(__dirname, 'public', 'media');
+const LEGACY_MEDIA_STORE_DIR = path.join(__dirname, 'media_store');
 app.use('/media', express.static(MEDIA_STORE_DIR, { maxAge: '7d' }));
+app.use('/media', express.static(LEGACY_MEDIA_STORE_DIR, { maxAge: '7d' }));
 
 function createDefaultQaReview(episodeId: string): EpisodeQaReviewState {
   return {
@@ -3002,27 +3006,46 @@ function createDefaultQaReview(episodeId: string): EpisodeQaReviewState {
   };
 }
 
-app.get('/api/cartoon/reviews', (_req, res) => {
-  const manifestPath = path.join(MEDIA_STORE_DIR, 'videos', 'manifest.json');
-  const voiceReportPath = path.join(MEDIA_STORE_DIR, 'voice-comparison', 'comparison-report.json');
-  let mediaManifest: any = null;
-  let voiceReport: any = null;
+function readCartoonMediaManifest(): any | null {
+  const manifestPaths = [
+    path.join(MEDIA_STORE_DIR, 'videos', 'manifest.json'),
+    path.join(LEGACY_MEDIA_STORE_DIR, 'videos', 'manifest.json'),
+  ];
+  try {
+    const manifestPath = manifestPaths.find((candidate) => fs.existsSync(candidate));
+    if (manifestPath) return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+  } catch {
+    // A missing or invalid manifest means no final videos are available yet.
+  }
+  return null;
+}
 
+app.get('/api/cartoon/manifest', (_req, res) => {
+  return res.setHeader('Cache-Control', 'no-store').json({
+    success: true,
+    mediaManifest: readCartoonMediaManifest(),
+  });
+});
+
+app.get('/api/cartoon/reviews', requireStaff, (_req, res) => {
+  const voiceReportPaths = [
+    path.join(MEDIA_STORE_DIR, 'voice-comparison', 'comparison-report.json'),
+    path.join(LEGACY_MEDIA_STORE_DIR, 'voice-comparison', 'comparison-report.json'),
+  ];
+  let voiceReport: any = null;
   try {
-    if (fs.existsSync(manifestPath)) mediaManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-  } catch { /* ignore */ }
-  try {
-    if (fs.existsSync(voiceReportPath)) voiceReport = JSON.parse(fs.readFileSync(voiceReportPath, 'utf-8'));
+    const voiceReportPath = voiceReportPaths.find((candidate) => fs.existsSync(candidate));
+    if (voiceReportPath) voiceReport = JSON.parse(fs.readFileSync(voiceReportPath, 'utf-8'));
   } catch { /* ignore */ }
 
   const reviews: Record<string, EpisodeQaReviewState> = {};
   for (const ep of INITIAL_CARTOON_EPISODES) {
     reviews[ep.id] = storage.cartoonQaReviews[ep.id] || createDefaultQaReview(ep.id);
   }
-  return res.json({ success: true, reviews, mediaManifest, voiceReport });
+  return res.json({ success: true, reviews, mediaManifest: readCartoonMediaManifest(), voiceReport });
 });
 
-app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, (req, res) => {
+app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, requireStaff, (req, res) => {
   const { episodeId } = req.params;
   if (!INITIAL_CARTOON_EPISODES.some((ep) => ep.id === episodeId)) {
     return res.status(404).json({ error: 'الحلقة غير موجودة في قائمة المراجعة.' });
@@ -3057,7 +3080,7 @@ app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, (req, res) => {
   return res.json({ success: true, review: current });
 });
 
-app.post('/api/cartoon/tts', async (req, res) => {
+app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
   try {
     const { text, mood } = req.body;
     const rawClean = typeof text === 'string' ? text.trim().slice(0, 800) : '';
@@ -3218,7 +3241,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
   }
 });
 
-app.post('/api/cartoon/generate-episode', aiRateLimit, async (req, res) => {
+app.post('/api/cartoon/generate-episode', requireStaff, aiRateLimit, async (req, res) => {
   try {
     const { topic } = req.body;
     const cleanTopic = typeof topic === 'string' ? topic.trim().slice(0, 200) : '';

@@ -20,7 +20,6 @@ import {
   PhoneCall,
   History,
   Trash2,
-  LogIn,
   ShieldCheck,
   Sprout,
   Info,
@@ -53,7 +52,6 @@ import {
   db,
   handleFirestoreError,
   OperationType,
-  signInWithGoogleFarmer,
 } from '../firebase.ts';
 import {
   compressAndEnhancePlantImage,
@@ -141,6 +139,7 @@ interface PlantDiagnosisViewProps {
 }
 
 const SOUND_PREF_KEY = 'sadiq_diagnosis_sound_enabled';
+const LOCAL_DIAGNOSIS_HISTORY_KEY = 'sadiq_diagnosis_history_v1';
 
 const MANDATORY_ADVISORY_TEXT =
   'التشخيص عبر الصورة تقديري استرشادي ولا يغني عن الفحص الميداني لدى المهندس الزراعي أو دوائر التنمية الزراعية في الحالات الملتبسة أو الشديدة.';
@@ -223,7 +222,6 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   const [historyLoading, setHistoryLoading] = useState<boolean>(false);
   const [savingToCloud, setSavingToCloud] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [authBusy, setAuthBusy] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (user) => {
@@ -237,7 +235,13 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
 
   useEffect(() => {
     if (!fbUser || !fbUser.uid) {
-      setHistoryItems([]);
+      try {
+        const saved = JSON.parse(localStorage.getItem(LOCAL_DIAGNOSIS_HISTORY_KEY) || '[]');
+        setHistoryItems(Array.isArray(saved) ? saved : []);
+      } catch {
+        setHistoryItems([]);
+      }
+      setHistoryLoading(false);
       return;
     }
 
@@ -345,6 +349,31 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     lastAnalyzedSignatureRef.current = null;
   };
 
+  const persistDiagnosisLocally = (
+    diag: SmartDiagnosisResult,
+    usedWilayat: string,
+    usedObservations: string
+  ) => {
+    const now = Date.now();
+    const record: SavedDiagnosisRecord = {
+      ...diag,
+      id: `diag-local-${now}-${Math.random().toString(36).slice(2, 7)}`,
+      userId: 'local-device',
+      wilayat: usedWilayat,
+      observations: usedObservations,
+      photoParts: diag.photoParts || ['primary'],
+      createdAt: { seconds: Math.floor(now / 1000), nanoseconds: (now % 1000) * 1000000 },
+    };
+    const next = [record, ...historyItems.filter((item) => item.id !== record.id)].slice(0, 15);
+    try {
+      localStorage.setItem(LOCAL_DIAGNOSIS_HISTORY_KEY, JSON.stringify(next));
+      setSaveMessage('تم حفظ التشخيص في سجل هذا الجهاز.');
+    } catch {
+      setSaveMessage('تم عرض التشخيص، لكن مساحة التخزين المحلية ممتلئة.');
+    }
+    setHistoryItems(next);
+  };
+
   const persistDiagnosisToFirebase = async (
     user: FirebaseUser,
     diag: SmartDiagnosisResult,
@@ -352,7 +381,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     usedObservations: string
   ) => {
     if (!user.emailVerified) {
-      setSaveMessage('سجل دخولك بحساب Google موثق لحفظ التشخيص تلقائياً في السجل.');
+      setSaveMessage('لا يمكن مزامنة هذا التشخيص سحابياً حالياً؛ سيبقى محفوظاً على هذا الجهاز.');
       return;
     }
 
@@ -497,6 +526,9 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       const diag: SmartDiagnosisResult = data.diagnosis;
       lastAnalyzedSignatureRef.current = signature;
       setResult(diag);
+      if (!diag.needsClearerPhoto) {
+        persistDiagnosisLocally(diag, effectiveLocationLabel, observations.trim());
+      }
 
       if (diag.needsClearerPhoto) {
         playSoftNoticeSound(soundEnabled);
@@ -518,28 +550,15 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     }
   };
 
-  const handleGoogleConnectAndSave = async () => {
-    setAuthBusy(true);
-    setError(null);
-    try {
-      const signedInUser = await signInWithGoogleFarmer();
-      if (signedInUser && result && !result.needsClearerPhoto) {
-        await persistDiagnosisToFirebase(
-          signedInUser,
-          result,
-          effectiveLocationLabel,
-          observations.trim()
-        );
-      }
-    } catch (err: any) {
-      setError(err?.message || 'تعذر تسجيل الدخول بحساب Google.');
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
   const handleDeleteHistoryItem = async (diagId: string) => {
-    if (!fbUser?.uid) return;
+    if (diagId.startsWith('diag-local-') || !fbUser?.uid) {
+      setHistoryItems((previous) => {
+        const next = previous.filter((item) => item.id !== diagId);
+        try { localStorage.setItem(LOCAL_DIAGNOSIS_HISTORY_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+        return next;
+      });
+      return;
+    }
     const path = `users/${fbUser.uid}/diagnoses/${diagId}`;
     try {
       await deleteDoc(doc(db, 'users', fbUser.uid, 'diagnoses', diagId));
@@ -732,7 +751,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
           >
             <History className="w-4 h-4 text-emerald-500" />
             <span>السجل</span>
-            {fbUser && historyItems.length > 0 && (
+            {historyItems.length > 0 && (
               <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-[10px] font-bold">
                 {historyItems.length}
               </span>
@@ -1577,9 +1596,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                           ? 'جاري حفظ التشخيص في السحابة...'
                           : saveMessage
                             ? saveMessage
-                            : !fbUser
-                              ? 'سجّل الدخول بحساب Google لحفظ السجل تلقائياً'
-                              : ''}
+                            : 'حُفظ التشخيص على هذا الجهاز دون الحاجة إلى حساب'}
                       </div>
                     </div>
                   </div>
@@ -1611,28 +1628,13 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
               )}
             </div>
 
-            {!fbUser ? (
-              <div className="rounded-2xl bg-slate-50 dark:bg-[#0b1329]/75 border border-slate-200 dark:border-sky-300/15 p-4 text-center space-y-3">
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  اربط حسابك في Google للاحتفاظ بسجل تشخيصات مزرعتك ومراجعتها لاحقاً.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleGoogleConnectAndSave}
-                  disabled={authBusy}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0b1329] text-xs font-extrabold transition-colors disabled:opacity-50"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>{authBusy ? 'جاري الاتصال...' : 'تسجيل الدخول بحساب Google'}</span>
-                </button>
-              </div>
-            ) : historyLoading ? (
+            {historyLoading ? (
               <div className="py-6 text-center text-xs text-slate-400">
-                جاري تحميل السجل من Firebase...
+                جاري تحميل سجل التشخيصات...
               </div>
             ) : historyItems.length === 0 ? (
               <div className="py-6 text-center text-xs text-slate-400">
-                لا توجد تشخيصات محفوظة بعد. سيُحفظ كل تشخيص ناجح هنا تلقائياً.
+                لا توجد تشخيصات محفوظة على هذا الجهاز بعد. سيظهر كل تشخيص ناجح هنا تلقائياً.
               </div>
             ) : (
               <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
