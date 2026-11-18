@@ -81,6 +81,8 @@ interface PesticideRecommendation {
 
 interface InsectDetails {
   nature: 'beneficial' | 'harmful' | 'neutral' | 'none';
+  sex?: 'male' | 'female' | 'undetermined';
+  sexEvidence?: string;
   targetCrops: string[];
   damage: string;
   lifeCycle: string;
@@ -1435,6 +1437,26 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                                     <Bug className="w-4 h-4 text-emerald-500" />
                                     <span>التشخيص العلمي للحشرة</span>
                                   </h4>
+
+                                  <div className="rounded-xl border border-indigo-200/70 dark:border-indigo-400/20 bg-indigo-50/70 dark:bg-indigo-950/20 p-3 space-y-1.5">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                                      <span className="font-extrabold text-slate-900 dark:text-white">تقدير جنس الحشرة:</span>
+                                      <span className="font-bold text-indigo-700 dark:text-indigo-300">
+                                        {result.insectDetails.sex === 'male'
+                                          ? 'ذكر'
+                                          : result.insectDetails.sex === 'female'
+                                            ? 'أنثى'
+                                            : 'غير محدد من الصورة'}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+                                      {result.insectDetails.sexEvidence ||
+                                        'لا تظهر علامة تشريحية واضحة تسمح بتحديد الجنس بثقة.'}
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                      يُعرض التقدير عند وجود علامات مرئية موثوقة فقط؛ وقد يتعذر تحديد الجنس من صورة واحدة.
+                                    </p>
+                                  </div>
 
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700 dark:text-slate-300">
                                     <div>
