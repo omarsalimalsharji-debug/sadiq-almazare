@@ -3104,7 +3104,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
       warning:
         'A caring, mature male Arabic agricultural mentor; clear and composed safety warning, firm but never alarming, reassuring close',
       proud:
-        'A warm male Arabic presenter celebrating a farmer's success with genuine joy, controlled energy, and clean studio diction',
+        'A warm male Arabic presenter celebrating a farmer’s success with genuine joy, controlled energy, and clean studio diction',
     };
 
     const response = await ai.models.generateContent({
