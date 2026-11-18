@@ -146,3 +146,34 @@ export function dispatchDueLocalReminders(now = Date.now()): number {
   }
   return dispatched;
 }
+
+export function notifyNewServerNotifications(items: NotificationRecord[], governorate?: string): void {
+  if (typeof window === 'undefined') return;
+  const visible = mergeNotifications(items, governorate).filter((item) =>
+    (items || []).some((serverItem) => serverItem.id === item.id)
+  );
+  const key = `sadiq_seen_server_notifications_v1:${String(governorate || 'all').replace(/\\s+/g, '_')}`;
+  let seen: string[] | null = null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || 'null');
+    if (Array.isArray(parsed)) seen = parsed.filter((id) => typeof id === 'string');
+  } catch {
+    seen = null;
+  }
+  const ids = visible.map((item) => item.id);
+  if (seen === null) {
+    try { localStorage.setItem(key, JSON.stringify(ids.slice(-500))); } catch { /* ignore */ }
+    return;
+  }
+  const seenSet = new Set(seen);
+  const fresh = visible.filter((item) => !seenSet.has(item.id) && !isNotificationRead(item));
+  try { localStorage.setItem(key, JSON.stringify([...seen, ...ids].slice(-500))); } catch { /* ignore */ }
+  if (window.Notification?.permission !== 'granted') return;
+  for (const item of fresh.slice(0, 3)) {
+    try {
+      new window.Notification(item.title, { body: item.message, dir: 'rtl', lang: 'ar' });
+    } catch {
+      // The notification remains visible in the in-app center.
+    }
+  }
+}
