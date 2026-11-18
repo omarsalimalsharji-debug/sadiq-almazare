@@ -364,16 +364,14 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       photoParts: diag.photoParts || ['primary'],
       createdAt: { seconds: Math.floor(now / 1000), nanoseconds: (now % 1000) * 1000000 },
     };
-    setHistoryItems((previous) => {
-      const next = [record, ...previous.filter((item) => item.id !== record.id)].slice(0, 15);
-      try {
-        localStorage.setItem(LOCAL_DIAGNOSIS_HISTORY_KEY, JSON.stringify(next));
-      } catch {
-        setSaveMessage('تم عرض التشخيص، لكن مساحة التخزين المحلية ممتلئة.');
-      }
+    const next = [record, ...historyItems.filter((item) => item.id !== record.id)].slice(0, 15);
+    try {
+      localStorage.setItem(LOCAL_DIAGNOSIS_HISTORY_KEY, JSON.stringify(next));
       setSaveMessage('تم حفظ التشخيص في سجل هذا الجهاز.');
-      return next;
-    });
+    } catch {
+      setSaveMessage('تم عرض التشخيص، لكن مساحة التخزين المحلية ممتلئة.');
+    }
+    setHistoryItems(next);
   };
 
   const persistDiagnosisToFirebase = async (
