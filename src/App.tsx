@@ -51,7 +51,7 @@ import {
   DEFAULT_SEASONAL_CONFIG,
   computeOmaniHijriState,
 } from './utils/islamicCalendar.ts';
-import { countUnreadNotifications, dispatchDueLocalReminders } from './utils/notificationState.ts';
+import { countUnreadNotifications, dispatchDueLocalReminders, notifyNewServerNotifications } from './utils/notificationState.ts';
 
 const VALID_PAGES: Set<ActivePage> = new Set([
   'home',
@@ -280,6 +280,7 @@ export default function App() {
         .then((res) => res.json())
         .then((data) => {
           if (data.success && Array.isArray(data.notifications)) {
+            notifyNewServerNotifications(data.notifications, governorate);
             setUnreadNotifsCount(countUnreadNotifications(data.notifications, governorate));
           }
         })
