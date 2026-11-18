@@ -2624,7 +2624,7 @@ app.get('/api/notifications', (req, res) => {
     const nationwide = !target || /كافة المحافظات|كافة محافظات|جميع المحافظات|جميع محافظات|سلطنة عُمان/i.test(target);
     return nationwide || !governorate || target.includes(governorate) || governorate.includes(target);
   });
-  return res.setHeader('Cache-Control', 'no-store').json({ success: true, notifications: visible });
+  return res.setHeader('Cache-Control', 'no-store').json({ success: true, notifications: visible.map((notification: any) => ({ ...notification, read: false })) });
 });
 
 // Read state is device-local; never mark a shared broadcast as read for every farmer.
