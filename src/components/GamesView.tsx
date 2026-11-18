@@ -21,6 +21,7 @@ import {
   CloudCheck,
   Volume2,
   VolumeX,
+  Square,
   Share2,
 } from 'lucide-react';
 import { useShare } from '../context/ShareContext.tsx';
@@ -43,7 +44,7 @@ import {
 } from '../firebase.ts';
 
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
-import { MURSHID_PHRASES, pickVariedPhrase } from '../data/murshidDialogue.ts';
+import { MURSHID_PHRASES, pickFreshPhrase } from '../data/murshidDialogue.ts';
 import {
   getMurshidAudioPrefs,
   playGentleErrorSfx,
@@ -316,15 +317,15 @@ export const GamesView: React.FC<GamesViewProps> = ({
     }
 
     if (isCorrect) {
-      playSuccessSfx();
-      const phrase = pickVariedPhrase(MURSHID_PHRASES.correct, currentQIndex + newStreak);
+      playSuccessSfx(isMuted);
+      const phrase = pickFreshPhrase('games-correct', MURSHID_PHRASES.correct);
       setFeedbackPhrase(phrase);
       if (!isMuted) {
         speakMurshid(phrase, { muted: isMuted, onSpeakingChange: setMurshidSpeaking });
       }
     } else {
-      playGentleErrorSfx();
-      const phrase = pickVariedPhrase(MURSHID_PHRASES.wrongGentle, currentQIndex);
+      playGentleErrorSfx(isMuted);
+      const phrase = pickFreshPhrase('games-wrong', MURSHID_PHRASES.wrongGentle);
       setFeedbackPhrase(phrase);
       if (!isMuted) {
         speakMurshid(phrase, { muted: isMuted, onSpeakingChange: setMurshidSpeaking });
@@ -498,6 +499,17 @@ export const GamesView: React.FC<GamesViewProps> = ({
         } catch {
           // ignore confetti errors
         }
+        if (!isMuted) {
+          speakMurshid(
+            `ما شاء الله يا ${user.name.split(' ')[0]}! أنهيت الجولة وحصدت ${data.verifiedScore} نقطة معتمدة.`,
+            { muted: isMuted, mood: 'proud', onSpeakingChange: setMurshidSpeaking }
+          );
+        }
+      } else if (!isMuted) {
+        speakMurshid(
+          'محاولة طيبة! راجع المعلومات وحاول جولة جديدة لتجمع نقاطاً أعلى.',
+          { muted: isMuted, mood: 'cheerful', onSpeakingChange: setMurshidSpeaking }
+        );
       }
 
       if (fbUser && selectedGame) {
@@ -610,7 +622,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
               <button
                 type="button"
                 onClick={() => setUseAiQuestions(true)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                   useAiQuestions
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-stone-600 dark:text-stone-300'
@@ -621,7 +633,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
               <button
                 type="button"
                 onClick={() => setUseAiQuestions(false)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                   !useAiQuestions
                     ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-sm'
                     : 'text-stone-600 dark:text-stone-300'
@@ -973,16 +985,33 @@ export const GamesView: React.FC<GamesViewProps> = ({
             </div>
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                if (murshidSpeaking) {
+                  stopAllMurshidAudio(setMurshidSpeaking);
+                  return;
+                }
                 speakMurshid(curQuestion.question, {
                   muted: isMuted,
                   onSpeakingChange: setMurshidSpeaking,
-                })
-              }
-              className="min-h-[44px] px-3 py-2 rounded-xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/20 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:border-emerald-500 flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                });
+              }}
+              className={`min-h-[44px] px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors ${
+                murshidSpeaking
+                  ? 'bg-rose-600 text-white border-rose-600'
+                  : 'bg-white dark:bg-[#132247] border-stone-200 dark:border-sky-300/20 text-emerald-700 dark:text-emerald-300 hover:border-emerald-500'
+              }`}
             >
-              <Volume2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">قراءة السؤال</span>
+              {murshidSpeaking ? (
+                <>
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span className="hidden sm:inline">إيقاف القراءة</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">قراءة السؤال</span>
+                </>
+              )}
             </button>
           </div>
 
@@ -1055,7 +1084,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
                     key={optIdx}
                     disabled={isAnswerSubmitted || isEliminated}
                     onClick={() => handleAnswerOption(optIdx)}
-                    className={`w-full p-3.5 rounded-xl border text-right text-xs sm:text-sm transition-all flex items-center justify-between ${optionClass}`}
+                    className={`w-full min-h-[48px] p-3.5 rounded-xl border text-right text-xs sm:text-sm transition-all flex items-center justify-between ${optionClass}`}
                   >
                     <span>{option}</span>
                     {isAnswerSubmitted && isCorrect && (

@@ -101,10 +101,42 @@ export const OMANI_PRONUNCIATION_DICTIONARY: DictionaryEntry[] = [
   { term: 'النارجيل', vocalized: 'النَّارْجِيل', category: 'محصول وري' },
   { term: 'الفافاي', vocalized: 'الْفَافَاي', category: 'محصول وري' },
   { term: 'اللومي العُماني', vocalized: 'اللُّومِي الْعُمَانِيّ', category: 'محصول وري' },
+  { term: 'اللومي', vocalized: 'اللُّومِي', category: 'محصول وري' },
+  { term: 'الليمون العُماني', vocalized: 'اللَّيْمُونُ الْعُمَانِيّ', category: 'محصول وري' },
+  { term: 'الهمبا', vocalized: 'الْهَمْبَا', category: 'محصول وري' },
+  { term: 'المانجو', vocalized: 'الْمَانْجُو', category: 'محصول وري' },
+  { term: 'الرمان', vocalized: 'الرُّمَّان', category: 'محصول وري' },
+  { term: 'التين', vocalized: 'التِّين', category: 'محصول وري' },
+  { term: 'البابايا', vocalized: 'الْبَابَايَا', category: 'محصول وري' },
+  { term: 'الموز العُماني', vocalized: 'الْمَوْزُ الْعُمَانِيّ', category: 'محصول وري' },
+  { term: 'نخيل التمر', vocalized: 'نَخِيلُ التَّمْر', category: 'محصول وري' },
+  { term: 'النخلة', vocalized: 'النَّخْلَة', category: 'محصول وري' },
+  { term: 'فسيلة', vocalized: 'فَسِيلَة', category: 'محصول وري' },
+  { term: 'الشماريخ', vocalized: 'الشَّمَارِيخ', category: 'محصول وري' },
+  { term: 'العذوق', vocalized: 'الْعُذُوق', category: 'محصول وري' },
+  { term: 'القيظ', vocalized: 'الْقَيْظ', category: 'محصول وري' },
+  { term: 'الأثر', vocalized: 'الْأَثَر', category: 'محصول وري' },
+  { term: 'الخريف', vocalized: 'الْخَرِيف', category: 'محصول وري' },
+  { term: 'الميسياني', vocalized: 'الْمِيسِيَانِيّ', category: 'محصول وري' },
+  { term: 'الكوليب', vocalized: 'الْكُولِيب', category: 'محصول وري' },
+  { term: 'غبير النخيل', vocalized: 'غُبَيْرُ النَّخِيل', category: 'آفة ومرض' },
+  { term: 'العنكبوت الأحمر', vocalized: 'الْعَنْكَبُوتُ الْأَحْمَر', category: 'آفة ومرض' },
+  { term: 'الندوة العسلية', vocalized: 'النَّدْوَةُ الْعَسَلِيَّة', category: 'آفة ومرض' },
   { term: 'حلم الغبار', vocalized: 'حَلَمُ الْغُبَار', category: 'آفة ومرض' },
   { term: 'التربس', vocalized: 'التِّرِبْس', category: 'آفة ومرض' },
   { term: 'فترة التحريم', vocalized: 'فَتْرَةُ التَّحْرِيم', category: 'مصطلح إرشادي' },
   { term: 'المرسوم', vocalized: 'الْمَرْسُوم', category: 'مصطلح إرشادي' },
+  { term: 'نخل', vocalized: 'نَخْل', category: 'محافظة وولاية' },
+  { term: 'السويق', vocalized: 'السُّوَيْق', category: 'محافظة وولاية' },
+  { term: 'الخابورة', vocalized: 'الْخَابُورَة', category: 'محافظة وولاية' },
+  { term: 'المصنعة', vocalized: 'الْمُصَنَّعَة', category: 'محافظة وولاية' },
+  { term: 'شناص', vocalized: 'شِنَاص', category: 'محافظة وولاية' },
+  { term: 'ينقل', vocalized: 'يَنْقُل', category: 'محافظة وولاية' },
+  { term: 'ضنك', vocalized: 'ضَنْك', category: 'محافظة وولاية' },
+  { term: 'أدم', vocalized: 'أَدَم', category: 'محافظة وولاية' },
+  { term: 'قريات', vocalized: 'قُرَيَّات', category: 'محافظة وولاية' },
+  { term: 'السيب', vocalized: 'السِّيب', category: 'محافظة وولاية' },
+  { term: 'جبل شمس', vocalized: 'جَبَلِ شَمْس', category: 'محافظة وولاية' },
 ];
 
 const SORTED_DICTIONARY = [...OMANI_PRONUNCIATION_DICTIONARY].sort(
@@ -117,14 +149,28 @@ export function stripArabicDiacritics(input: string): string {
 
 /**
  * Applies dictionary-guided Omani agricultural vocalization (Tashkeel)
- * and cleans percentages/units into natural spoken Arabic.
+ * and cleans percentages/units/symbols into natural spoken Arabic.
  */
 export function prepareArabicTextForTts(rawText: string): string {
   let text = String(rawText || '').trim();
   if (!text) return '';
 
-  // Normalize spoken percentages cleanly for Arabic TTS
-  text = text.replace(/(\d+)\s*%/g, '$1 فِي الْمِئَة');
+  // Remove decorative emojis/symbols and markdown markers that break TTS cadence
+  text = text
+    .replace(/[•▪◦●★✨⚠️🐝🐞🪲🐛🦗🪰🌴💧🌱🛡️✂️🚜🧺🍯]/g, ' ')
+    .replace(/[*#_`~]+/g, ' ')
+    .replace(/[«»"""]/g, ' ')
+    .replace(/\s*—\s*/g, '، ')
+    .replace(/\s*·\s*/g, '، ');
+
+  // Normalize spoken percentages, temperatures, and agricultural units cleanly
+  text = text
+    .replace(/(\d+(?:[.,]\d+)?)\s*%/g, '$1 فِي الْمِئَة')
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:°C|°م|مئوية)/gi, '$1 دَرَجَةً مِئَوِيَّةً')
+    .replace(/(\d+(?:[.,]\d+)?)\s*كم\/س/g, '$1 كِيلُومِتْراً فِي السَّاعَةِ')
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:ملم|مل)/g, '$1 مِلِّيمِتْراً')
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:كجم|كغم)/g, '$1 كِيلُوغْرَاماً')
+    .replace(/160\/2023/g, 'مِئَةٍ وَسِتِّينَ لِسَنَةِ أَلْفَيْنِ وَثَلَاثَةٍ وَعِشْرِينَ');
 
   // Apply Omani & agricultural pronunciation dictionary (longest match first)
   for (const entry of SORTED_DICTIONARY) {

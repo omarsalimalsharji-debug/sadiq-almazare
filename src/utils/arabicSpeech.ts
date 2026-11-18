@@ -4,24 +4,35 @@
  * Splits text into short natural chunks to avoid browser speechSynthesis stalls.
  */
 
+import { prepareArabicTextForTts } from './arabicPronunciation.ts';
+
 export function scoreArabicVoice(voice: SpeechSynthesisVoice): number {
   const lang = (voice.lang || '').toLowerCase();
+  const name = (voice.name || '').toLowerCase();
   if (!lang.startsWith('ar')) return -1;
 
-  let score = 10;
+  let score = 20;
   if (lang === 'ar-om' || lang.startsWith('ar-om')) {
-    score = 100;
+    score = 110;
   } else if (lang === 'ar-sa' || lang.startsWith('ar-sa')) {
-    score = 80;
+    score = 92;
   } else if (lang === 'ar-ae' || lang === 'ar-qa' || lang === 'ar-bh' || lang === 'ar-kw') {
-    score = 65;
-  } else if (lang === 'ar-001' || lang === 'ar') {
-    score = 50;
+    score = 78;
+  } else if (lang === 'ar-001' || lang === 'ar' || lang.startsWith('ar-eg') || lang.startsWith('ar-jo')) {
+    score = 60;
   }
 
-  // Prefer device-installed local voices for offline reliability
-  if (voice.localService) {
-    score += 8;
+  // Strongly prefer natural human neural/OS voices over robotic synthesizers
+  if (/natural|neural|online|google|hamed|maged|tarik|zeina|salma|laila|shakir|zariyah/.test(name)) {
+    score += 24;
+  }
+  if (/espeak|festival|pico|compact|mbrola/.test(name)) {
+    score -= 70;
+  }
+
+  // Slight reliability bonus for offline local voices (unless flagged robotic)
+  if (voice.localService && !/espeak|compact/.test(name)) {
+    score += 6;
   }
   return score;
 }
@@ -45,7 +56,7 @@ export function splitPageIntoParagraphs(content: string): string[] {
 }
 
 export function normalizeTextForArabicSpeech(text: string): string {
-  return text
+  const deTagged = text
     .replace(/\[م\/ت\]/g, '، موثق بسمائل ويحتاج تحققاً ميدانياً، ')
     .replace(/\[ج\/ت\]/g, '، موثق بولاية مجاورة ويحتاج تحققاً، ')
     .replace(/\[ع\/ت\]/g, '، معرفة عامة وتحتاج تحققاً، ')
@@ -58,6 +69,7 @@ export function normalizeTextForArabicSpeech(text: string): string {
     .replace(/^[•\-–]\s*/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+  return prepareArabicTextForTts(deTagged);
 }
 
 /**

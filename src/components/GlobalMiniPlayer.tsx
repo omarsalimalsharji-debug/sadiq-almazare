@@ -46,7 +46,7 @@ export const GlobalMiniPlayer: React.FC<GlobalMiniPlayerProps> = ({ onNavigate }
 
   return (
     <div
-      className="fixed bottom-16 sm:bottom-0 left-0 right-0 z-40 px-3 pb-2 sm:pb-3 pointer-events-none transition-all duration-300"
+      className="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 px-3 pb-2 md:pb-3 pointer-events-none transition-all duration-300"
       aria-label="مشغل الصوت المصغر المستمر"
     >
       <div className="max-w-4xl mx-auto bg-[#132247]/95 backdrop-blur-xl text-white rounded-2xl shadow-2xl border border-sky-300/20 overflow-hidden pointer-events-auto">

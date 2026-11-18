@@ -4,6 +4,10 @@
 
 export type ActivePage =
   | 'home'
+  | 'hub_crops'
+  | 'hub_advisor'
+  | 'hub_knowledge'
+  | 'hub_games'
   | 'plant_diagnosis'
   | 'pest_diagnosis'
   | 'cartoon_videos'

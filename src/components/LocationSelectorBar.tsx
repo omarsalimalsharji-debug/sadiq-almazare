@@ -89,7 +89,7 @@ export const LocationSelectorBar: React.FC<LocationSelectorBarProps> = ({ lang =
             type="button"
             onClick={detectGpsLocation}
             disabled={gpsStatus === 'requesting'}
-            className="min-h-[40px] px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-500/12 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-60 whitespace-nowrap"
+            className="min-h-[44px] px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-500/12 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-60 whitespace-nowrap"
             title={lang === 'ar' ? 'تحديد الموقع عبر GPS (اختياري)' : 'Detect GPS Location'}
           >
             {gpsStatus === 'requesting' ? (
@@ -105,7 +105,7 @@ export const LocationSelectorBar: React.FC<LocationSelectorBarProps> = ({ lang =
           <button
             type="button"
             onClick={saveAsFavorite}
-            className={`min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
+            className={`min-h-[44px] min-w-[44px] px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               isCurrentFavorite
                 ? 'bg-amber-500/15 border-amber-400/40 text-amber-600 dark:text-amber-300'
                 : 'bg-slate-50 dark:bg-[#0b1329]/70 border-slate-200 dark:border-sky-300/15 text-slate-600 dark:text-slate-300 hover:border-amber-400/40'
@@ -119,7 +119,7 @@ export const LocationSelectorBar: React.FC<LocationSelectorBarProps> = ({ lang =
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="min-h-[40px] px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#0b1329]/80 hover:bg-slate-200 dark:hover:bg-[#0b1329] border border-slate-200 dark:border-sky-300/15 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap"
+            className="min-h-[44px] px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#0b1329]/80 hover:bg-slate-200 dark:hover:bg-[#0b1329] border border-slate-200 dark:border-sky-300/15 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap"
           >
             <span>{lang === 'ar' ? (expanded ? 'إغلاق' : 'تغيير الموقع') : (expanded ? 'Close' : 'Change')}</span>
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}

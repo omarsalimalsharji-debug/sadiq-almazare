@@ -21,9 +21,12 @@ import { OfflineIndicator } from './components/OfflineIndicator.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { LocationSelectorBar } from './components/LocationSelectorBar.tsx';
 import { ShareProvider } from './context/ShareContext.tsx';
+import { stopAllMurshidAudio } from './utils/murshidAudio.ts';
+import { ArrowRight, ArrowLeft, Home as HomeIcon } from 'lucide-react';
 
-// Primary Home View (eager) + Secondary Views (lazy-loaded)
+// Primary Home View + Category Hubs (eager) & Secondary Views (lazy-loaded)
 import { HomeView } from './components/HomeView.tsx';
+import { CategoryHubView, HubPageId } from './components/CategoryHubView.tsx';
 const PlantDiagnosisView = lazy(() => import('./components/PlantDiagnosisView.tsx').then(m => ({ default: m.PlantDiagnosisView })));
 const PestDiagnosisView = lazy(() => import('./components/PestDiagnosisView.tsx').then(m => ({ default: m.PestDiagnosisView })));
 const CartoonVideosView = lazy(() => import('./components/CartoonVideosView.tsx').then(m => ({ default: m.CartoonVideosView })));
@@ -53,6 +56,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 const VALID_PAGES: Set<ActivePage> = new Set([
   'home',
+  'hub_crops',
+  'hub_advisor',
+  'hub_knowledge',
+  'hub_games',
   'plant_diagnosis',
   'pest_diagnosis',
   'cartoon_videos',
@@ -75,6 +82,43 @@ const VALID_PAGES: Set<ActivePage> = new Set([
   'login',
   'admin',
 ]);
+
+const LOCATION_PAGES: Set<ActivePage> = new Set([
+  'hub_crops',
+  'plant_diagnosis',
+  'pest_diagnosis',
+  'weather',
+  'alerts',
+  'calendar',
+  'daily_tips',
+]);
+
+function getParentHubInfo(page: ActivePage, lang: 'ar' | 'en'): { hubId: HubPageId; label: string } | null {
+  switch (page) {
+    case 'plant_diagnosis':
+    case 'pest_diagnosis':
+    case 'weather':
+    case 'alerts':
+    case 'calendar':
+      return { hubId: 'hub_crops', label: lang === 'ar' ? 'العناية بالمحاصيل' : 'Crops Care' };
+    case 'community':
+    case 'daily_tips':
+    case 'quran':
+    case 'radio':
+      return { hubId: 'hub_advisor', label: lang === 'ar' ? 'مرشدك الزراعي' : 'Agri Guide' };
+    case 'library':
+    case 'encyclopedia':
+    case 'cartoon_videos':
+      return { hubId: 'hub_knowledge', label: lang === 'ar' ? 'المعلومات والمكتبة' : 'Knowledge' };
+    case 'murshid_adventures':
+    case 'games':
+    case 'cultural_quiz':
+    case 'leaderboard':
+      return { hubId: 'hub_games', label: lang === 'ar' ? 'الألعاب والتسلية' : 'Games' };
+    default:
+      return null;
+  }
+}
 
 function readInitialDeepLink(): { page: ActivePage; itemId: string | null } {
   if (typeof window === 'undefined') return { page: 'home', itemId: null };
@@ -104,9 +148,10 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(0);
 
-  const handleNavigate = useCallback((page: ActivePage) => {
+  const handleNavigate = useCallback((page: ActivePage, itemId?: string) => {
+    stopAllMurshidAudio();
     setActivePage(page);
-    setDeepLinkItemId(null);
+    setDeepLinkItemId(itemId || null);
     if (typeof window !== 'undefined' && window.location.search) {
       try {
         window.history.replaceState({}, '', window.location.pathname);
@@ -115,6 +160,11 @@ export default function App() {
       }
     }
   }, []);
+
+  // Ensure any active speech or scene playback stops cleanly on every route switch
+  useEffect(() => {
+    stopAllMurshidAudio();
+  }, [activePage]);
 
   // Language state (ar / en)
   const [lang, setLang] = useState<'ar' | 'en'>(() => {
@@ -390,7 +440,13 @@ export default function App() {
       initialVillage={user.village}
       onLocationSync={handleLocationSync}
     >
-    <div className="min-h-screen overflow-x-hidden flex flex-col bg-slate-50 text-slate-900 dark:bg-[#0b1329] dark:text-slate-100 navy-ambient-bg transition-colors duration-300 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-12">
+    <div
+      className={`min-h-[100dvh] overflow-x-hidden flex flex-col bg-[#f7faf6] text-slate-900 dark:bg-[#0b1329] dark:text-slate-100 navy-ambient-bg transition-colors duration-300 ${
+        activePage === 'home'
+          ? 'pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:pb-5'
+          : 'pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-10'
+      }`}
+    >
       
       {/* Comprehensive Header with Top Bar Contract & Hamburger */}
       <Header
@@ -418,6 +474,7 @@ export default function App() {
         user={user}
         onToggleLogin={() => setIsLoginModalOpen(true)}
         lang={lang}
+        onToggleLang={toggleLanguage}
       />
 
       {/* Slide-over Notification Center */}
@@ -441,16 +498,68 @@ export default function App() {
       />
 
       {/* Main Content View Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <LocationSelectorBar lang={lang} />
-        <ErrorBoundary onGoHome={() => setActivePage('home')}>
+      <main
+        className={`flex-1 max-w-7xl w-full mx-auto flex flex-col ${
+          activePage === 'home'
+            ? 'px-3 py-2.5 sm:px-6 sm:py-5 min-h-0'
+            : 'px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-6'
+        }`}
+      >
+        {LOCATION_PAGES.has(activePage) && <LocationSelectorBar lang={lang} />}
+
+        {/* Quick Mobile-First Subpage Return Bar */}
+        {activePage !== 'home' &&
+          activePage !== 'hub_crops' &&
+          activePage !== 'hub_advisor' &&
+          activePage !== 'hub_knowledge' &&
+          activePage !== 'hub_games' && (() => {
+            const parent = getParentHubInfo(activePage, lang);
+            const BackArrow = lang === 'ar' ? ArrowRight : ArrowLeft;
+            return (
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                {parent ? (
+                  <button
+                    type="button"
+                    onClick={() => handleNavigate(parent.hubId)}
+                    className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#132247] hover:bg-slate-100 dark:hover:bg-[#1a2e5c] border border-slate-200 dark:border-sky-300/20 text-slate-800 dark:text-white font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
+                  >
+                    <BackArrow className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>{lang === 'ar' ? `العودة إلى ${parent.label}` : `Back to ${parent.label}`}</span>
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('home')}
+                  className="min-h-[40px] px-3 py-1.5 rounded-xl bg-slate-100/90 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <HomeIcon className="w-3.5 h-3.5" />
+                  <span>{lang === 'ar' ? 'الرئيسية' : 'Home'}</span>
+                </button>
+              </div>
+            );
+          })()}
+
+        <ErrorBoundary onGoHome={() => handleNavigate('home')}>
         {activePage === 'home' && (
           <HomeView
-            onNavigate={setActivePage}
+            onNavigate={handleNavigate}
             isRamadanMode={hijriState.occasion === 'ramadan'}
             hijriState={hijriState}
             seasonalConfig={seasonalConfig}
             user={user}
+            lang={lang}
+          />
+        )}
+
+        {(activePage === 'hub_crops' ||
+          activePage === 'hub_advisor' ||
+          activePage === 'hub_knowledge' ||
+          activePage === 'hub_games') && (
+          <CategoryHubView
+            hubId={activePage}
+            user={user}
+            isRamadanMode={hijriState.occasion === 'ramadan'}
+            onNavigate={handleNavigate}
             lang={lang}
           />
         )}
@@ -630,39 +739,41 @@ export default function App() {
       <BottomNav
         activePage={activePage}
         onNavigate={handleNavigate}
-        onOpenSidebar={() => setIsSidebarOpen(true)}
+        unreadNotificationsCount={unreadNotifsCount}
         lang={lang}
       />
 
-      {/* Footer honoring Founder & Director Omar bin Salem Al-Sharji */}
-      <footer className="w-full border-t border-slate-200 dark:border-sky-300/15 bg-white/70 dark:bg-[#132247]/50 backdrop-blur-md py-8 px-4 text-center text-xs text-slate-500 dark:text-slate-300/80 mt-auto">
-        <div className="max-w-7xl mx-auto space-y-2">
-          <div className="font-bold text-slate-900 dark:text-white text-sm">
-            {lang === 'ar'
-              ? 'تطبيق «صديق المزارع الذكي» · سلطنة عُمان'
-              : "Smart Farmer's Friend · Sultanate of Oman"}
-          </div>
-          <div className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
-            {lang === 'ar'
-              ? 'صاحب فكرة المشروع ومديره: عمر بن سالم الشرجي – سلطنة عُمان'
-              : 'Founder & Program Director: Omar bin Salem Al-Sharji – Oman'}
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
-            <span>
+      {/* Footer rendered on internal pages so Home remains a crisp zero-scroll screen */}
+      {activePage !== 'home' && (
+        <footer className="w-full border-t border-slate-200 dark:border-sky-300/15 bg-white/70 dark:bg-[#132247]/50 backdrop-blur-md py-6 px-4 text-center text-xs text-slate-500 dark:text-slate-300/80 mt-auto">
+          <div className="max-w-7xl mx-auto space-y-1.5">
+            <div className="font-bold text-slate-900 dark:text-white text-sm">
               {lang === 'ar'
-                ? `جميع الحقوق محفوظة © ${new Date().getFullYear()}`
-                : `All rights reserved © ${new Date().getFullYear()}`}
-            </span>
-            <span>·</span>
-            <a
-              href="tel:94896333"
-              className="text-emerald-700 dark:text-emerald-400 font-semibold tabular-nums hover:underline"
-            >
-              {lang === 'ar' ? 'للتواصل والدعم: 94896333' : 'Direct Support: 94896333'}
-            </a>
+                ? 'تطبيق «صديق المزارع الذكي» · سلطنة عُمان'
+                : "Smart Farmer's Friend · Sultanate of Oman"}
+            </div>
+            <div className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
+              {lang === 'ar'
+                ? 'صاحب فكرة المشروع ومديره: عمر بن سالم الشرجي – سلطنة عُمان'
+                : 'Founder & Program Director: Omar bin Salem Al-Sharji – Oman'}
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+              <span>
+                {lang === 'ar'
+                  ? `جميع الحقوق محفوظة © ${new Date().getFullYear()}`
+                  : `All rights reserved © ${new Date().getFullYear()}`}
+              </span>
+              <span>·</span>
+              <a
+                href="tel:94896333"
+                className="text-emerald-700 dark:text-emerald-400 font-semibold tabular-nums hover:underline"
+              >
+                {lang === 'ar' ? 'للتواصل والدعم: 94896333' : 'Direct Support: 94896333'}
+              </a>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
     </div>
     </LocationProvider>

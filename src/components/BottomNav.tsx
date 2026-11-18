@@ -1,83 +1,94 @@
 import React from 'react';
-import {
-  Home,
-  Gamepad2,
-  Scan,
-  Clapperboard,
-  Radio,
-  Menu
-} from 'lucide-react';
+import { Home, Bell, Trophy, Info } from 'lucide-react';
 import { ActivePage } from '../types/index.ts';
 import { TRANSLATIONS } from '../utils/i18n.ts';
 
 interface BottomNavProps {
   activePage: ActivePage;
   onNavigate: (page: ActivePage) => void;
-  onOpenSidebar: () => void;
+  unreadNotificationsCount?: number;
   lang?: 'ar' | 'en';
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activePage,
   onNavigate,
-  onOpenSidebar,
-  lang = 'ar'
+  unreadNotificationsCount = 0,
+  lang = 'ar',
 }) => {
   const t = TRANSLATIONS[lang];
 
-  const tabs = [
-    { id: 'home' as ActivePage, label: t.home, icon: Home },
-    { id: 'murshid_adventures' as ActivePage, label: lang === 'ar' ? 'المغامرات' : 'Adventures', icon: Gamepad2 },
-    { id: 'plant_diagnosis' as ActivePage, label: lang === 'ar' ? 'الفحص' : 'Diagnose', icon: Scan },
-    { id: 'cartoon_videos' as ActivePage, label: lang === 'ar' ? 'حلقات مرشد' : 'Episodes', icon: Clapperboard },
-    { id: 'quran' as ActivePage, label: lang === 'ar' ? 'الإعلام' : 'Media', icon: Radio },
+  const tabs: Array<{
+    id: ActivePage;
+    label: string;
+    icon: React.ElementType;
+    matchPages?: ActivePage[];
+    badgeCount?: number;
+  }> = [
+    {
+      id: 'home',
+      label: t.home,
+      icon: Home,
+      matchPages: ['hub_crops', 'hub_advisor', 'hub_knowledge', 'hub_games'],
+    },
+    {
+      id: 'alerts',
+      label: t.alerts,
+      icon: Bell,
+      matchPages: ['weather'],
+      badgeCount: unreadNotificationsCount,
+    },
+    {
+      id: 'leaderboard',
+      label: t.navAchievements,
+      icon: Trophy,
+      matchPages: ['profile'],
+    },
+    {
+      id: 'help_support',
+      label: t.navAboutApp,
+      icon: Info,
+    },
   ];
 
   return (
     <nav
-      className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#132247]/95 backdrop-blur-xl border-t border-slate-200 dark:border-sky-300/15 transition-colors pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_-8px_rgba(3,7,18,0.45)]"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/98 dark:bg-[#132247]/98 border-t border-slate-200/90 dark:border-sky-300/15 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_-6px_rgba(3,7,18,0.22)]"
       aria-label={t.menu}
     >
-      <div className="grid grid-cols-6 min-h-[64px] items-center px-1">
+      <div className="grid grid-cols-4 h-[60px] items-center px-2 gap-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive =
-            activePage === tab.id ||
-            (tab.id === 'quran' && activePage === 'radio') ||
-            (tab.id === 'plant_diagnosis' && activePage === 'pest_diagnosis');
+            activePage === tab.id || Boolean(tab.matchPages?.includes(activePage));
 
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => onNavigate(tab.id)}
-              className={`min-h-[48px] flex flex-col items-center justify-center transition-colors text-[10px] whitespace-nowrap px-0.5 ${
+              className={`relative min-h-[48px] h-12 rounded-2xl flex flex-col items-center justify-center transition-colors text-[11px] whitespace-nowrap px-1 ${
                 isActive
-                  ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-                  : 'text-slate-500 dark:text-slate-300/75 hover:text-slate-900 dark:hover:text-white font-medium'
+                  ? 'bg-emerald-600 text-white font-extrabold shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold'
               }`}
             >
-              <div
-                className={`p-1.5 rounded-xl transition-colors ${
-                  isActive ? 'bg-emerald-500/15 dark:bg-emerald-400/20' : ''
-                }`}
-              >
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.8]'}`} />
+              <div className="relative flex items-center justify-center">
+                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.3]' : 'stroke-[1.9]'}`} />
+                {tab.badgeCount && tab.badgeCount > 0 ? (
+                  <span
+                    className={`absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center ${
+                      isActive ? 'bg-amber-400 text-slate-950' : 'bg-rose-600 text-white'
+                    }`}
+                  >
+                    {tab.badgeCount}
+                  </span>
+                ) : null}
               </div>
               <span className="truncate max-w-full mt-0.5 tracking-tight">{tab.label}</span>
             </button>
           );
         })}
-
-        {/* Menu Drawer Trigger */}
-        <button
-          onClick={onOpenSidebar}
-          className="min-h-[48px] flex flex-col items-center justify-center text-slate-500 dark:text-slate-300/75 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-[10px] font-medium whitespace-nowrap px-0.5"
-        >
-          <div className="p-1.5 rounded-xl">
-            <Menu className="w-5 h-5 stroke-[1.8]" />
-          </div>
-          <span className="truncate max-w-full mt-0.5 tracking-tight">{t.menu}</span>
-        </button>
       </div>
     </nav>
   );

@@ -73,24 +73,24 @@ export const HelpSupportView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       
       {/* Header */}
-      <div className="border-b border-slate-200 dark:border-sky-300/15 pb-4">
+      <div className="border-b border-slate-200 dark:border-sky-300/15 pb-3.5">
         <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
           <HelpCircle className="w-4 h-4" />
-          <span>مركز الدعم والتوجيه الفني</span>
+          <span>عن التطبيق · مركز الدعم والتوجيه</span>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-          المساعدة والدعم وتوثيق التطبيق
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+          عن «صديق المزارع» والمساعدة والدعم
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-0.5">
-          دليل الاستخدام، الأسئلة الشائعة، ومعلومات التواصل مع إدارة منصة «صديق المزارع الذكي».
+          التعريف بالمنصة وصاحب الفكرة، الأسئلة الشائعة، والتواصل المباشر مع الإدارة.
         </p>
       </div>
 
       {/* Leadership / Founder Card */}
-      <div className="rounded-3xl bg-gradient-to-r from-[#132247] via-[#0e1936] to-emerald-950/90 text-white p-6 sm:p-8 shadow-lg border border-sky-300/20 space-y-4">
+      <div className="rounded-3xl bg-gradient-to-r from-[#132247] via-[#0e1936] to-emerald-950/90 text-white p-5 sm:p-7 shadow-lg border border-sky-300/20 space-y-3.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center font-bold text-2xl">

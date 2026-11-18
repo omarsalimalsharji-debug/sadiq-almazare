@@ -607,29 +607,39 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-stone-950/80 backdrop-blur-md">
           <div className="bg-white dark:bg-stone-900 w-full max-w-5xl h-[92vh] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-stone-200 dark:border-stone-800">
             {/* Viewer Top Bar */}
-            <div className="p-3 sm:p-4 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between gap-2 bg-stone-50/80 dark:bg-stone-900">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white truncate">
-                    {activeReadingBook.title}
-                  </h3>
-                  <div className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
-                    {activeReadingBook.author}
+            <div className="p-3 sm:p-4 border-b border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-stone-50/80 dark:bg-stone-900">
+              <div className="flex items-center justify-between gap-2.5 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white truncate">
+                      {activeReadingBook.title}
+                    </h3>
+                    <div className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
+                      {activeReadingBook.author}
+                    </div>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => setActiveReadingBook(null)}
+                  className="sm:hidden min-h-[42px] min-w-[42px] p-2 rounded-xl text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors flex items-center justify-center shrink-0"
+                  aria-label="إغلاق قارئ الكتاب"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
               {/* Reader Controls */}
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                 {activeReadingBook.pdfUrl && (
                   <div className="inline-flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
                     <button
                       type="button"
                       onClick={() => setReaderMode('text')}
-                      className={`min-h-[32px] px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap ${
+                      className={`min-h-[36px] px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap ${
                         readerMode === 'text'
                           ? 'bg-emerald-600 text-white shadow-sm'
                           : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
@@ -640,7 +650,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setReaderMode('pdf')}
-                      className={`min-h-[32px] px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap ${
+                      className={`min-h-[36px] px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap ${
                         readerMode === 'pdf'
                           ? 'bg-emerald-600 text-white shadow-sm'
                           : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
@@ -655,7 +665,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowChaptersMenu((v) => !v)}
-                    className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
+                    className={`min-h-[40px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
                       showChaptersMenu
                         ? 'bg-emerald-600 text-white border-emerald-600'
                         : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700'
@@ -671,7 +681,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowLegendBox((v) => !v)}
-                    className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
+                    className={`min-h-[40px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
                       showLegendBox
                         ? 'bg-amber-600 text-white border-amber-600'
                         : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
@@ -686,7 +696,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleDownloadBook(activeReadingBook)}
-                  className="min-h-[38px] px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 flex items-center gap-1"
+                  className="min-h-[40px] px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 flex items-center gap-1"
                   title="تحميل وحفظ دون إنترنت"
                 >
                   <Download className="w-3.5 h-3.5 text-emerald-600" />
@@ -696,7 +706,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleShare(activeReadingBook)}
-                  className="min-h-[38px] px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1"
+                  className="min-h-[40px] px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1"
                   title="مشاركة الكتاب"
                 >
                   <Share2 className="w-3.5 h-3.5" />
@@ -727,7 +737,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
                 <button
                   onClick={() => setActiveReadingBook(null)}
-                  className="min-h-[38px] min-w-[38px] p-2 rounded-lg text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors flex items-center justify-center"
+                  className="hidden sm:flex min-h-[40px] min-w-[40px] p-2 rounded-lg text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors items-center justify-center"
                   aria-label="إغلاق قارئ الكتاب"
                 >
                   <X className="w-5 h-5" />

@@ -130,6 +130,8 @@ export const MURSHID_PHRASES = {
   ],
 };
 
+const lastPickedByChannel = new Map<string, number>();
+
 export function pickVariedPhrase(list: string[], seedIndex?: number): string {
   if (!list.length) return '';
   const idx =
@@ -137,4 +139,14 @@ export function pickVariedPhrase(list: string[], seedIndex?: number): string {
       ? Math.abs(seedIndex) % list.length
       : Math.floor(Math.random() * list.length);
   return list[idx];
+}
+
+export function pickFreshPhrase(channelKey: string, list: string[]): string {
+  if (!list.length) return '';
+  if (list.length === 1) return list[0];
+  const prev = lastPickedByChannel.get(channelKey);
+  const candidates = list.map((_, idx) => idx).filter((idx) => idx !== prev);
+  const chosen = candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
+  lastPickedByChannel.set(channelKey, chosen);
+  return list[chosen];
 }

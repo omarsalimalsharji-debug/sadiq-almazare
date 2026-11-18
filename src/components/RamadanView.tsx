@@ -11,10 +11,13 @@ import {
   ChevronLeft, 
   BookOpen, 
   Share2,
-  ShieldCheck
+  ShieldCheck,
+  Volume2,
+  Square
 } from 'lucide-react';
 import { RAMADAN_30_FACTS, RAMADAN_NUTRITION_TIPS, RamadanInsight, RamadanNutritionTip } from '../data/agriculturalData.ts';
 import { useShare } from '../context/ShareContext.tsx';
+import { speakMurshid, stopAllMurshidAudio } from '../utils/murshidAudio.ts';
 
 interface RamadanViewProps {
   initialDay?: number;
@@ -27,12 +30,23 @@ export const RamadanView: React.FC<RamadanViewProps> = ({ initialDay }) => {
     initialDay && initialDay >= 1 && initialDay <= 30 ? initialDay : 14
   );
   const [activeTab, setActiveTab] = useState<'facts' | 'nutrition' | 'archive'>('facts');
+  const [murshidSpeaking, setMurshidSpeaking] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialDay && initialDay >= 1 && initialDay <= 30) {
       setSelectedDay(initialDay);
     }
   }, [initialDay]);
+
+  useEffect(() => {
+    stopAllMurshidAudio(setMurshidSpeaking);
+  }, [selectedDay, activeTab]);
+
+  useEffect(() => {
+    return () => {
+      stopAllMurshidAudio();
+    };
+  }, []);
 
   // Daily greetings rotation
   const RAMADAN_GREETINGS = [
@@ -179,14 +193,47 @@ export const RamadanView: React.FC<RamadanViewProps> = ({ initialDay }) => {
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={handleShareDayContent}
-          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-400/30 text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
-        >
-          <Share2 className="w-4 h-4" />
-          <span>مشاركة بطاقة اليوم</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              if (murshidSpeaking) {
+                stopAllMurshidAudio(setMurshidSpeaking);
+                return;
+              }
+              const speechBody =
+                activeTab === 'nutrition'
+                  ? `النصيحة الغذائية ليوم ${selectedDay} رمضان: ${currentNutrition.item}. ${currentNutrition.intakeAdvice}. ${currentNutrition.provenBenefits.slice(0, 2).join('. ')}`
+                  : `${currentFact.title}. ${currentFact.fact}. ${currentFact.hadithOrWisdom || ''}`;
+              speakMurshid(speechBody, {
+                mood: 'cheerful',
+                onSpeakingChange: setMurshidSpeaking,
+              });
+            }}
+            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+          >
+            {murshidSpeaking ? (
+              <>
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>إيقاف الصوت</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-4 h-4" />
+                <span>استمع بصوت مُرشد</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleShareDayContent}
+            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-400/30 text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>مشاركة بطاقة اليوم</span>
+          </button>
+        </div>
       </div>
 
       {/* Tab 1: 30 Agricultural Facts Card */}

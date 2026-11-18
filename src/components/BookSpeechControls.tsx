@@ -14,7 +14,14 @@ import {
   getSortedArabicVoices,
   pickBestArabicVoice,
 } from '../utils/arabicSpeech.ts';
-import { stopAllMurshidAudio } from '../utils/murshidAudio.ts';
+import {
+  getMurshidAudioPrefs,
+  notifyExternalSpeechStarted,
+  registerExternalMurshidAudioStopper,
+  setExternalSpeechFinished,
+  stopAllMurshidAudio,
+  subscribeMurshidAudioPrefs,
+} from '../utils/murshidAudio.ts';
 
 interface BookSpeechControlsProps {
   paragraphs: string[];
@@ -100,6 +107,7 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
     playbackRunIdRef.current += 1;
     statusRef.current = 'idle';
     setStatus('idle');
+    setExternalSpeechFinished();
     onActiveParagraphChange(null);
     if (isSupported) {
       try {
@@ -110,6 +118,26 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
     }
   }, [isSupported, onActiveParagraphChange]);
 
+  const audioPrefsRef = useRef(getMurshidAudioPrefs());
+  useEffect(() => {
+    const unsubPrefs = subscribeMurshidAudioPrefs((prefs) => {
+      audioPrefsRef.current = prefs;
+      if (prefs.muted && statusRef.current === 'playing') {
+        stopSpeech();
+      }
+    });
+    const unregStopper = registerExternalMurshidAudioStopper(() => {
+      playbackRunIdRef.current += 1;
+      statusRef.current = 'idle';
+      setStatus('idle');
+      onActiveParagraphChange(null);
+    });
+    return () => {
+      unsubPrefs();
+      unregStopper();
+    };
+  }, [onActiveParagraphChange, stopSpeech]);
+
   // Reset cleanly when page changes or modal closes
   useEffect(() => {
     stopSpeech();
@@ -118,6 +146,7 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
 
   useEffect(() => {
     return () => {
+      setExternalSpeechFinished();
       if (isSupported) {
         try {
           window.speechSynthesis.cancel();
@@ -137,8 +166,9 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
         return;
       }
 
-      const runId = ++playbackRunIdRef.current;
       stopAllMurshidAudio();
+      const runId = ++playbackRunIdRef.current;
+      notifyExternalSpeechStarted();
       try {
         window.speechSynthesis.cancel();
       } catch {
@@ -179,7 +209,9 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
           utt.lang = 'ar-OM';
         }
         utt.rate = rateRef.current;
-        utt.pitch = 1.0;
+        utt.pitch = 0.98;
+        const prefs = audioPrefsRef.current;
+        utt.volume = prefs.muted ? 0 : Math.max(0.05, Math.min(1, prefs.volume / 100));
 
         utt.onend = () => {
           if (playbackRunIdRef.current !== runId || statusRef.current !== 'playing') return;

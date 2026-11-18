@@ -5,8 +5,11 @@ import {
   Share2,
   ChevronDown,
   ChevronUp,
+  Volume2,
+  Square,
 } from 'lucide-react';
 import { useShare } from '../context/ShareContext.tsx';
+import { speakMurshid, stopAllMurshidAudio } from '../utils/murshidAudio.ts';
 
 interface Article {
   id: string;
@@ -94,12 +97,19 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({ initialArtic
   const [expandedId, setExpandedId] = useState<string | null>(
     initialArticleId || ENCYCLOPEDIA_ARTICLES[0].id
   );
+  const [speakingArticleId, setSpeakingArticleId] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialArticleId && ENCYCLOPEDIA_ARTICLES.some((a) => a.id === initialArticleId)) {
       setExpandedId(initialArticleId);
     }
   }, [initialArticleId]);
+
+  useEffect(() => {
+    return () => {
+      stopAllMurshidAudio();
+    };
+  }, []);
 
   const filtered = ENCYCLOPEDIA_ARTICLES.filter(a => 
     a.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -192,29 +202,68 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({ initialArtic
                     </div>
                   )}
 
-                  <div className="pt-2 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between gap-3">
+                  <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2.5">
                     <span className="text-[11px] text-stone-500 dark:text-stone-400">
                       الموسوعة الزراعية العمانية · {art.category}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openShare({
-                          kind: 'article',
-                          title: art.title,
-                          summary: art.summary,
-                          highlights: art.tips.slice(0, 3),
-                          categoryLabel: art.category,
-                          page: 'encyclopedia',
-                          itemId: art.id,
-                          authorOrSource: 'الموسوعة الزراعية العمانية',
-                        })
-                      }
-                      className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap transition-colors"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      <span>مشاركة المقال</span>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (speakingArticleId === art.id) {
+                            stopAllMurshidAudio();
+                            setSpeakingArticleId(null);
+                            return;
+                          }
+                          const fullNarration = [
+                            art.title,
+                            art.summary,
+                            ...art.content,
+                            ...(art.tips ? ['إرشادات ميدانية للمزارع:', ...art.tips] : []),
+                          ].join('. ');
+                          speakMurshid(fullNarration, {
+                            mood: 'cheerful',
+                            onSpeakingChange: (speaking) => {
+                              setSpeakingArticleId(speaking ? art.id : null);
+                            },
+                            onEnd: () => setSpeakingArticleId(null),
+                          });
+                        }}
+                        className="min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 whitespace-nowrap transition-colors"
+                      >
+                        {speakingArticleId === art.id ? (
+                          <>
+                            <Square className="w-3.5 h-3.5 fill-current" />
+                            <span>إيقاف القراءة</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-4 h-4" />
+                            <span>استمع بصوت مُرشد</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openShare({
+                            kind: 'article',
+                            title: art.title,
+                            summary: art.summary,
+                            highlights: art.tips.slice(0, 3),
+                            categoryLabel: art.category,
+                            page: 'encyclopedia',
+                            itemId: art.id,
+                            authorOrSource: 'الموسوعة الزراعية العمانية',
+                          })
+                        }
+                        className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap transition-colors"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        <span>مشاركة المقال</span>
+                      </button>
+                    </div>
                   </div>
 
                 </div>

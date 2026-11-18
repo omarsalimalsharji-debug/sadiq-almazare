@@ -204,9 +204,28 @@ export const DailyTipsView: React.FC<DailyTipsViewProps> = ({ initialTipId }) =>
               توجيه نطاقك الزراعي · {location.governorate} — ولاية {location.wilayat} ({location.village})
             </span>
           </div>
-          <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">
-            {agroAdvice.labelAr}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">
+              {agroAdvice.labelAr}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (murshidSpeaking) {
+                  stopAllMurshidAudio(setMurshidSpeaking);
+                } else {
+                  speakMurshid(
+                    `توجيه ولاية ${location.wilayat}: ${agroAdvice.irrigationHint}. المحاصيل الموصى بها: ${agroAdvice.cropsFocus}. مراقبة الآفات: ${agroAdvice.pestWatch}`,
+                    { onSpeakingChange: setMurshidSpeaking }
+                  );
+                }
+              }}
+              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap"
+            >
+              {murshidSpeaking ? <Square className="w-3.5 h-3.5 fill-current" /> : <Volume2 className="w-3.5 h-3.5" />}
+              <span>{murshidSpeaking ? 'إيقاف' : 'استمع لتوجيه ولايتك'}</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
@@ -248,13 +267,13 @@ export const DailyTipsView: React.FC<DailyTipsViewProps> = ({ initialTipId }) =>
           <h3 className="text-xs font-bold text-stone-800 dark:text-slate-200">
             أرشيف النصائح الزراعية الميدانية:
           </h3>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex flex-wrap items-center gap-1.5">
             {TIP_CATEGORIES.map((cat) => (
               <button
                 key={cat}
                 type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
+                className={`min-h-[40px] px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
                   selectedCategory === cat
                     ? 'bg-emerald-600 text-white'
                     : 'bg-stone-100 dark:bg-[#132247] text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-sky-300/15'

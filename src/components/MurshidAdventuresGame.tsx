@@ -36,7 +36,7 @@ import {
   StageMeta,
 } from '../data/murshidAdventureData.ts';
 import { MurshidCharacterSvg, MurshidMood } from './MurshidCharacterSvg.tsx';
-import { MURSHID_PHRASES, pickVariedPhrase } from '../data/murshidDialogue.ts';
+import { MURSHID_PHRASES, pickFreshPhrase } from '../data/murshidDialogue.ts';
 import { MurshidPlantIllustration } from './MurshidPlantIllustrations.tsx';
 import {
   getMurshidAudioPrefs,
@@ -371,7 +371,7 @@ export const MurshidAdventuresGame: React.FC<MurshidAdventuresGameProps> = ({
         setQuizIdx(0);
         setQuizStreak(0);
         setQuizSelected(null);
-        voiceSpeak(meta.introVoiceAr, 'smile');
+        voiceSpeak(`${meta.introVoiceAr} ${MURSHID_QUIZ_QUESTIONS[0]?.questionAr || ''}`, 'think');
       }
     },
     [muted, normalizedVol, voiceSpeak]
@@ -472,11 +472,11 @@ export const MurshidAdventuresGame: React.FC<MurshidAdventuresGameProps> = ({
       setStageScore(nextScore);
       stageScoreRef.current = nextScore;
       playSuccessSfx(muted, normalizedVol);
-      const praise = pickVariedPhrase(MURSHID_PHRASES.correct, plantIdx);
+      const praise = pickFreshPhrase('adv-stage1-right', MURSHID_PHRASES.correct);
       voiceSpeak(`${praise} ${current.successFactAr}`, 'celebrate');
     } else {
       playGentleErrorSfx(muted, normalizedVol);
-      const gentle = pickVariedPhrase(MURSHID_PHRASES.wrongGentle, plantIdx);
+      const gentle = pickFreshPhrase('adv-stage1-wrong', MURSHID_PHRASES.wrongGentle);
       voiceSpeak(`${gentle} الإجابة الصحيحة هي: ${current.correctName}.`, 'gentle_sad');
     }
 
@@ -652,7 +652,7 @@ export const MurshidAdventuresGame: React.FC<MurshidAdventuresGameProps> = ({
       setStageScore(nextScore);
       stageScoreRef.current = nextScore;
       playSuccessSfx(muted, normalizedVol);
-      const praise = pickVariedPhrase(MURSHID_PHRASES.correct, quizIdx + nextStreak);
+      const praise = pickFreshPhrase('adv-stage5-right', MURSHID_PHRASES.correct);
       voiceSpeak(`${praise} ${current.explanationAr}`, 'celebrate');
     } else {
       setQuizStreak(0);
@@ -662,8 +662,12 @@ export const MurshidAdventuresGame: React.FC<MurshidAdventuresGameProps> = ({
 
     setTimeout(() => {
       if (quizIdx + 1 < MURSHID_QUIZ_QUESTIONS.length) {
+        const nextQuestion = MURSHID_QUIZ_QUESTIONS[quizIdx + 1];
         setQuizIdx((p) => p + 1);
         setQuizSelected(null);
+        if (nextQuestion?.questionAr) {
+          voiceSpeak(nextQuestion.questionAr, 'think');
+        }
       } else {
         completeStage('agri_quiz', nextScore);
       }

@@ -7,6 +7,7 @@
  */
 
 import { prepareArabicTextForTts } from './arabicPronunciation.ts';
+import { pickBestArabicVoice } from './arabicSpeech.ts';
 
 export interface MurshidAudioPrefs {
   muted: boolean;
@@ -23,27 +24,74 @@ let activePlaybackToken = 0;
 let activeSpeechTimer: ReturnType<typeof setTimeout> | null = null;
 let activeHtmlAudio: HTMLAudioElement | null = null;
 let activeSpeakerSetter: ((speaking: boolean) => void) | null = null;
+let globalSpeaking = false;
+let mediaPauseHook: (() => void) | null = null;
 const externalStoppers = new Set<() => void>();
 const prefsListeners = new Set<(prefs: MurshidAudioPrefs) => void>();
+const speakingListeners = new Set<(speaking: boolean) => void>();
 
 const studioAudioSessionCache = new Map<string, string>();
 let studioTtsCooldownUntil = 0;
 
+function notifyGlobalSpeaking(speaking: boolean) {
+  if (globalSpeaking === speaking) return;
+  globalSpeaking = speaking;
+  speakingListeners.forEach((cb) => {
+    try {
+      cb(speaking);
+    } catch {
+      // ignore subscriber errors
+    }
+  });
+}
+
+export function isMurshidSpeakingNow(): boolean {
+  return globalSpeaking;
+}
+
+export function subscribeMurshidSpeaking(listener: (speaking: boolean) => void): () => void {
+  speakingListeners.add(listener);
+  listener(globalSpeaking);
+  return () => {
+    speakingListeners.delete(listener);
+  };
+}
+
+export function registerMediaPauseHook(hook: () => void): () => void {
+  mediaPauseHook = hook;
+  return () => {
+    if (mediaPauseHook === hook) mediaPauseHook = null;
+  };
+}
+
+export function notifyExternalSpeechStarted() {
+  try {
+    mediaPauseHook?.();
+  } catch {
+    // ignore
+  }
+  notifyGlobalSpeaking(true);
+}
+
+export function setExternalSpeechFinished() {
+  notifyGlobalSpeaking(false);
+}
+
 function readStoredPrefs(): MurshidAudioPrefs {
-  if (typeof window === 'undefined') return { muted: false, volume: 80 };
+  if (typeof window === 'undefined') return { muted: false, volume: 85 };
   try {
     const raw = localStorage.getItem(PREFS_STORAGE_KEY);
-    if (!raw) return { muted: false, volume: 80 };
+    if (!raw) return { muted: false, volume: 85 };
     const parsed = JSON.parse(raw);
     return {
       muted: Boolean(parsed?.muted),
       volume:
         typeof parsed?.volume === 'number'
           ? Math.max(0, Math.min(100, Math.round(parsed.volume)))
-          : 80,
+          : 85,
     };
   } catch {
-    return { muted: false, volume: 80 };
+    return { muted: false, volume: 85 };
   }
 }
 
@@ -81,7 +129,11 @@ export function setMurshidMuted(muted: boolean) {
 
 export function setMurshidVolume(volume: number) {
   const clamped = Math.max(0, Math.min(100, Math.round(volume)));
-  const next = { ...currentPrefs, volume: clamped, muted: clamped === 0 ? true : currentPrefs.muted };
+  const next = {
+    ...currentPrefs,
+    volume: clamped,
+    muted: clamped === 0 ? true : currentPrefs.muted && clamped > 0 ? false : currentPrefs.muted,
+  };
   persistAndNotifyPrefs(next);
   if (activeHtmlAudio) {
     activeHtmlAudio.volume = Math.max(0, Math.min(1, clamped / 100));
@@ -230,24 +282,17 @@ export function initArabicVoices(): SpeechSynthesisVoice[] {
   }
 }
 
-function pickBestMurshidVoice(): SpeechSynthesisVoice | null {
+export function pickBestMurshidVoice(): SpeechSynthesisVoice | null {
   const voices = initArabicVoices();
   if (!voices.length) return null;
-  return (
-    voices.find((v) => v.lang.toLowerCase() === 'ar-om') ||
-    voices.find((v) => v.lang.toLowerCase() === 'ar-sa') ||
-    voices.find((v) => v.lang.toLowerCase() === 'ar-ae') ||
-    voices.find((v) => v.lang.toLowerCase().startsWith('ar') && v.localService) ||
-    voices.find((v) => v.lang.toLowerCase().startsWith('ar')) ||
-    null
-  );
+  return pickBestArabicVoice(voices);
 }
 
 /**
  * Splits long Arabic utterances into <= 135 character chunks along punctuation
  * so Android Chrome Web Speech API never cuts off speech after ~15 seconds.
  */
-function chunkArabicSpeech(text: string, maxLen = 135): string[] {
+export function chunkArabicSpeech(text: string, maxLen = 135): string[] {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return [];
   if (normalized.length <= maxLen) return [normalized];
@@ -329,6 +374,7 @@ export function stopAllMurshidAudio(onSpeakingChange?: (speaking: boolean) => vo
   });
   activeSpeakerSetter?.(false);
   activeSpeakerSetter = null;
+  notifyGlobalSpeaking(false);
   onSpeakingChange?.(false);
 }
 
@@ -349,7 +395,7 @@ export async function speakMurshid(
   const {
     muted: mutedOpt,
     volume: volumeOpt,
-    rate = 0.98,
+    rate = 0.94,
     mood = 'cheerful',
     preferStudioAudio = false,
     onSpeakingChange,
@@ -359,32 +405,40 @@ export async function speakMurshid(
   const eff = resolveEffectiveAudio(mutedOpt, volumeOpt);
   stopAllMurshidAudio(onSpeakingChange);
 
-  const clean = text.trim();
-  if (!clean) {
+  const cleanRaw = text.trim();
+  if (!cleanRaw) {
     onEnd?.();
     return;
   }
 
+  const vocalized = prepareArabicTextForTts(cleanRaw) || cleanRaw;
   const token = activePlaybackToken;
   activeSpeakerSetter = onSpeakingChange || null;
 
-  // When muted or Web Speech is unavailable, animate subtle speaking beat then settle
+  // When muted or volume is zero, animate subtle speaking beat then settle cleanly
   if (eff.muted || eff.volume <= 0.01) {
     onSpeakingChange?.(true);
-    const estMs = Math.min(3200, Math.max(1000, clean.length * 40));
+    const estMs = Math.min(2800, Math.max(900, cleanRaw.length * 36));
     activeSpeechTimer = setTimeout(() => {
       if (activePlaybackToken !== token) return;
       onSpeakingChange?.(false);
       activeSpeakerSetter = null;
+      notifyGlobalSpeaking(false);
       onEnd?.();
     }, estMs);
     return;
   }
 
+  // Pause Quran/Radio so two Arabic voices never talk over each other
+  try {
+    mediaPauseHook?.();
+  } catch {
+    // ignore
+  }
+
   // Optional server studio TTS clip (cached per session, graceful cooldown fallback)
   if (preferStudioAudio && Date.now() >= studioTtsCooldownUntil) {
     try {
-      const vocalized = prepareArabicTextForTts(clean);
       const cacheKey = `${mood}:${vocalized}`;
       let base64Audio = studioAudioSessionCache.get(cacheKey);
       if (!base64Audio) {
@@ -411,7 +465,7 @@ export async function speakMurshid(
       if (base64Audio && typeof Audio !== 'undefined' && activePlaybackToken === token) {
         const el = new Audio(`data:audio/wav;base64,${base64Audio}`);
         el.volume = eff.volume;
-        el.playbackRate = rate;
+        el.playbackRate = Math.max(0.85, Math.min(1.25, rate / 0.94));
         activeHtmlAudio = el;
 
         const finishStudio = () => {
@@ -419,36 +473,40 @@ export async function speakMurshid(
           activeHtmlAudio = null;
           onSpeakingChange?.(false);
           activeSpeakerSetter = null;
+          notifyGlobalSpeaking(false);
           onEnd?.();
         };
 
         el.onended = finishStudio;
         el.onerror = finishStudio;
+        notifyGlobalSpeaking(true);
         onSpeakingChange?.(true);
         await el.play();
         return;
       }
     } catch {
-      // Fall back smoothly to Web Speech API
+      // Fall back smoothly to unified Web Speech API
     }
   }
 
   if (activePlaybackToken !== token) return;
 
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    notifyGlobalSpeaking(true);
     onSpeakingChange?.(true);
-    const estMs = Math.min(3400, Math.max(1100, clean.length * 42));
+    const estMs = Math.min(3400, Math.max(1100, cleanRaw.length * 42));
     activeSpeechTimer = setTimeout(() => {
       if (activePlaybackToken !== token) return;
       onSpeakingChange?.(false);
       activeSpeakerSetter = null;
+      notifyGlobalSpeaking(false);
       onEnd?.();
     }, estMs);
     return;
   }
 
   try {
-    const chunks = chunkArabicSpeech(clean, 135);
+    const chunks = chunkArabicSpeech(vocalized, 135);
     const voice = pickBestMurshidVoice();
 
     const speakChunkAt = (chunkIdx: number) => {
@@ -456,6 +514,7 @@ export async function speakMurshid(
       if (chunkIdx >= chunks.length) {
         onSpeakingChange?.(false);
         activeSpeakerSetter = null;
+        notifyGlobalSpeaking(false);
         onEnd?.();
         return;
       }
@@ -469,7 +528,7 @@ export async function speakMurshid(
       }
       utter.volume = eff.volume;
       utter.rate = rate;
-      utter.pitch = 1.03;
+      utter.pitch = mood === 'warning' ? 0.95 : 0.98;
 
       let settled = false;
       const moveNext = () => {
@@ -483,15 +542,19 @@ export async function speakMurshid(
       };
 
       utter.onstart = () => {
-        if (activePlaybackToken === token) onSpeakingChange?.(true);
+        if (activePlaybackToken === token) {
+          notifyGlobalSpeaking(true);
+          onSpeakingChange?.(true);
+        }
       };
       utter.onend = moveNext;
       utter.onerror = moveNext;
 
+      notifyGlobalSpeaking(true);
       onSpeakingChange?.(true);
       window.speechSynthesis.speak(utter);
 
-      const maxChunkMs = Math.min(9000, Math.max(2200, chunks[chunkIdx].length * 90));
+      const maxChunkMs = Math.min(9500, Math.max(2400, chunks[chunkIdx].length * 95));
       activeSpeechTimer = setTimeout(moveNext, maxChunkMs);
     };
 
@@ -500,6 +563,7 @@ export async function speakMurshid(
     if (activePlaybackToken === token) {
       onSpeakingChange?.(false);
       activeSpeakerSetter = null;
+      notifyGlobalSpeaking(false);
       onEnd?.();
     }
   }

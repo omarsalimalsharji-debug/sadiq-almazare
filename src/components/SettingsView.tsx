@@ -7,12 +7,26 @@ import {
   MoonStar, 
   Bell, 
   Globe,
-  Smartphone
+  Smartphone,
+  Volume2,
+  VolumeX,
+  Play,
+  Square
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { ThemeMode, UserProfile } from '../types/index.ts';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase.ts';
 import { PWAInstallButton } from './PWAInstallButton.tsx';
+import {
+  getMurshidAudioPrefs,
+  MurshidAudioPrefs,
+  setMurshidMuted,
+  setMurshidVolume,
+  speakMurshid,
+  stopAllMurshidAudio,
+  subscribeMurshidAudioPrefs,
+  subscribeMurshidSpeaking,
+} from '../utils/murshidAudio.ts';
 
 interface SettingsViewProps {
   themeMode: ThemeMode;
@@ -37,6 +51,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   lang,
   onToggleLang,
 }) => {
+  const [audioPrefs, setAudioPrefs] = React.useState<MurshidAudioPrefs>(() => getMurshidAudioPrefs());
+  const [murshidSpeaking, setMurshidSpeaking] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    const unsubPrefs = subscribeMurshidAudioPrefs(setAudioPrefs);
+    const unsubSpeak = subscribeMurshidSpeaking(setMurshidSpeaking);
+    return () => {
+      unsubPrefs();
+      unsubSpeak();
+      stopAllMurshidAudio();
+    };
+  }, []);
+
   const currentMuscatTime = new Date().toLocaleTimeString('ar-OM', {
     timeZone: 'Asia/Muscat',
     hour: '2-digit',
@@ -229,6 +256,93 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             />
             <div className="w-11 h-6 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:relative after:block after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
           </label>
+        </div>
+      </div>
+
+      {/* 3b. Unified Murshid Voice & Audio Settings */}
+      <div className="bg-white dark:bg-[#132247] rounded-3xl border border-slate-200 dark:border-sky-300/15 p-5 sm:p-7 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              {audioPrefs.muted || audioPrefs.volume === 0 ? (
+                <VolumeX className="w-5 h-5 text-rose-500" />
+              ) : (
+                <Volume2 className="w-5 h-5" />
+              )}
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                صوت مُرشد والقراءة الصوتية الموحدة
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-300 mt-0.5">
+                نبرة عربية موحدة وواضحة للمحاصيل والولايات العُمانية عبر جميع الشاشات والألعاب والمكتبة.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMurshidMuted(!audioPrefs.muted)}
+            className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold border transition-colors whitespace-nowrap ${
+              audioPrefs.muted || audioPrefs.volume === 0
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600'
+                : 'bg-slate-100 dark:bg-[#0e1936] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-sky-300/15'
+            }`}
+          >
+            {audioPrefs.muted || audioPrefs.volume === 0 ? 'تفعيل الصوت' : 'كتم الصوت'}
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-1">
+          <div className="flex-1 space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-700 dark:text-slate-200">مستوى الصوت العام</span>
+              <span className="font-mono font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                {audioPrefs.muted ? 0 : audioPrefs.volume}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={audioPrefs.muted ? 0 : audioPrefs.volume}
+              onChange={(e) => setMurshidVolume(Number(e.target.value))}
+              aria-label="مستوى صوت مُرشد العام"
+              className="w-full accent-emerald-600 cursor-pointer h-2"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (murshidSpeaking) {
+                stopAllMurshidAudio(setMurshidSpeaking);
+                return;
+              }
+              if (audioPrefs.muted) setMurshidMuted(false);
+              speakMurshid(
+                'حياكم الله في تطبيق صديق المزارع! أنا مرشد، ومستعد لمساعدتكم في الزراعة والري ومكافحة الآفات.',
+                { muted: false, mood: 'cheerful', onSpeakingChange: setMurshidSpeaking }
+              );
+            }}
+            className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 whitespace-nowrap shrink-0 ${
+              murshidSpeaking
+                ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+            }`}
+          >
+            {murshidSpeaking ? (
+              <>
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>إيقاف التجربة</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>تجربة نطق مُرشد</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 

@@ -1294,14 +1294,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      {/* 12-Month Crop Detail Modal */}
+      {/* 12-Month Crop Detail Modal (Bottom-Sheet on Mobile) */}
       {detailCrop && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-stone-950/70 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-5 bg-stone-950/70 backdrop-blur-sm"
           onClick={() => setDetailCrop(null)}
         >
           <div
-            className="w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-white dark:bg-[#0e1936] rounded-2xl border border-stone-200 dark:border-sky-300/20 p-5 sm:p-6 space-y-4 shadow-2xl"
+            className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#0e1936] rounded-t-3xl sm:rounded-2xl border border-stone-200 dark:border-sky-300/20 p-4 sm:p-6 space-y-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3 border-b border-stone-200 dark:border-sky-300/15 pb-3">
@@ -1322,7 +1322,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               <button
                 type="button"
                 onClick={() => setDetailCrop(null)}
-                className="p-2 rounded-xl bg-stone-100 dark:bg-[#132247] text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-white"
+                className="min-h-[44px] min-w-[44px] p-2 rounded-xl bg-stone-100 dark:bg-[#132247] text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-white flex items-center justify-center shrink-0"
                 aria-label="إغلاق الخطة السنوية"
               >
                 <X className="w-5 h-5" />

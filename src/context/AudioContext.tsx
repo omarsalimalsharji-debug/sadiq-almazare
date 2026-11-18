@@ -6,6 +6,7 @@ import {
   QuranSurah, 
   RadioStation 
 } from '../data/agriculturalData.ts';
+import { registerMediaPauseHook, stopAllMurshidAudio } from '../utils/murshidAudio.ts';
 
 export type TrackType = 'quran' | 'radio' | null;
 
@@ -178,7 +179,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.addEventListener('error', onError);
     audio.addEventListener('ended', onEnded);
 
+    const unregMediaHook = registerMediaPauseHook(() => {
+      if (!audio.paused) {
+        audio.pause();
+      }
+    });
+
     return () => {
+      unregMediaHook();
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
       audio.removeEventListener('waiting', onWaiting);
@@ -252,6 +260,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Play Quran Surah
   const playQuran = (surahId?: number) => {
+    stopAllMurshidAudio();
     const targetId = surahId !== undefined ? surahId : currentSurahIdRef.current;
     currentSurahIdRef.current = targetId;
     trackTypeRef.current = 'quran';
@@ -273,6 +282,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Play Live Radio Station
   const playRadio = (stationId: string, stationOverride?: RadioStation) => {
+    stopAllMurshidAudio();
     const targetStation =
       stationOverride ||
       stationsRef.current.find(r => r.id === stationId) ||

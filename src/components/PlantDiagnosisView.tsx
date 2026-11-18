@@ -291,7 +291,11 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       } catch {
         // Ignore storage error
       }
-      if (next) playCaptureSound(true);
+      if (!next) {
+        stopAllMurshidAudio(setMurshidSpeaking);
+      } else {
+        playCaptureSound(true);
+      }
       return next;
     });
   };
@@ -330,6 +334,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   };
 
   const handleResetPhoto = () => {
+    stopAllMurshidAudio(setMurshidSpeaking);
     setSelectedImage(null);
     setResult(null);
     setError(null);
@@ -584,6 +589,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
         safetyNote: '',
       },
     };
+    stopAllMurshidAudio(setMurshidSpeaking);
     setResult(restored);
     setShowScientificDetails(false);
     setShowHistoryDrawer(false);
@@ -1164,18 +1170,28 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                           type="button"
                           onClick={() => {
                             if (murshidSpeaking) {
-                              stopAllMurshidAudio();
-                              setMurshidSpeaking(false);
+                              stopAllMurshidAudio(setMurshidSpeaking);
                               return;
                             }
-                            setMurshidSpeaking(true);
-                            speakMurshid(
-                              `${result.problemName}. ${result.conditionSummary || result.visibleSymptoms}`,
-                              {
-                                onSpeakingChange: setMurshidSpeaking,
-                                onEnd: () => setMurshidSpeaking(false),
-                              }
-                            );
+                            const firstTreatment =
+                              (result.treatmentSteps && result.treatmentSteps[0]) ||
+                              result.organicRemedy ||
+                              '';
+                            const speechSummary = [
+                              `${result.problemName}.`,
+                              result.conditionSummary || result.visibleSymptoms,
+                              firstTreatment ? `خطوة العلاج الموصى بها: ${firstTreatment}` : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ');
+                            speakMurshid(speechSummary, {
+                              mood:
+                                result.severity === 'عالية' || result.severity === 'حرجة'
+                                  ? 'warning'
+                                  : 'cheerful',
+                              onSpeakingChange: setMurshidSpeaking,
+                              onEnd: () => setMurshidSpeaking(false),
+                            });
                           }}
                           className="min-h-[44px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap"
                         >

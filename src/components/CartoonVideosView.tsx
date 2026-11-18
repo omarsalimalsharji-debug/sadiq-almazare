@@ -37,10 +37,15 @@ import {
 } from '../data/murshidDialogue.ts';
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
 import {
+  chunkArabicSpeech,
   getMurshidAudioPrefs,
   initArabicVoices,
+  notifyExternalSpeechStarted,
+  pickBestMurshidVoice,
   registerExternalMurshidAudioStopper,
+  setExternalSpeechFinished,
   setMurshidMuted,
+  setMurshidVolume,
   stopAllMurshidAudio,
   subscribeMurshidAudioPrefs,
 } from '../utils/murshidAudio.ts';
@@ -171,6 +176,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(() => getMurshidAudioPrefs().muted);
+  const [volume, setVolume] = useState<number>(() => getMurshidAudioPrefs().volume);
   const [ambientEnabled, setAmbientEnabled] = useState<boolean>(true);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
@@ -267,6 +273,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
     initArabicVoices();
     const unsubPrefs = subscribeMurshidAudioPrefs((prefs) => {
       setIsMuted(prefs.muted);
+      setVolume(prefs.volume);
     });
     return unsubPrefs;
   }, []);
@@ -297,6 +304,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
     }
     environmentalSfx.setSpeakingDuck(false);
     environmentalSfx.stop();
+    setExternalSpeechFinished();
     audioLevelRef.current = 0;
     setIsPlaying(false);
     setIsLoadingAudio(false);
@@ -538,16 +546,81 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
     []
   );
 
+  const speakBrowserFallbackChunks = useCallback(
+    (
+      rawText: string,
+      mood: string,
+      session: number,
+      onComplete: () => void
+    ) => {
+      const effectiveVol = isMuted ? 0 : Math.max(0, Math.min(1, volume / 100));
+      if (effectiveVol <= 0.01 || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+        fallbackTimerRef.current = setTimeout(onComplete, 3500);
+        return false;
+      }
+      const vocalized = prepareArabicTextForTts(rawText) || rawText;
+      const chunks = chunkArabicSpeech(vocalized, 135);
+      const bestArabicVoice = pickBestMurshidVoice();
+      const unifiedPitch =
+        mood === 'warning' || mood === 'surprised' || mood === 'gentle_sad'
+          ? 0.95
+          : 0.98;
+      const unifiedRate = Math.max(0.82, Math.min(1.2, playbackSpeed * 0.94));
+
+      const speakIdx = (chunkIdx: number) => {
+        if (playSessionRef.current !== session) return;
+        if (chunkIdx >= chunks.length) {
+          onComplete();
+          return;
+        }
+        const utter = new SpeechSynthesisUtterance(chunks[chunkIdx]);
+        if (bestArabicVoice) {
+          utter.voice = bestArabicVoice;
+          utter.lang = bestArabicVoice.lang;
+        } else {
+          utter.lang = 'ar-OM';
+        }
+        utter.pitch = unifiedPitch;
+        utter.rate = unifiedRate;
+        utter.volume = effectiveVol;
+
+        let settled = false;
+        const advanceChunk = () => {
+          if (settled || playSessionRef.current !== session) return;
+          settled = true;
+          if (fallbackTimerRef.current) {
+            clearTimeout(fallbackTimerRef.current);
+            fallbackTimerRef.current = null;
+          }
+          speakIdx(chunkIdx + 1);
+        };
+
+        utter.onend = advanceChunk;
+        utter.onerror = advanceChunk;
+        window.speechSynthesis.speak(utter);
+
+        const maxMs = Math.min(9500, Math.max(2400, chunks[chunkIdx].length * 95));
+        fallbackTimerRef.current = setTimeout(advanceChunk, maxMs);
+      };
+
+      speakIdx(0);
+      return true;
+    },
+    [isMuted, playbackSpeed, volume]
+  );
+
   const playSceneAt = useCallback(
     async (episode: CartoonEpisode, idx: number) => {
       stopAllMurshidAudio();
       const session = playSessionRef.current;
       const targetScene = episode.scenes[idx];
       if (!targetScene) {
+        setExternalSpeechFinished();
         setIsPlaying(false);
         return;
       }
 
+      notifyExternalSpeechStarted();
       setSceneIndex(idx);
       setIsPlaying(true);
       setIsLoadingAudio(true);
@@ -570,6 +643,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
           playSceneAt(episode, idx + 1);
         } else {
           setIsPlaying(false);
+          setExternalSpeechFinished();
           audioLevelRef.current = 0;
         }
       };
@@ -578,8 +652,10 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
         const audioEl = audioRef.current;
         audioEl.src = `data:audio/wav;base64,${base64Wav}`;
         audioEl.playbackRate = playbackSpeed;
-        audioEl.muted = isMuted;
+        audioEl.muted = isMuted || volume === 0;
+        audioEl.volume = Math.max(0, Math.min(1, volume / 100));
         audioEl.onended = advanceNext;
+        audioEl.onerror = advanceNext;
         try {
           await audioEl.play();
           return;
@@ -592,44 +668,33 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
         setTtsFailed(true);
       }
 
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setAudioStatusNote('تعذر تحميل صوت الاستوديو — يتم التشغيل مؤقتاً بصوت المتصفح');
-        const utter = new SpeechSynthesisUtterance(
-          targetScene.vocalizedNarration || targetScene.narration
+      if (!isMuted && volume > 0 && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        setAudioStatusNote('تم تشغيل صوت مُرشد عبر النطق العربي الموحّد');
+        speakBrowserFallbackChunks(
+          targetScene.vocalizedNarration || targetScene.narration,
+          targetScene.murshidMood,
+          session,
+          advanceNext
         );
-        const voices = window.speechSynthesis.getVoices();
-        const bestArabicVoice =
-          voices.find((v) => v.lang.toLowerCase() === 'ar-om') ||
-          voices.find((v) => v.lang.toLowerCase() === 'ar-sa') ||
-          voices.find((v) => v.lang.toLowerCase().startsWith('ar'));
-        if (bestArabicVoice) {
-          utter.voice = bestArabicVoice;
-          utter.lang = bestArabicVoice.lang;
-        } else {
-          utter.lang = 'ar-OM';
-        }
-        utter.pitch = 1.03;
-        utter.rate = playbackSpeed;
-        utter.volume = isMuted ? 0 : 1;
-        utter.onend = advanceNext;
-        utter.onerror = () => {
-          fallbackTimerRef.current = setTimeout(advanceNext, 5500);
-        };
-        window.speechSynthesis.speak(utter);
       } else {
-        setAudioStatusNote('تعذر توليد الصوت حالياً؛ تُعرض الترجمة النصية للمشهد.');
-        fallbackTimerRef.current = setTimeout(advanceNext, 6000);
+        setAudioStatusNote(
+          isMuted || volume === 0
+            ? 'الصوت مكتوم — تُعرض الترجمة النصية للمشهد تلقائياً.'
+            : 'تُعرض الترجمة النصية للمشهد تلقائياً.'
+        );
+        fallbackTimerRef.current = setTimeout(advanceNext, 4200);
       }
     },
-    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed]
+    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, speakBrowserFallbackChunks, volume]
   );
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.muted = isMuted;
+      audioRef.current.muted = isMuted || volume === 0;
+      audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
       audioRef.current.playbackRate = playbackSpeed;
     }
-  }, [isMuted, playbackSpeed]);
+  }, [isMuted, volume, playbackSpeed]);
 
   const handlePlayPause = () => {
     if (isPlaying) {
@@ -663,6 +728,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
     ) => {
       stopAllMurshidAudio();
       const session = playSessionRef.current;
+      notifyExternalSpeechStarted();
       setPreviewMoodOverride(mood);
       setPreviewPoseOverride(pose);
       setIsPlaying(true);
@@ -677,6 +743,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
       const finish = () => {
         if (playSessionRef.current !== session) return;
         setIsPlaying(false);
+        setExternalSpeechFinished();
         audioLevelRef.current = 0;
       };
 
@@ -684,8 +751,10 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
         const audioEl = audioRef.current;
         audioEl.src = `data:audio/wav;base64,${base64Wav}`;
         audioEl.playbackRate = playbackSpeed;
-        audioEl.muted = isMuted;
+        audioEl.muted = isMuted || volume === 0;
+        audioEl.volume = Math.max(0, Math.min(1, volume / 100));
         audioEl.onended = finish;
+        audioEl.onerror = finish;
         try {
           await audioEl.play();
           return;
@@ -694,33 +763,15 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
         }
       }
 
-      if (!isMuted && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setAudioStatusNote('تم تشغيل صوت مُرشد عبر نطق المتصفح الموحّد');
-        const utter = new SpeechSynthesisUtterance(sampleText);
-        const voices = window.speechSynthesis.getVoices();
-        const bestArabicVoice =
-          voices.find((v) => v.lang.toLowerCase() === 'ar-om') ||
-          voices.find((v) => v.lang.toLowerCase() === 'ar-sa') ||
-          voices.find((v) => v.lang.toLowerCase().startsWith('ar'));
-        if (bestArabicVoice) {
-          utter.voice = bestArabicVoice;
-          utter.lang = bestArabicVoice.lang;
-        } else {
-          utter.lang = 'ar-OM';
-        }
-        utter.pitch = 1.03;
-        utter.rate = playbackSpeed;
-        utter.onend = finish;
-        utter.onerror = () => {
-          fallbackTimerRef.current = setTimeout(finish, 3200);
-        };
-        window.speechSynthesis.speak(utter);
+      if (!isMuted && volume > 0 && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        setAudioStatusNote('تم تشغيل صوت مُرشد عبر النطق العربي الموحّد');
+        speakBrowserFallbackChunks(sampleText, mood, session, finish);
         return;
       }
 
       fallbackTimerRef.current = setTimeout(finish, 3200);
     },
-    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed]
+    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, speakBrowserFallbackChunks, volume]
   );
 
   const handleGenerateCustomEpisode = async (e: React.FormEvent) => {
@@ -1019,13 +1070,13 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
                       </button>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() =>
                           setPlaybackSpeed((s) => (s === 1 ? 1.15 : s === 1.15 ? 0.9 : 1))
                         }
-                        className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-xs font-mono font-bold text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700"
+                        className="min-h-[40px] px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-xs font-mono font-bold text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700"
                       >
                         {playbackSpeed}x
                       </button>
@@ -1033,7 +1084,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
                       <button
                         type="button"
                         onClick={() => setAmbientEnabled((v) => !v)}
-                        className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${
+                        className={`min-h-[40px] px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${
                           ambientEnabled
                             ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
                             : 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-500'
@@ -1070,7 +1121,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
                       <button
                         type="button"
                         onClick={() => setShowSubtitles((v) => !v)}
-                        className={`p-2 rounded-lg border text-xs transition-colors ${
+                        className={`min-h-[40px] min-w-[40px] p-2 rounded-lg border text-xs transition-colors flex items-center justify-center ${
                           showSubtitles
                             ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
                             : 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-500'
@@ -1080,18 +1131,30 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
                         <Captions className="w-4 h-4" />
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setMurshidMuted(!isMuted)}
-                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700"
-                        title={isMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
-                      >
-                        {isMuted ? (
-                          <VolumeX className="w-4 h-4 text-red-500" />
-                        ) : (
-                          <Volume2 className="w-4 h-4 text-emerald-600" />
-                        )}
-                      </button>
+                      <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+                        <button
+                          type="button"
+                          onClick={() => setMurshidMuted(!isMuted)}
+                          className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700"
+                          title={isMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
+                          aria-label={isMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
+                        >
+                          {isMuted || volume === 0 ? (
+                            <VolumeX className="w-4 h-4 text-red-500" />
+                          ) : (
+                            <Volume2 className="w-4 h-4 text-emerald-600" />
+                          )}
+                        </button>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={isMuted ? 0 : volume}
+                          onChange={(e) => setMurshidVolume(Number(e.target.value))}
+                          aria-label="مستوى الصوت"
+                          className="w-16 sm:w-20 accent-emerald-600 cursor-pointer"
+                        />
+                      </div>
 
                       <button
                         type="button"
