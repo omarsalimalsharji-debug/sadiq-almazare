@@ -77,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
   const firstName = user.name.split(' ')[0];
 
   return (
-    <header className="agri-header sticky top-0 z-40 w-full bg-white/95 dark:bg-[#132247]/95 sm:backdrop-blur-xl border-b border-slate-200/80 dark:border-sky-300/15 transition-colors">
+    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#132247]/95 sm:backdrop-blur-xl border-b border-slate-200/80 dark:border-sky-300/15 transition-colors">
       <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 h-[52px] sm:h-16 flex items-center justify-between gap-2 sm:gap-3">
         {/* Brand & Drawer Trigger */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 min-w-0">

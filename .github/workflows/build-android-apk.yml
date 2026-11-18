@@ -1,24 +1,27 @@
 name: Build Android APK
 
 on:
+  push:
+    branches:
+      - codex/restore-classic-home-apk-profile-2026-11-18
+      - codex/development-from-main-2026-11-18
+  pull_request:
+    branches:
+      - codex/development-from-main-2026-11-18
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build-debug-apk:
-    name: Build installable Android test APK
+  build-apk:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
+      - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -30,27 +33,47 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: bun install --frozen-lockfile
 
       - name: TypeScript check
-        run: npm run lint
+        run: bun run lint
 
       - name: Build web application
-        run: npm run build
+        run: bun run build
 
       - name: Generate Android project
-        run: npx cap add android
+        run: bunx cap add android
 
       - name: Sync Capacitor
-        run: npx cap sync android
+        run: bunx cap sync android
 
-      - name: Assemble debug APK
-        run: cd android && ./gradlew assembleDebug
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Prepare APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk sadiq-almazare.apk
+
+      - name: Upload APK for pull request review
+        if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: sadiq-almazare-android-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: sadiq-almazare-android-apk
+          path: sadiq-almazare.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish APK release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: صديق المزارع - أحدث نسخة أندرويد
+          body: نسخة APK قابلة للتثبيت من تطبيق صديق المزارع.
+          files: sadiq-almazare.apk
+          overwrite_files: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
