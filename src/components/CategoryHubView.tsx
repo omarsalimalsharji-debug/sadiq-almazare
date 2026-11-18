@@ -260,11 +260,11 @@ export const CategoryHubView: React.FC<CategoryHubViewProps> = ({
     },
 
     hub_games: {
-      titleAr: 'الألعاب والتسلية التعليمية',
+      titleAr: 'الألعاب والمسابقات الزراعية',
       titleEn: 'Games & Learning Fun',
-      subtitleAr: `مراحل ممتعة ومسابقات بنظام النقاط · رصيدك الحالي: ${user.totalScore} نقطة`,
+      subtitleAr: `تحديات زراعية تعليمية ومغامرات تفاعلية · رصيدك الحالي: ${user.totalScore} نقطة`,
       subtitleEn: `Play, learn & earn points · Current score: ${user.totalScore} pts`,
-      voiceIntroAr: `مرحباً بك في ساحة الألعاب والتسلية! رصيدك الآن ${user.totalScore} نقطة. اختر مغامرات مرشد أو أحد التحديات لتكسب النجوم.`,
+      voiceIntroAr: `مرحباً بك في قسم الألعاب والمسابقات الزراعية. رصيدك الحالي ${user.totalScore} نقطة. اختر مغامرات مُرشد أو تحدياً زراعياً لاختبار معلوماتك وجمع النقاط والنجوم.`,
       headerTint:
         'bg-gradient-to-l from-indigo-50 to-sky-50/70 dark:from-[#132247] dark:to-indigo-950/50 border-indigo-200/80 dark:border-indigo-400/25',
       tiles: [
@@ -281,9 +281,9 @@ export const CategoryHubView: React.FC<CategoryHubViewProps> = ({
         },
         {
           id: 'games',
-          titleAr: 'الألعاب الزراعية (6 تحديات)',
+          titleAr: 'تحديات المحاصيل والمعرفة',
           titleEn: 'Agri Quiz Challenges',
-          subtitleAr: 'اختبارات المعرفة واكتشاف المحاصيل',
+          subtitleAr: 'اكتشف المحصول، واختبر معلوماتك الزراعية في تحديات متنوعة',
           subtitleEn: 'Knowledge, Speed & Crop Guess games',
           icon: Gamepad2,
           tintClass:
