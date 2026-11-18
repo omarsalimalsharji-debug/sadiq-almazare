@@ -44,10 +44,10 @@ jobs:
         run: bun run build
 
       - name: Generate Android project
-        run: bunx cap add android
+        run: bunx cap add android --config capacitor.config.json
 
       - name: Sync Capacitor
-        run: bunx cap sync android
+        run: bunx cap sync android --config capacitor.config.json
 
       - name: Build debug APK
         run: |
