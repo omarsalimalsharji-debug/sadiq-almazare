@@ -395,7 +395,7 @@ export async function speakMurshid(
   const {
     muted: mutedOpt,
     volume: volumeOpt,
-    rate = 0.94,
+    rate = 0.90,
     mood = 'cheerful',
     preferStudioAudio = false,
     onSpeakingChange,
@@ -528,7 +528,7 @@ export async function speakMurshid(
       }
       utter.volume = eff.volume;
       utter.rate = rate;
-      utter.pitch = mood === 'warning' ? 0.95 : 0.98;
+      utter.pitch = mood === 'warning' ? 0.96 : 1.02;
 
       let settled = false;
       const moveNext = () => {
