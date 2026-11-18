@@ -108,3 +108,160 @@ html, body {
   background-size: 32px 32px;
   background-position: 0 0, 16px 16px;
 }
+
+
+/* ─────────────────────────────────────────────────────────────
+   Sadiq Al-Mazare · Hybrid Design System
+   Omani agricultural identity + professional service dashboard
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --agri-forest: #145b3b;
+  --agri-forest-deep: #0d432d;
+  --agri-leaf: #2d8b57;
+  --agri-lime: #dff0df;
+  --agri-sand: #f4f0e5;
+  --agri-ink: #18352a;
+  --agri-muted: #64766b;
+  --agri-border: rgba(31, 83, 57, .12);
+  --agri-card-shadow: 0 14px 38px -24px rgba(23, 62, 42, .28);
+}
+
+html, body {
+  background: #f5f7f2;
+  color: var(--agri-ink);
+}
+
+.agri-app-shell {
+  background-color: #f5f7f2 !important;
+  background-image:
+    radial-gradient(ellipse at 92% 0%, rgba(121, 174, 111, .10), transparent 34%),
+    radial-gradient(ellipse at 4% 18%, rgba(218, 196, 137, .10), transparent 28%);
+}
+.dark .agri-app-shell {
+  background-color: #0c1914 !important;
+  background-image:
+    radial-gradient(ellipse at 92% 0%, rgba(38, 120, 76, .16), transparent 35%),
+    radial-gradient(ellipse at 5% 20%, rgba(64, 95, 69, .12), transparent 30%);
+}
+
+.agri-header {
+  background: rgba(250, 252, 247, .92) !important;
+  border-bottom: 1px solid rgba(31, 83, 57, .12) !important;
+  box-shadow: 0 5px 24px -18px rgba(22, 58, 39, .42);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.dark .agri-header {
+  background: rgba(13, 31, 23, .92) !important;
+  border-bottom-color: rgba(158, 205, 166, .13) !important;
+}
+.agri-header > div { min-height: 60px; }
+.agri-header nav { color: #52695b; }
+.dark .agri-header nav { color: #c2d6c8; }
+.agri-header nav button { letter-spacing: -.01em; }
+
+.agri-main {
+  width: min(100%, 1440px);
+  gap: 1.15rem;
+}
+.agri-main input:not([type="checkbox"]):not([type="radio"]),
+.agri-main select,
+.agri-main textarea {
+  border-radius: 14px;
+  border-color: rgba(54, 99, 68, .22);
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.agri-main input:focus,
+.agri-main select:focus,
+.agri-main textarea:focus {
+  outline: none;
+  border-color: #329461;
+  box-shadow: 0 0 0 3px rgba(50, 148, 97, .13);
+}
+.agri-main [class*="rounded-2xl"][class*="border"],
+.agri-main [class*="rounded-3xl"][class*="border"],
+.agri-main .glass-card {
+  border-radius: 1.2rem;
+}
+.agri-main [class*="rounded-2xl"][class*="shadow-sm"],
+.agri-main [class*="rounded-3xl"][class*="shadow-sm"] { box-shadow: var(--agri-card-shadow); }
+.agri-main button { -webkit-tap-highlight-color: transparent; }
+.agri-main button:focus-visible {
+  outline: 3px solid rgba(52, 148, 97, .48);
+  outline-offset: 3px;
+}
+
+.agri-home { max-width: 1180px; justify-content: flex-start; gap: 1.1rem; }
+.agri-home-hero {
+  min-height: 178px;
+  border-radius: 30px !important;
+  border-color: rgba(58, 119, 75, .18) !important;
+  box-shadow: 0 20px 44px -30px rgba(24, 72, 44, .42) !important;
+}
+.agri-home-hero > div:nth-child(2) { padding-top: 1.15rem; padding-bottom: 1.15rem; }
+.agri-home-hero h1 { letter-spacing: -.04em; }
+.agri-home-categories { flex: initial; min-height: 0; }
+.agri-category-card {
+  min-height: 156px !important;
+  border-radius: 24px !important;
+  border-color: rgba(48, 102, 65, .15) !important;
+  box-shadow: 0 12px 30px -24px rgba(25, 66, 43, .4) !important;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.agri-category-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 34px -22px rgba(25, 66, 43, .42) !important;
+}
+.agri-diagnosis-cta {
+  background: linear-gradient(112deg, #0e5136 0%, #1b754a 58%, #3b9560 100%);
+  border: 1px solid rgba(255,255,255,.16);
+  min-height: 104px;
+  box-shadow: 0 18px 36px -22px rgba(13, 78, 48, .65);
+}
+.agri-diagnosis-cta:hover { filter: saturate(1.08) brightness(1.04); transform: translateY(-2px); }
+.agri-diagnosis-icon { box-shadow: inset 0 1px 0 rgba(255,255,255,.14); }
+
+.agri-bottom-nav {
+  background: rgba(250, 252, 247, .96) !important;
+  border-top: 1px solid rgba(31, 83, 57, .13) !important;
+  box-shadow: 0 -10px 32px -24px rgba(22, 58, 39, .42) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.dark .agri-bottom-nav {
+  background: rgba(13, 31, 23, .96) !important;
+  border-top-color: rgba(158, 205, 166, .14) !important;
+}
+.agri-bottom-nav > div { max-width: 680px; margin-inline: auto; }
+.agri-bottom-nav button { border-radius: 16px !important; }
+.agri-bottom-nav button[class*="bg-emerald-600"] {
+  background: linear-gradient(135deg, #176341, #2e8c58) !important;
+  box-shadow: 0 7px 18px -10px rgba(16, 89, 51, .8) !important;
+}
+
+/* Harmonize shared content surfaces across diagnosis, weather, library,
+   games, profile, settings, calendar and the other feature views. */
+.agri-main section,
+.agri-main article { scroll-margin-top: 5.5rem; }
+.agri-main h1, .agri-main h2, .agri-main h3 { text-wrap: balance; }
+.agri-main [class*="rounded-xl"][class*="border"] { border-radius: 14px; }
+.agri-main [class*="bg-white"][class*="border"] { border-color: rgba(44, 91, 58, .13); }
+
+@media (min-width: 768px) {
+  .agri-main { padding-top: 1.6rem; padding-bottom: 2.4rem; }
+  .agri-home { gap: 1.25rem; }
+  .agri-home-categories { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .agri-category-card { min-height: 190px !important; }
+}
+@media (max-width: 767px) {
+  .agri-main { gap: .85rem; }
+  .agri-home { gap: .85rem; }
+  .agri-home-hero { min-height: 154px; }
+  .agri-home-hero > div:nth-child(2) { padding: .85rem .95rem; }
+  .agri-home-categories { gap: .7rem; }
+  .agri-category-card { min-height: 142px !important; padding: .85rem .7rem !important; }
+  .agri-diagnosis-cta { min-height: 94px; padding: .85rem; border-radius: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agri-category-card, .agri-diagnosis-cta, .agri-main button { transition: none !important; }
+}

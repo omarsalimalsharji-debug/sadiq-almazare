@@ -53,7 +53,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/98 dark:bg-[#132247]/98 border-t border-slate-200/90 dark:border-sky-300/15 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_-6px_rgba(3,7,18,0.22)]"
+      className="agri-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/98 dark:bg-[#132247]/98 border-t border-slate-200/90 dark:border-sky-300/15 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_-6px_rgba(3,7,18,0.22)]"
       aria-label={t.menu}
     >
       <div className="grid grid-cols-4 h-[60px] items-center px-2 gap-1">
