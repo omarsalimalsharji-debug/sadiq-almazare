@@ -1598,9 +1598,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                           ? 'جاري حفظ التشخيص في السحابة...'
                           : saveMessage
                             ? saveMessage
-                            : !fbUser
-                              ? 'سجّل الدخول بحساب Google لحفظ السجل تلقائياً'
-                              : ''}
+                            : 'حُفظ التشخيص على هذا الجهاز دون الحاجة إلى حساب'}
                       </div>
                     </div>
                   </div>
