@@ -33,9 +33,24 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
       if (!response.ok) throw new Error('تعذر الوصول إلى مكتبة المقاطع.');
       const data = await response.json();
       const episodes = Array.isArray(data?.mediaManifest?.episodes) ? data.mediaManifest.episodes : [];
+      const candidates = episodes.filter((item: any) =>
+        item && typeof item.id === 'string' &&
+        (typeof item.video480pUrl === 'string' || typeof item.video1080pUrl === 'string')
+      );
+      const verified = await Promise.all(candidates.map(async (item: MediaEpisode) => {
+        const url = item.video480pUrl || item.video1080pUrl;
+        if (!url) return null;
+        try {
+          const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+          const contentType = head.headers.get('content-type') || '';
+          return head.ok && contentType.includes('video/mp4') ? item : null;
+        } catch {
+          return null;
+        }
+      }));
       const next: Record<string, MediaEpisode> = {};
-      for (const item of episodes) {
-        if (item && typeof item.id === 'string') next[item.id] = item;
+      for (const item of verified) {
+        if (item) next[item.id] = item;
       }
       setMediaEpisodes(next);
     } catch (error) {
