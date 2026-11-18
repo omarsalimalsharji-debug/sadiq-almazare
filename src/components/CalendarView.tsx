@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Calendar as CalendarIcon,
   AlertCircle,
@@ -440,7 +440,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             مواعيد الزراعة والري والحصاد والتنبيهات الموسمية
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 dark:text-slate-300">
-            خطط عمل شهرية وسنوية لجميع محاصيل المشروع (14 محصولاً عُمانياً) مخصصة حسب منطقتك المناخية ووتُحفظ التذكيرات على جهازك دون الحاجة إلى حساب.
+            خطط عمل شهرية وسنوية لجميع محاصيل المشروع (14 محصولاً عُمانياً) مخصصة حسب منطقتك المناخية، وتُحفظ التذكيرات على جهازك دون الحاجة إلى حساب.
           </p>
         </div>
 
@@ -454,7 +454,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <BellRing className="w-4 h-4 shrink-0" />
             <span>
               {syncingMonthAlerts
-                ? 'جاري مزامنة التنبيهات...'
+                ? 'جاري إضافة التنبيهات...'
                 : `مزامنة تنبيهات ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]} للجرس`}
             </span>
           </button>
