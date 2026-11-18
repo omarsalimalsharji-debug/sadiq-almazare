@@ -8,7 +8,6 @@ import {
   Sparkles,
   Gift,
   Flame,
-  LogIn,
 } from 'lucide-react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -18,7 +17,6 @@ import {
   db,
   handleFirestoreError,
   OperationType,
-  signInWithGoogleFarmer,
 } from '../firebase.ts';
 
 interface LeaderboardViewProps {
@@ -40,11 +38,10 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   user,
   onNavigateToGames,
 }) => {
-  const [viewMode, setViewMode] = useState<'firebase' | 'daily' | 'weekly' | 'monthly' | 'allTime'>('firebase');
+  const [viewMode, setViewMode] = useState<'firebase' | 'daily' | 'weekly' | 'monthly' | 'allTime'>('daily');
   const [firebaseList, setFirebaseList] = useState<FirebaseLeaderboardEntry[]>([]);
   const [fbLoading, setFbLoading] = useState<boolean>(true);
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
-  const [authBusy, setAuthBusy] = useState<boolean>(false);
 
   const [leaderboardData, setLeaderboardData] = useState<any>({
     daily: [],
@@ -121,17 +118,6 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   const currentServerList =
     viewMode === 'firebase' ? [] : leaderboardData[viewMode] || [];
 
-  const handleConnectGoogle = async () => {
-    setAuthBusy(true);
-    try {
-      await signInWithGoogleFarmer();
-    } catch {
-      // handled silently
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-3xl mx-auto space-y-3 sm:space-y-6 px-0.5 sm:px-0">
       {/* Header */}
@@ -139,7 +125,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
             <Trophy className="w-4 h-4" />
-            <span>لوحة الشرف المباشرة في Firebase وتنافس مزارعي عُمان</span>
+            <span>لوحة الشرف ومنافسات المزارعين في عُمان</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-stone-900 dark:text-white mt-1">
             لوحة المتصدرين والنقاط
@@ -207,22 +193,9 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
         </div>
       </div>
 
-      {!fbUser && (
-        <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <span className="text-emerald-900 dark:text-emerald-200 font-medium">
-            سجّل الدخول بحساب Google لتثبيت اسمك ونقاطك في لوحة المتصدرين المباشرة على Firebase.
-          </span>
-          <button
-            type="button"
-            onClick={handleConnectGoogle}
-            disabled={authBusy}
-            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shrink-0 disabled:opacity-50"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>{authBusy ? 'جاري الاتصال...' : 'ربط حساب Google'}</span>
-          </button>
-        </div>
-      )}
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+        يمكنك المشاركة ومتابعة النتائج اليومية والأسبوعية دون تسجيل دخول. النقاط المعروضة هي النتائج التي اعتمدها التطبيق.
+      </div>
 
       {/* Mode Tabs */}
       <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain">
