@@ -183,7 +183,8 @@ html, body {
 .agri-main .glass-card {
   border-radius: 1.2rem;
 }
-.agri-main [class*="shadow-sm"] { box-shadow: var(--agri-card-shadow); }
+.agri-main [class*="rounded-2xl"][class*="shadow-sm"],
+.agri-main [class*="rounded-3xl"][class*="shadow-sm"] { box-shadow: var(--agri-card-shadow); }
 .agri-main button { -webkit-tap-highlight-color: transparent; }
 .agri-main button:focus-visible {
   outline: 3px solid rgba(52, 148, 97, .48);
@@ -245,7 +246,6 @@ html, body {
 .agri-main h1, .agri-main h2, .agri-main h3 { text-wrap: balance; }
 .agri-main [class*="rounded-xl"][class*="border"] { border-radius: 14px; }
 .agri-main [class*="bg-white"][class*="border"] { border-color: rgba(44, 91, 58, .13); }
-.dark .agri-main [class*="bg-\\[\\#132247\\]"] { border-color: rgba(143, 193, 153, .16); }
 
 @media (min-width: 768px) {
   .agri-main { padding-top: 1.6rem; padding-bottom: 2.4rem; }
