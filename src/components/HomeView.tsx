@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sprout,
+  Download,
   MessageCircle,
   BookOpen,
   Gamepad2,
-  Scan,
   ChevronLeft,
   ChevronRight,
   MapPin,
@@ -103,15 +103,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
     };
   }, [location.governorateId, location.lat, location.lon, location.wilayatId, location.wilayat, location.village]);
 
-  const firstName = user.name.split(' ')[0] || user.name;
+  const firstName = user.name?.trim().split(/\\s+/)[0] || '';
   const wilayatDisplay = lang === 'ar' ? location.wilayat : location.wilayatEn;
+  const welcomePhrases = firstName
+    ? MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay)
+    : [
+        'حياك الله في صديق المزارع! أنا مُرشد، رفيقك في المعرفة الزراعية.',
+        'أهلاً بك! اختر الخدمة الزراعية التي تحتاج إليها، وأنا هنا لمساعدتك.',
+      ];
 
   const welcomeLine = useMemo(
-    () =>
-      pickVariedPhrase(
-        MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay),
-        firstName.length + wilayatDisplay.length
-      ),
+    () => pickVariedPhrase(welcomePhrases, firstName.length + wilayatDisplay.length),
     [firstName, wilayatDisplay]
   );
 
@@ -122,7 +124,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
     }
     const phrase = pickFreshPhrase(
       'home-welcome',
-      MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay)
+      firstName
+        ? MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay)
+        : ['حياك الله في صديق المزارع! أنا مُرشد، جاهز لمساعدتك في شؤون مزرعتك.']
     );
     speakMurshid(phrase, {
       muted: murshidMuted,
@@ -176,9 +180,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   ];
 
   return (
-    <div className="agri-home max-w-5xl w-full mx-auto flex-1 flex flex-col justify-between gap-3 sm:gap-5 min-h-0">
+    <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col justify-between gap-2.5 sm:gap-4 min-h-0">
       {/* 1. Compact Scenic Brand Hero + Integrated Murshid Welcome Corner */}
-      <section className="agri-home-hero relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#e4f3ea] via-[#f4f7ee] to-[#e3f1fa] dark:from-[#0e1b3c] dark:via-[#132247] dark:to-[#0c2635] border border-emerald-200/80 dark:border-sky-300/20 shadow-sm shrink-0">
+      <section className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#e4f3ea] via-[#f4f7ee] to-[#e3f1fa] dark:from-[#0e1b3c] dark:via-[#132247] dark:to-[#0c2635] border border-emerald-200/80 dark:border-sky-300/20 shadow-sm shrink-0">
         {/* Subtle scenic Omani farm backdrop */}
         <div className="absolute inset-0 pointer-events-none">
           {!heroImgFailed && (
@@ -271,7 +275,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               ) : (
                 <>
                   <Volume2 className="w-3 h-3" />
-                  <span>{lang === 'ar' ? `مرشد · ${firstName}` : 'Murshid'}</span>
+                  <span>{lang === 'ar' ? (firstName ? `مرشد · ${firstName}` : 'استمع لمرشد') : 'Murshid'}</span>
                 </>
               )}
             </button>
@@ -298,31 +302,19 @@ export const HomeView: React.FC<HomeViewProps> = ({
         )}
       </section>
 
-      {/* Featured primary action: smart plant diagnosis */}
-      <button
-        type="button"
-        onClick={() => onNavigate('plant_diagnosis')}
-        className="agri-diagnosis-cta group w-full rounded-3xl p-4 sm:px-6 sm:py-5 flex items-center justify-between gap-4 text-right text-white shadow-lg transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-400/40"
+      <a
+        href="https://github.com/omarsalimalsharji-debug/sadiq-almazare/releases/download/android-latest/sadiq-almazare.apk"
+        className="w-full min-h-[48px] rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition-colors"
+        aria-label={lang === 'ar' ? 'تحميل تطبيق صديق المزارع للأندرويد APK' : 'Download Farmer Friend Android APK'}
       >
-        <span className="flex items-center gap-3 sm:gap-4 min-w-0">
-          <span className="agri-diagnosis-icon w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 bg-white/15 border border-white/20">
-            <Scan className="w-6 h-6 sm:w-7 sm:h-7" />
-          </span>
-          <span className="min-w-0 flex flex-col gap-1">
-            <span className="text-[10px] sm:text-xs font-bold text-emerald-100/90">{lang === 'ar' ? 'الخدمة الذكية الرئيسية' : 'FEATURED SMART SERVICE'}</span>
-            <span className="text-base sm:text-xl font-black leading-tight">{lang === 'ar' ? 'شخّص نباتك الآن' : 'Diagnose your plant'}</span>
-            <span className="text-[11px] sm:text-sm text-emerald-50/85 truncate">{lang === 'ar' ? 'التقط صورة واكتشف الأعراض والإرشادات المناسبة' : 'Take a photo to identify symptoms and guidance'}</span>
-          </span>
-        </span>
-        <span className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0 group-hover:translate-x-[-3px] transition-transform">
-          <ArrowIcon className="w-5 h-5" />
-        </span>
-      </button>
+        <Download className="w-5 h-5" />
+        <span>{lang === 'ar' ? 'تحميل تطبيق الأندرويد (APK)' : 'Download Android app (APK)'}</span>
+      </a>
 
       {/* 2. Four Main Category Cards ONLY — 2x2 Responsive Grid */}
       <section
         aria-label={lang === 'ar' ? 'الأقسام الرئيسية' : 'Main Categories'}
-        className="agri-home-categories flex-1 grid grid-cols-2 gap-2.5 sm:gap-4 min-h-0"
+        className="flex-1 grid grid-cols-2 gap-2.5 sm:gap-4 min-h-0"
       >
         {categoryCards.map((card) => {
           const Icon = card.icon;
@@ -331,7 +323,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               key={card.id}
               type="button"
               onClick={() => onNavigate(card.id)}
-              className={`agri-category-card rounded-3xl border p-3 sm:p-6 text-center flex flex-col items-center justify-between gap-2 sm:gap-3 min-h-[144px] sm:min-h-[188px] shadow-sm transition-transform active:scale-[0.98] hover:shadow-md ${card.cardSurface}`}
+              className={`rounded-3xl border p-3 sm:p-6 text-center flex flex-col items-center justify-between gap-2 sm:gap-3 min-h-[144px] sm:min-h-[188px] shadow-sm transition-transform active:scale-[0.98] hover:shadow-md ${card.cardSurface}`}
             >
               <div
                 className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shadow-sm shrink-0 ${card.iconWrap}`}
