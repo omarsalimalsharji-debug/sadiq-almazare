@@ -469,6 +469,7 @@ export default function App() {
         isOpen={isNotifDrawerOpen}
         onClose={() => setIsNotifDrawerOpen(false)}
         onNotificationsCountChange={setUnreadNotifsCount}
+        governorate={user.governorate}
       />
 
       {/* Login / Role Switching Modal */}
