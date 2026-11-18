@@ -133,15 +133,15 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-3xl mx-auto space-y-3 sm:space-y-6 px-0.5 sm:px-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-stone-200 dark:border-stone-800 pb-3 sm:pb-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
             <Trophy className="w-4 h-4" />
             <span>لوحة الشرف المباشرة في Firebase وتنافس مزارعي عُمان</span>
           </div>
-          <h1 className="text-2xl font-bold text-stone-900 dark:text-white mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-stone-900 dark:text-white mt-1">
             لوحة المتصدرين والنقاط
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-0.5">
@@ -170,37 +170,37 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
       </div>
 
       {/* User Status Card */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-900 via-stone-900 to-emerald-950 text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm border border-emerald-800/40">
+      <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-900 via-stone-900 to-emerald-950 text-white flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 shadow-sm border border-emerald-800/40">
         <div className="flex items-center gap-3 text-right w-full sm:w-auto">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-800/80 border border-emerald-600/50 flex items-center justify-center text-xl font-bold">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-800/80 border border-emerald-600/50 flex items-center justify-center text-xl font-bold">
             🌱
           </div>
           <div>
             <div className="text-xs text-emerald-300 font-medium">
               حسابك الحالي في المنصة:
             </div>
-            <div className="font-bold text-base text-white">
+            <div className="font-bold text-sm sm:text-base text-white break-words">
               {fbUser?.displayName || user.name} ({user.governorate})
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-6 text-center w-full sm:w-auto justify-around sm:justify-end border-t sm:border-t-0 border-emerald-800/60 pt-3 sm:pt-0">
+        <div className="flex items-center gap-3 sm:gap-6 text-center w-full sm:w-auto justify-around sm:justify-end border-t sm:border-t-0 border-emerald-800/60 pt-3 sm:pt-0">
           <div>
             <div className="text-[11px] text-stone-300 font-medium">مجموع نقاطك</div>
-            <div className="text-xl font-black text-amber-400 font-mono">
+            <div className="text-lg sm:text-xl font-black text-amber-400 font-mono">
               {myFbEntry ? myFbEntry.totalPoints : user.totalScore}
             </div>
           </div>
           <div>
             <div className="text-[11px] text-stone-300 font-medium">الجولات المكتملة</div>
-            <div className="text-xl font-black text-emerald-300 font-mono">
+            <div className="text-lg sm:text-xl font-black text-emerald-300 font-mono">
               {myFbEntry ? myFbEntry.roundsPlayed : user.participations}
             </div>
           </div>
           <div>
             <div className="text-[11px] text-stone-300 font-medium">الترتيب</div>
-            <div className="text-xl font-black text-white font-mono">
+            <div className="text-lg sm:text-xl font-black text-white font-mono">
               #{myFbRank > 0 ? myFbRank : user.rank || 1}
             </div>
           </div>
@@ -225,8 +225,8 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
       )}
 
       {/* Mode Tabs */}
-      <div className="flex items-center justify-center overflow-x-auto">
-        <div className="p-1 rounded-xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 flex items-center gap-1">
+      <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain">
+        <div className="w-max min-w-full sm:min-w-0 sm:w-auto p-1 rounded-xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 flex items-center gap-1">
           {(
             [
               { id: 'firebase', label: 'المباشر (Firebase)' },
@@ -239,7 +239,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
             <button
               key={tab.id}
               onClick={() => setViewMode(tab.id)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap ${
                 viewMode === tab.id
                   ? 'bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
                   : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
@@ -286,7 +286,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                         : 'hover:bg-stone-50 dark:hover:bg-stone-800/40'
                     }`}
                   >
-                    <div className="flex items-center gap-3.5">
+                    <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 font-mono">
                         {rank === 1 ? (
                           <div className="w-8 h-8 rounded-full bg-amber-400 text-amber-950 flex items-center justify-center shadow-sm">
@@ -307,7 +307,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
 
                       <div>
                         <div className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white flex items-center gap-2">
-                          <span>{entry.displayName}</span>
+                          <span className="break-words">{entry.displayName}</span>
                           {isCurrentUser && (
                             <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white font-medium">
                               أنت
@@ -332,7 +332,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                     </div>
 
                     <div className="text-left">
-                      <div className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-400 font-mono">
+                      <div className="text-sm sm:text-lg font-black text-emerald-700 dark:text-emerald-400 font-mono">
                         {entry.totalPoints.toLocaleString()}
                       </div>
                       <div className="text-[10px] text-stone-400 font-medium">
@@ -426,7 +426,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
       </div>
 
       {/* Fair Play Notice */}
-      <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-300/40 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3">
+      <div className="p-3 sm:p-4 rounded-xl bg-amber-500/10 border border-amber-300/40 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3">
         <Gift className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
         <div className="space-y-1">
           <div className="font-bold">نظام الجوائز والنزاهة:</div>
