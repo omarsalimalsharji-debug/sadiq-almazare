@@ -1277,7 +1277,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                       <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 bg-slate-50 dark:bg-[#0b1329]/70 px-4 py-3 rounded-2xl border border-slate-200/70 dark:border-sky-300/15">
                         <div className="text-right sm:text-left">
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
-                            نسبة الثقة التقديرية
+                            مستوى الثقة في التشخيص المبدئي
                           </div>
                           <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
                             {result.confidenceScore}%
