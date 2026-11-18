@@ -221,7 +221,6 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   const [historyLoading, setHistoryLoading] = useState<boolean>(false);
   const [savingToCloud, setSavingToCloud] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [authBusy, setAuthBusy] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (user) => {
@@ -382,7 +381,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     usedObservations: string
   ) => {
     if (!user.emailVerified) {
-      setSaveMessage('سجل دخولك بحساب Google موثق لحفظ التشخيص تلقائياً في السجل.');
+      setSaveMessage('لا يمكن مزامنة هذا التشخيص سحابياً حالياً؛ سيبقى محفوظاً على هذا الجهاز.');
       return;
     }
 
@@ -1629,7 +1628,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
 
             {historyLoading ? (
               <div className="py-6 text-center text-xs text-slate-400">
-                جاري تحميل السجل من Firebase...
+                جاري تحميل سجل التشخيصات...
               </div>
             ) : historyItems.length === 0 ? (
               <div className="py-6 text-center text-xs text-slate-400">
