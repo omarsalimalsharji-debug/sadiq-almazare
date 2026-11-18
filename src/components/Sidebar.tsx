@@ -131,9 +131,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'help_support', labelAr: 'المساعدة والدعم وتوثيق المنصة', labelEn: 'Help & Support', icon: HelpCircle },
         {
           id: 'login',
-          labelAr: user.isAdmin ? 'تبديل الحساب / تسجيل الخروج' : 'تسجيل الدخول / الإدارة',
-          labelEn: user.isAdmin ? 'Switch Account / Logout' : 'Sign In / Admin',
-          icon: user.isAdmin ? LogOut : LogIn,
+          labelAr: user.isAdmin || user.isModerator ? 'تسجيل خروج الإدارة' : 'دخول الإدارة فقط',
+          labelEn: user.isAdmin || user.isModerator ? 'Staff Sign Out' : 'Staff Access Only',
+          icon: user.isAdmin || user.isModerator ? LogOut : ShieldCheck,
         },
       ],
     },
