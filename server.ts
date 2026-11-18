@@ -72,6 +72,19 @@ async function requireFarmerAuth(req: FarmerAuthenticatedRequest, res: express.R
   }
 }
 
+function optionalFarmerAuth(req: FarmerAuthenticatedRequest, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return next();
+  if (!firebaseAdminAuth) {
+    return res.status(503).json({ success: false, error: 'خدمة الحسابات غير مهيأة حالياً.' });
+  }
+  firebaseAdminAuth.verifyIdToken(token).then((decoded) => {
+    req.farmerUid = decoded.uid;
+    next();
+  }).catch(() => res.status(401).json({ success: false, error: 'رمز الحساب غير صالح.' }));
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -2584,14 +2597,18 @@ app.delete('/api/community/posts/:postId/comments/:commentId', requireStaff, (re
 });
 
 // --- 9. Notifications APIs ---
-app.get('/api/notifications', (_req, res) => {
-  return res.json({ success: true, notifications: storage.notifications });
+app.get('/api/notifications', optionalFarmerAuth, (req: FarmerAuthenticatedRequest, res) => {
+  const visible = storage.notifications.filter((n: any) => !n.targetUserId || n.targetUserId === req.farmerUid);
+  return res.json({ success: true, notifications: visible });
 });
 
-app.post('/api/notifications/read-all', (_req, res) => {
-  storage.notifications = storage.notifications.map((n: any) => ({ ...n, read: true }));
+app.post('/api/notifications/read-all', optionalFarmerAuth, (req: FarmerAuthenticatedRequest, res) => {
+  storage.notifications = storage.notifications.map((n: any) =>
+    !n.targetUserId || n.targetUserId === req.farmerUid ? { ...n, read: true } : n
+  );
   saveStorage();
-  return res.json({ success: true, notifications: storage.notifications });
+  const visible = storage.notifications.filter((n: any) => !n.targetUserId || n.targetUserId === req.farmerUid);
+  return res.json({ success: true, notifications: visible });
 });
 
 // --- 9B. Farmer Support Tickets & Feedback APIs ---
@@ -2693,7 +2710,7 @@ app.post('/api/admin/broadcast-alert', requireAdmin, (req, res) => {
 app.get('/api/calendar/reminders', requireFarmerAuth, (req: FarmerAuthenticatedRequest, res) => {
   const list = storage.calendarReminders.filter((r) => r.userId === req.farmerUid);
   const sorted = [...list].sort((a, b) => b.createdAt - a.createdAt);
-  const unreadNotificationsCount = storage.notifications.filter((n: any) => !n.read).length;
+  const unreadNotificationsCount = storage.notifications.filter((n: any) => !n.read && (!n.targetUserId || n.targetUserId === req.farmerUid)).length;
   return res.json({ success: true, reminders: sorted, unreadNotificationsCount });
 });
 
@@ -2768,7 +2785,7 @@ app.patch('/api/calendar/reminders/:id', requireFarmerAuth, writeRateLimit, (req
   const reminder = storage.calendarReminders.find((r) => r.id === req.params.id && r.userId === req.farmerUid);
   if (!reminder) return res.status(404).json({ error: 'التنبيه المجدول غير موجود.' });
 
-  if (typeof req.body?.enabled === 'boolean' {
+  if (typeof req.body?.enabled === 'boolean') {
     reminder.enabled = req.body.enabled;
   }
   if (typeof req.body?.cadence === 'string' &&
