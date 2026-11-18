@@ -23,6 +23,8 @@ import {
   Question,
   RadioStation
 } from './src/data/agriculturalData.ts';
+import { OMANI_DATE_PALM_DIAGNOSTIC_GUIDE } from './src/data/omaniDatePalmDiagnosticGuide.ts';
+import { OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE } from './src/data/omaniFieldCropDiagnosticGuide.ts';
 import { DEFAULT_SEASONAL_CONFIG, SeasonalConfig } from './src/utils/islamicCalendar.ts';
 import { prepareArabicTextForTts } from './src/utils/arabicPronunciation.ts';
 import { INITIAL_CARTOON_EPISODES } from './src/data/cartoonEpisodesData.ts';
@@ -1522,6 +1524,18 @@ async function runUnifiedAgriVisionDiagnosis(params: {
 
 المحاصيل المدعومة في سلطنة عُمان تشمل: أشجار النخيل، الخضروات، أشجار الفاكهة (الليمون العماني، المانجو، الرمان، الموز...)، المحاصيل الحقلية (القمح العماني، الشعير، الذرة...)، الأعلاف (القت/البرسيم)، النباتات الزينة، والمحاصيل الموسمية.
 
+${OMANI_DATE_PALM_DIAGNOSTIC_GUIDE}
+
+${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
+
+إرشادات تفريقية للمحاصيل العُمانية (قرائن للفحص وليست تشخيصاً مؤكداً):
+- نخيل التمر: افحص موضع الإصابة ونمط انتشارها. وجود ثقوب أو نشارة ليفية أو إفرازات صمغية أو رائحة تخمر قد يثير الاشتباه في إصابة حفارات الجذع مثل سوسة النخيل، لكنه لا يكفي وحده لتأكيد النوع أو نفي الإصابة عند غياب العلامات. أما الندوة العسلية والطبقة السوداء السطحية على السعف فقد تتوافق مع آفات ماصة مثل دوباس النخيل، ويجب التمييز بينها وبين الغبار أو العفن السطحي وأسباب أخرى. لا تستنتج إصابة داخلية أو تحدد شدة الإصابة من صورة خارجية واحدة.
+- الحمضيات: ميّز بين الأنفاق المتعرجة داخل نصل الورقة الحديثة، والبقع المرتفعة أو المتفلنة، والاصفرار المنتظم أو بين العروق. لا تخلط بين ضرر الحشرات أو التبقعات المرضية ونقص العناصر أو الملوحة أو الإجهاد المائي.
+- الطماطم والخيار: قارن شكل البقع وموقعها على الورقة ووجود نمو فطري أو هالة أو اصفرار بين العروق. قد تتشابه أعراض البياض الدقيقي والبياض الزغبي والتبقعات ونقص العناصر؛ لا تحدد المسبب من لون البقعة وحده.
+- البصل والثوم والمحاصيل الحقلية: قيّم شكل الآفة على الورقة أو الساق أو السنابل، وعمر الجزء المصاب، وانتشار الأعراض في الحقل. لا تنسب اصفرار الأوراق أو جفاف الأطراف تلقائياً إلى مرض معدٍ؛ فقد ينتج عن الري أو الملوحة أو التغذية أو الحرارة.
+- السياق العُماني: استخدم الولاية والنطاق المناخي والموسم ونوع الري كقرائن مساعدة فقط، ولا تعتبر وجود محصول أو آفة في منطقة عُمانية دليلاً على أن العينة مصابة بها. إذا لم تظهر علامة فارقة، اعرض احتمالات محدودة أو اطلب صوراً إضافية للوجهين العلوي والسفلي للورقة وقاعدة النبات أو الثمرة، ولا تخترع انتشاراً محلياً أو بيانات إحصائية.
+
+
 قواعد حاسمة لا تهاون فيها:
 1. الفحص الأولي للصورة (الأهم):
    - حدد هل الصورة واضحة ومرتبطة فعلاً بالزراعة (نبات، ورقة، جذع، ثمرة، تربة مع أعراض، أو حشرة/آفة).
@@ -1544,7 +1558,7 @@ async function runUnifiedAgriVisionDiagnosis(params: {
      * "نبات سليم" (problemType = "سليم"، severity = "منخفضة")
 
 3. الأمانة العلمية في نسبة الثقة والتفاصيل:
-   - أعطِ confidenceScore رقمية صادقة من 0 إلى 100 تعكس مدى وضوح العلامات المرئية في الصورة فقط، ولا تخترع نسبة مرتفعة مع وجود لبس.
+   - أعطِ confidenceScore رقماً من 0 إلى 100 يعبّر عن مدى ترجيح التشخيص المبدئي نفسه، وليس مجرد وضوح الصورة. قيّم نوعية العلامات ومدى تميّزها عن الحالات المشابهة واتساقها مع المحصول والسياق. إذا كانت الأعراض عامة أو تتشابه مع أسباب متعددة، اخفض النسبة بوضوح حتى لو كانت الصورة حادة، ولا ترفعها لمجرد جودة التصوير.
    - صف في conditionSummary ما ظهر فعلياً في الصورة بلغة عربية واضحة ومطمئنة.
    - اكتب visibleSymptoms كقائمة نقاط للملاحظات البصرية الفعلية التي استند عليها التقييم.
 
@@ -1688,7 +1702,7 @@ async function runUnifiedAgriVisionDiagnosis(params: {
 
   const parsed = JSON.parse(response.text || '{}');
 
-  const isAgri = parsed.isAgricultureRelated !== false;
+  const isAgri = parsed.isAgricultureRelated === true;
   const rawConfidence = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0;
   const clampedConfidence = Math.max(0, Math.min(100, Math.round(rawConfidence)));
 
@@ -1804,7 +1818,7 @@ async function runUnifiedAgriVisionDiagnosis(params: {
     isAgricultureRelated: isAgri,
     detectedSubject: needsClearerPhoto ? 'unclear' : detectedSubject,
     diagnosisCategory,
-    problemType,
+    problemType: needsClearerPhoto ? 'غير محدد' : problemType,
     cropName: (parsed.cropName || cropName || (detectedSubject === 'insect' ? 'محصول زراعي' : 'نبات زراعي')).trim(),
     problemName: needsClearerPhoto
       ? 'تعذر تأكيد التشخيص من هذه الصورة'
@@ -1819,25 +1833,25 @@ async function runUnifiedAgriVisionDiagnosis(params: {
       ? (parsed.clarificationMessage ||
           'الصورة غير واضحة بما يكفي أو لا تُظهر النسيج النباتي أو الحشرة بدقة. يرجى التقاط صورة واحدة قريبة ومُركّزة في إضاءة نهارية جيدة.')
       : '',
-    conditionSummary:
-      (parsed.conditionSummary || '').trim() ||
-      (needsClearerPhoto
-        ? 'لم يتمكن النظام من التحقق من أعراض أو معالم زراعية واضحة في الصورة المقدمة.'
-        : 'تم تحليل العلامات المرئية الظاهرة في الصورة.'),
-    visibleSymptomsList: visibleSymptomsArr,
-    visibleSymptoms: visibleSymptomsText || 'لم تُرصد أعراض واضحة في الصورة.',
-    causes: causesArr,
-    severity,
-    severityLabel:
-      insectNature === 'beneficial'
+    conditionSummary: needsClearerPhoto
+      ? 'لم يتمكن النظام من التحقق من أعراض أو معالم زراعية واضحة في الصورة المقدمة.'
+      : ((parsed.conditionSummary || '').trim() || 'تم تحليل العلامات المرئية الظاهرة في الصورة.'),
+    visibleSymptomsList: needsClearerPhoto ? [] : visibleSymptomsArr,
+    visibleSymptoms: needsClearerPhoto
+      ? 'لم تُرصد علامات كافية تسمح بوصف الأعراض.'
+      : (visibleSymptomsText || 'لم تُرصد أعراض واضحة في الصورة.'),
+    causes: needsClearerPhoto ? [] : causesArr,
+    severity: needsClearerPhoto ? 'غير محددة' : severity,
+    severityLabel: needsClearerPhoto
+      ? 'غير محددة — لا يمكن تقدير الشدة من الصورة'
+      : insectNature === 'beneficial'
         ? 'غير ضارة — حشرة نافعة'
         : (parsed.severityLabel || severity),
-    treatmentSteps: treatmentStepsArr,
-    organicRemedy:
-      (parsed.organicRemedy || '').trim() ||
-      treatmentStepsArr.join(' — ') ||
-      'اتباع الإجراءات الوقائية الزراعية الملائمة ومراقبة المحصول.',
-    preventionTips: preventionTipsArr,
+    treatmentSteps: needsClearerPhoto ? [] : treatmentStepsArr,
+    organicRemedy: needsClearerPhoto
+      ? 'يرجى إعادة تصوير الجزء المصاب بوضوح قبل اختيار أي إجراء علاجي.'
+      : ((parsed.organicRemedy || '').trim() || treatmentStepsArr.join(' — ') || 'اتباع الإجراءات الوقائية الزراعية الملائمة ومراقبة المحصول.'),
+    preventionTips: needsClearerPhoto ? [] : preventionTipsArr,
     pesticideRecommendation: {
       needed: allowPesticide,
       productAr: allowPesticide ? (parsed.pesticideProductAr || '').trim() : '',
@@ -1849,14 +1863,15 @@ async function runUnifiedAgriVisionDiagnosis(params: {
         : '',
     },
     chemicalRemedy: chemicalRemedyCombined,
-    whenToContactEngineer:
-      (parsed.whenToContactEngineer || '').trim() ||
-      'تواصل مع المهندس الزراعي أو دائرة التنمية الزراعية عند تزايد الأعراض سريعاً، أو في حال التباس التشخيص، أو قبل اتخاذ قرار الرش العلاجي الواسع.',
-    omaniFarmingNote:
-      (parsed.omaniFarmingNote || '').trim() ||
-      `راعِ ظروف الحرارة والرطوبة في ${locationLabel} ونفّذ عمليات الفحص والرش (إن لزم) في الصباح الباكر أو قبل الغروب.`,
+    whenToContactEngineer: needsClearerPhoto
+      ? 'أعد التصوير من مسافة قريبة وفي ضوء النهار، واستشر المهندس الزراعي إذا كانت الحالة تتفاقم أو كان الضرر واسعاً.'
+      : ((parsed.whenToContactEngineer || '').trim() || 'تواصل مع المهندس الزراعي أو دائرة التنمية الزراعية عند تزايد الأعراض سريعاً، أو في حال التباس التشخيص، أو قبل اتخاذ قرار الرش العلاجي الواسع.'),
+    omaniFarmingNote: needsClearerPhoto
+      ? ''
+      : ((parsed.omaniFarmingNote || '').trim() ||
+        `راعِ ظروف الحرارة والرطوبة في ${locationLabel} ونفّذ عمليات الفحص والرش (إن لزم) في الصباح الباكر أو قبل الغروب.`), 
     advisoryNote: MANDATORY_ADVISORY,
-    possibleConditions: possibleConditionsArr,
+    possibleConditions: needsClearerPhoto ? [] : possibleConditionsArr,
     insectDetails:
       detectedSubject === 'insect' && !needsClearerPhoto
         ? {
@@ -1872,16 +1887,17 @@ async function runUnifiedAgriVisionDiagnosis(params: {
         : null,
     photoParts: images.map((_, i) => (i === 0 ? 'primary' : `extra-${i}`)),
     // Legacy pest alias fields for smooth compatibility
-    pestName: parsed.problemName || '',
-    severityLevel:
-      severity === 'عالية' ? 'شديد الخطورة' : severity === 'متوسطة' ? 'متوسط الخطورة' : 'قليل الضرر',
-    affectedParts: insectTargetCropsArr,
-    lifeCycleNote: parsed.insectLifeCycle || '',
-    organicAndBiologicalControl: parsed.insectControlMethod || parsed.organicRemedy || '',
-    safeChemicalOptions: chemicalRemedyCombined,
-    immediateAction: treatmentStepsArr[0] || parsed.organicRemedy || '',
+    pestName: needsClearerPhoto ? '' : (parsed.problemName || ''),
+    severityLevel: needsClearerPhoto
+      ? 'غير محددة — لا يمكن تقدير الشدة من الصورة'
+      : severity === 'عالية' ? 'شديد الخطورة' : severity === 'متوسطة' ? 'متوسط الخطورة' : 'قليل الضرر',
+    affectedParts: needsClearerPhoto ? [] : insectTargetCropsArr,
+    lifeCycleNote: needsClearerPhoto ? '' : (parsed.insectLifeCycle || ''),
+    organicAndBiologicalControl: needsClearerPhoto ? '' : (parsed.insectControlMethod || parsed.organicRemedy || ''),
+    safeChemicalOptions: needsClearerPhoto ? '' : chemicalRemedyCombined,
+    immediateAction: needsClearerPhoto ? 'إعادة التصوير بوضوح قبل اتخاذ إجراء علاجي.' : (treatmentStepsArr[0] || parsed.organicRemedy || ''),
     officialDisclaimer: MANDATORY_ADVISORY,
-    omaniGuidance: parsed.omaniFarmingNote || '',
+    omaniGuidance: needsClearerPhoto ? '' : (parsed.omaniFarmingNote || ''),
   };
 
   if (smartDiagnosisCache.size >= SMART_CACHE_MAX_ITEMS) {
@@ -3053,7 +3069,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
             : 'cheerful';
     const cacheKey = crypto
       .createHash('sha256')
-      .update(`v3-murshid-tts:${voiceMood}:${cleanText}`)
+      .update(`v4-murshid-puck-tts:${voiceMood}:${cleanText}`)
       .digest('hex');
 
     const ttsDiskCacheDir = path.join(DATA_DIR, 'tts-cache');
@@ -3082,13 +3098,13 @@ app.post('/api/cartoon/tts', async (req, res) => {
 
     const styleMap: Record<string, string> = {
       cheerful:
-        'Authentic, charismatic modern Omani male agricultural advisor (Murshid) with warm natural breath, clear Arabic diction, welcoming Omani Gulf cadence, lively friendly inflection, zero robotic monotony',
+        'A warm, confident male Arabic agricultural host for an Omani farming app; friendly Gulf rhythm, natural pauses, clear Modern Standard Arabic diction, relaxed smile in the voice, never theatrical or robotic',
       curious:
-        'Warm, engaging Omani Arabic male agricultural educator (Murshid) speaking with natural thoughtful curiosity, crystal-clear pronunciation of palm and pest terms, and approachable human pacing',
+        'A thoughtful, friendly male Arabic agricultural educator; curious but calm, precise pronunciation of Omani crop and pest names, measured conversational pacing',
       warning:
-        'Caring, confident Omani male agricultural mentor (Murshid) speaking with gentle firm urgency, clear warnings on honeydew and pesticide safety, and warm reassurance',
+        'A caring, mature male Arabic agricultural mentor; clear and composed safety warning, firm but never alarming, reassuring close',
       proud:
-        'Enthusiastic, proud Omani male agricultural advisor (Murshid) celebrating harvest success with uplifting warm vocal energy and natural studio clarity',
+        'A warm male Arabic presenter celebrating a farmer’s success with genuine joy, controlled energy, and clean studio diction',
     };
 
     const response = await ai.models.generateContent({
@@ -3110,7 +3126,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Charon' },
+            prebuiltVoiceConfig: { voiceName: 'Puck' },
           },
         },
       },

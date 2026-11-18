@@ -397,7 +397,7 @@ export async function speakMurshid(
     volume: volumeOpt,
     rate = 0.94,
     mood = 'cheerful',
-    preferStudioAudio = false,
+    preferStudioAudio = true,
     onSpeakingChange,
     onEnd,
   } = options || {};

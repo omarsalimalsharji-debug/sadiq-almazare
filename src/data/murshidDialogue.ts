@@ -1,6 +1,6 @@
 /**
  * Unified Identity, 10 Expressions & Varied Dialogue Bank for «مُرشد»
- * Smart, modern Omani agricultural companion across all screens of «صديق المزارع».
+ * A warm, trustworthy Omani farm companion: practical, encouraging, clear, and safety-first across «صديق المزارع».
  */
 
 export type MurshidExpression =
@@ -109,9 +109,9 @@ export const MURSHID_EXPRESSION_PRESETS: MurshidExpressionPreset[] = [
 
 export const MURSHID_PHRASES = {
   homeWelcome: (name: string, wilayat: string) => [
-    `حيّاك الله يا ${name} في صديق المزارع! أنا مرشد، ومستعد لمساعدتك اليوم في مزارع ${wilayat}.`,
-    `أهلاً بك يا ${name}! الأجواء في ولاية ${wilayat} بين يديك؛ هيا نتابع محاصيلنا خطوة بخطوة.`,
-    `مرحباً يا رفيق الأرض ${name}! معك مرشد من عُمان الخير، اختر الفحص الذكي أو مغامرتك الزراعية.`,
+    `حيّاك الله يا ${name}! أنا مُرشد، رفيقك الزراعي من أرض عُمان. لنفحص مزرعتك ونختَر الخطوة الصحيحة لمحاصيل ${wilayat}.`,
+    `أهلاً بك يا ${name}! معاً نعتني بمحاصيل ولاية ${wilayat} بمعلومة موثوقة وخطوة عملية في كل مرة.`,
+    `مرحباً يا ${name}! أنا مُرشد؛ أساعدك في فهم أعراض النبات والتعرّف على الحشرات والعناية بالمزرعة بأمان.`,
   ],
   correct: [
     'أحسنت يا مزارعنا الذكي! إجابة دقيقة وموفقة.',

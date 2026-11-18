@@ -22,6 +22,7 @@ import {
 import { TRANSLATIONS } from '../utils/i18n.ts';
 import { useLocation } from '../context/LocationContext.tsx';
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
+import { MurshidQuickGame } from './MurshidQuickGame.tsx';
 import { MURSHID_PHRASES, pickFreshPhrase, pickVariedPhrase } from '../data/murshidDialogue.ts';
 import {
   getMurshidAudioPrefs,
@@ -336,6 +337,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           );
         })}
       </section>
+      <MurshidQuickGame />
     </div>
   );
 };
