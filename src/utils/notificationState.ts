@@ -114,15 +114,24 @@ export function dispatchDueLocalReminders(now = Date.now()): number {
     if (!due) return reminder;
 
     const notificationId = `scheduled-${reminder.id}-${todayKey}`;
+    const title = reminder.title || `تذكير زراعي: ${reminder.cropName || ''}`;
+    const message = reminder.message || 'حان موعد متابعة النشاط الزراعي المسجل في تقويمك.';
     addLocalNotification({
       id: notificationId,
-      title: reminder.title || `تذكير زراعي: ${reminder.cropName || ''}`,
-      message: reminder.message || 'حان موعد متابعة النشاط الزراعي المسجل في تقويمك.',
+      title,
+      message,
       type: 'crop_advice',
       targetGovernorate: reminder.governorate,
       timestamp: now,
       read: false,
     });
+    if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
+      try {
+        new window.Notification(title, { body: message, dir: 'rtl', lang: 'ar' });
+      } catch {
+        // In-app notification remains available if browser notifications are restricted.
+      }
+    }
     dispatched++;
     changed = true;
     return { ...reminder, lastDispatchedAt: now };
