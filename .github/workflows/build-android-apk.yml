@@ -2,17 +2,25 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Verify application"]
+    types: [completed]
+    branches:
+      - codex/diagnosis-safety-hardening-2026-11-18
 
 permissions:
   contents: read
 
 jobs:
   build-debug-apk:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
     name: Build installable Android test APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
