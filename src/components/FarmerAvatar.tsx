@@ -12,8 +12,6 @@ export const FARMER_AVATARS = [
   { id: 'water', label: 'مياه الري', Icon: Droplets, shell: 'from-sky-500 to-blue-900', glow: 'bg-cyan-200/25' },
 ] as const;
 
-type AvatarId = typeof FARMER_AVATARS[number]['id'];
-
 interface FarmerAvatarProps {
   seed?: string;
   size?: 'sm' | 'md' | 'lg';
