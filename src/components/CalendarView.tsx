@@ -177,7 +177,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     } catch {
       // ignore storage quota errors
     }
-  }, []);
+  }, [remindersCacheKey]);
 
   const getFarmerAuthHeaders = useCallback(async (includeJson = false): Promise<Record<string, string>> => {
     const signedInUser = auth.currentUser;
