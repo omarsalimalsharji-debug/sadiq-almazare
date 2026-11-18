@@ -541,9 +541,15 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       }
     } catch (err: any) {
       playSoftNoticeSound(soundEnabled);
-      setError(
+      const message = String(
         err?.message ||
-          'حدث خطأ في الاتصال بمحرك التشخيص الذكي. تأكد من استقرار الإنترنت وحاول ثانية.'
+        'حدث خطأ في الاتصال بمحرك التشخيص الذكي. تأكد من استقرار الإنترنت وحاول ثانية.'
+      );
+      const temporaryServiceIssue = /503|مشغولة|مؤقتاً|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(message);
+      setError(
+        temporaryServiceIssue
+          ? `${message} الصورة ما زالت محددة؛ أعد المحاولة دون الحاجة إلى التقاطها أو رفعها من جديد.`
+          : message
       );
     } finally {
       setLoading(false);
