@@ -2982,7 +2982,9 @@ const cartoonTtsCache = new Map<string, string>();
 let cartoonTtsCooldownUntil = 0;
 
 const MEDIA_STORE_DIR = path.join(__dirname, 'public', 'media');
+const LEGACY_MEDIA_STORE_DIR = path.join(__dirname, 'media_store');
 app.use('/media', express.static(MEDIA_STORE_DIR, { maxAge: '7d' }));
+app.use('/media', express.static(LEGACY_MEDIA_STORE_DIR, { maxAge: '7d' }));
 
 function createDefaultQaReview(episodeId: string): EpisodeQaReviewState {
   return {
@@ -3005,9 +3007,13 @@ function createDefaultQaReview(episodeId: string): EpisodeQaReviewState {
 }
 
 function readCartoonMediaManifest(): any | null {
-  const manifestPath = path.join(MEDIA_STORE_DIR, 'videos', 'manifest.json');
+  const manifestPaths = [
+    path.join(MEDIA_STORE_DIR, 'videos', 'manifest.json'),
+    path.join(LEGACY_MEDIA_STORE_DIR, 'videos', 'manifest.json'),
+  ];
   try {
-    if (fs.existsSync(manifestPath)) return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    const manifestPath = manifestPaths.find((candidate) => fs.existsSync(candidate));
+    if (manifestPath) return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
   } catch {
     // A missing or invalid manifest means no final videos are available yet.
   }
@@ -3022,10 +3028,14 @@ app.get('/api/cartoon/manifest', (_req, res) => {
 });
 
 app.get('/api/cartoon/reviews', requireStaff, (_req, res) => {
-  const voiceReportPath = path.join(MEDIA_STORE_DIR, 'voice-comparison', 'comparison-report.json');
+  const voiceReportPaths = [
+    path.join(MEDIA_STORE_DIR, 'voice-comparison', 'comparison-report.json'),
+    path.join(LEGACY_MEDIA_STORE_DIR, 'voice-comparison', 'comparison-report.json'),
+  ];
   let voiceReport: any = null;
   try {
-    if (fs.existsSync(voiceReportPath)) voiceReport = JSON.parse(fs.readFileSync(voiceReportPath, 'utf-8'));
+    const voiceReportPath = voiceReportPaths.find((candidate) => fs.existsSync(candidate));
+    if (voiceReportPath) voiceReport = JSON.parse(fs.readFileSync(voiceReportPath, 'utf-8'));
   } catch { /* ignore */ }
 
   const reviews: Record<string, EpisodeQaReviewState> = {};
