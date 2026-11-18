@@ -49,7 +49,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [wilayatId, setWilayatId] = useState<string>(initialMatched.wilayat.id);
   const [village, setVillage] = useState<string>(initialMatched.village);
   const [role, setRole] = useState<string>(user.role);
-  const [selectedAvatar, setSelectedAvatar] = useState<string>(user.avatarSeed || 'palm');
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(FARMER_AVATARS.some((item) => item.id === user.avatarSeed) ? user.avatarSeed : 'palm');
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
@@ -183,7 +183,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <FarmerAvatar seed={user.avatarSeed || selectedAvatar} size="lg" />
+            <FarmerAvatar seed={selectedAvatar} size="lg" />
             <div>
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
