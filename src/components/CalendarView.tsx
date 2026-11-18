@@ -41,8 +41,7 @@ import {
 import { computeOmaniHijriState } from '../utils/islamicCalendar.ts';
 import { UserProfile } from '../types/index.ts';
 import { useLocation } from '../context/LocationContext.tsx';
-import { auth } from '../firebase.ts';
-import { onAuthStateChanged } from 'firebase/auth';
+import { addLocalNotification, getLocalNotifications } from '../utils/notificationState.ts';
 
 export interface CalendarReminderItem {
   id: string;
@@ -106,14 +105,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const { location } = useLocation();
   const realCurrentMonthIdx = new Date().getMonth();
-  const [firebaseUid, setFirebaseUid] = useState<string | null>(auth.currentUser?.uid ?? null);
-  const userId = firebaseUid || 'guest';
-  const remindersCacheKey = `${STORAGE_REMINDERS_CACHE_KEY}:${userId}`;
-  const reminderRequestId = useRef(0);
-
-  useEffect(() => onAuthStateChanged(auth, (fbUser) => {
-    setFirebaseUid(fbUser?.uid ?? null);
-  }), []);
+  const userId = 'guest';
+  const remindersCacheKey = `${STORAGE_REMINDERS_CACHE_KEY}:device`;
   const hijri = computeOmaniHijriState();
 
   const [selectedMonthIdx, setSelectedMonthIdx] = useState<number>(realCurrentMonthIdx);
@@ -186,51 +179,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
   }, [remindersCacheKey]);
 
-  const getFarmerAuthHeaders = useCallback(async (includeJson = false): Promise<Record<string, string>> => {
-    const signedInUser = auth.currentUser;
-    if (!signedInUser) throw new Error('يرجى تسجيل الدخول بحساب Google لحفظ التذكيرات ومزامنتها. يمكنك متابعة تصفح التقويم كزائر.');
-    const idToken = await signedInUser.getIdToken();
-    return { ...(includeJson ? { 'Content-Type': 'application/json' } : {}), Authorization: `Bearer ${idToken}` };
-  }, []);
-
-  useEffect(() => {
-    // Clear the previous account's reminders immediately when identity changes.
-    reminderRequestId.current += 1;
-    setReminders([]);
-    setLoadingReminders(Boolean(firebaseUid));
-  }, [firebaseUid]);
-
-  const fetchReminders = useCallback(async () => {
-    const requestId = ++reminderRequestId.current;
-    if (!userId || userId === 'guest' || auth.currentUser?.uid !== userId) {
-      setReminders([]);
-      setLoadingReminders(false);
-      return;
-    }
-    setLoadingReminders(true);
+  const fetchReminders = useCallback(() => {
+    setLoadingReminders(false);
     try {
-      const headers = await getFarmerAuthHeaders();
-      if (requestId !== reminderRequestId.current || auth.currentUser?.uid !== userId) return;
-      const res = await fetch('/api/calendar/reminders', { headers });
-      const data = await res.json();
-      if (requestId !== reminderRequestId.current || auth.currentUser?.uid !== userId) return;
-      if (res.ok && data.success && Array.isArray(data.reminders)) {
-        setReminders(data.reminders);
-        persistCache(data.reminders);
-        if (typeof data.unreadNotificationsCount === 'number') {
-          onNotificationsUpdated?.(data.unreadNotificationsCount);
-        }
-      }
+      const raw = localStorage.getItem(remindersCacheKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setReminders(Array.isArray(parsed) ? parsed : []);
     } catch {
-      // Keep the current account's in-memory list empty on authentication or network errors.
-    } finally {
-      if (requestId === reminderRequestId.current) setLoadingReminders(false);
+      setReminders([]);
     }
-  }, [userId, onNotificationsUpdated, persistCache, getFarmerAuthHeaders]);
+  }, [remindersCacheKey]);
 
   useEffect(() => {
     fetchReminders();
-    return () => { reminderRequestId.current += 1; };
   }, [fetchReminders]);
 
   const maybeShowBrowserNotification = (title: string, body: string) => {
@@ -266,11 +227,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       if (perm === 'granted') {
         setStatusBanner({
           kind: 'success',
-          text: 'تم تفعيل تنبيهات المتصفح المباشرة بنجاح جنباً إلى جنب مع جرس التطبيق.',
+          text: 'تم السماح بعرض إشعارات المتصفح أثناء عمل التطبيق. تنبيهات الهاتف عند إغلاق التطبيق تحتاج إلى تفعيل خدمة Push مستقلة.',
         });
         maybeShowBrowserNotification(
           'صديق المزارع — التقويم الزراعي',
-          'ستصلك تنبيهات الزراعة والري والحصاد مباشرة هنا وفي مركز الإشعارات.'
+          'ستظهر التنبيهات المحلية هنا، ويمكن للمتصفح عرضها عندما يكون التطبيق مفتوحاً.'
         );
       } else {
         setStatusBanner({
@@ -331,58 +292,47 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setStatusBanner(null);
 
     try {
-      const res = await fetch('/api/calendar/reminders', {
-        method: 'POST',
-        headers: await getFarmerAuthHeaders(true),
-        body: JSON.stringify({
-          cropId: crop.id,
-          cropName: crop.nameAr,
-          monthIndex: selectedMonthIdx,
-          phase: slot.phase,
-          cadence,
-          governorate: selectedGovernorate,
-          title: slot.suggestedAlertTitle,
-          message: `${slot.suggestedAlertBody} (${selectedGovernorate} · ولاية ${location.wilayat} · ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]})`,
-          pushImmediately,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setStatusBanner({
-          kind: 'error',
-          text: data.error || 'تعذر حفظ التنبيه الزراعي الآن.',
-        });
-        return;
-      }
-
+      const now = Date.now();
+      const message = `${slot.suggestedAlertBody} (${selectedGovernorate} · ولاية ${location.wilayat} · ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]})`;
+      const reminder: CalendarReminderItem = {
+        id: `calrem-${now}-${Math.random().toString(36).slice(2, 7)}`,
+        userId,
+        cropId: crop.id,
+        cropName: crop.nameAr,
+        monthIndex: selectedMonthIdx,
+        phase: slot.phase,
+        cadence,
+        governorate: selectedGovernorate,
+        title: slot.suggestedAlertTitle,
+        message,
+        enabled: true,
+        createdAt: now,
+      };
       setReminders((prev) => {
-        const filtered = prev.filter((r) => r.id !== data.reminder.id);
-        const next = [data.reminder, ...filtered];
+        const filtered = prev.filter((item) => !(item.cropId === crop.id && item.monthIndex === selectedMonthIdx));
+        const next = [reminder, ...filtered];
         persistCache(next);
         return next;
       });
 
-      if (typeof data.unreadCount === 'number') {
-        onNotificationsUpdated?.(data.unreadCount);
-      }
-
       if (pushImmediately) {
-        maybeShowBrowserNotification(slot.suggestedAlertTitle, slot.suggestedAlertBody);
-        setStatusBanner({
-          kind: 'success',
-          text: `تمت جدولة تنبيه «${crop.nameAr}» وإرسال إشعار فوري إلى جرس التنبيهات.`,
+        addLocalNotification({
+          id: `notif-${reminder.id}`,
+          title: reminder.title,
+          message: reminder.message,
+          type: 'crop_advice',
+          targetGovernorate: selectedGovernorate,
+          timestamp: now,
+          read: false,
         });
+        maybeShowBrowserNotification(reminder.title, reminder.message);
+        onNotificationsUpdated?.(unreadNotifsCount + 1);
+        setStatusBanner({ kind: 'success', text: `تمت إضافة تنبيه «${crop.nameAr}» إلى مركز الإشعارات على هذا الجهاز.` });
       } else {
-        setStatusBanner({
-          kind: 'success',
-          text: `تم حفظ جدولة تنبيه «${crop.nameAr}» (${CADENCE_LABELS[cadence]}) لشهر ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]}.`,
-        });
+        setStatusBanner({ kind: 'success', text: `تم حفظ تذكير «${crop.nameAr}» على هذا الجهاز (${CADENCE_LABELS[cadence]}).` });
       }
-    } catch (error) {
-      setStatusBanner({
-        kind: 'error',
-        text: error instanceof Error ? error.message : 'تعذر الاتصال بالخادم لحفظ التنبيه. يرجى المحاولة مجدداً.',
-      });
+    } catch {
+      setStatusBanner({ kind: 'error', text: 'تعذر حفظ التذكير محلياً. تحقق من مساحة التخزين في الجهاز.' });
     } finally {
       setBusyCropId(null);
     }
@@ -407,133 +357,72 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setStatusBanner(null);
 
     try {
-      const alertsPayload = targets.map((crop) => {
+      const existingIds = new Set(getLocalNotifications().map((item) => item.id));
+      const now = Date.now();
+      let addedCount = 0;
+      for (const crop of targets) {
         const slot = crop.monthlySchedule[selectedMonthIdx];
-        const zoneTip = crop.zoneNotes[agroZoneInfo.zone];
-        return {
-          cropId: crop.id,
+        const notificationId = `calendar-${crop.id}-${selectedMonthIdx}-${new Date().getFullYear()}`;
+        if (existingIds.has(notificationId)) continue;
+        addLocalNotification({
+          id: notificationId,
           title: slot.suggestedAlertTitle,
-          message: `${slot.suggestedAlertBody} — ملاحظة المنطقة: ${zoneTip}`,
-        };
-      });
-
-      const res = await fetch('/api/calendar/sync-alerts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          governorate: `${selectedGovernorate} - ولاية ${location.wilayat}`,
-          monthIndex: selectedMonthIdx,
-          alerts: alertsPayload,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setStatusBanner({
-          kind: 'error',
-          text: data.error || 'تعذر مزامنة تنبيهات الشهر.',
+          message: `${slot.suggestedAlertBody} — ${crop.zoneNotes[agroZoneInfo.zone]} (${selectedGovernorate} · ولاية ${location.wilayat})`,
+          type: 'crop_advice',
+          targetGovernorate: selectedGovernorate,
+          timestamp: now + addedCount,
+          read: false,
         });
-        return;
+        addedCount++;
       }
-
-      if (typeof data.unreadCount === 'number') {
-        onNotificationsUpdated?.(data.unreadCount);
-      }
-
-      if (data.addedCount > 0) {
+      if (addedCount > 0) {
+        onNotificationsUpdated?.(unreadNotifsCount + addedCount);
         maybeShowBrowserNotification(
           `توصيات ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]} الزراعية`,
-          `تمت إضافة ${data.addedCount} تنبيهات زراعية إلى جرس التطبيق لمحافظة ${selectedGovernorate}.`
+          `تمت إضافة ${addedCount} تنبيهات إلى مركز الإشعارات على هذا الجهاز.`
         );
-        setStatusBanner({
-          kind: 'success',
-          text: `تم إرسال ${data.addedCount} تنبيهات زراعية لشهر ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]} إلى مركز التنبيهات (${selectedGovernorate}).`,
-        });
+        setStatusBanner({ kind: 'success', text: `تمت إضافة ${addedCount} تنبيهات لشهر ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]} إلى مركز الإشعارات على هذا الجهاز.` });
       } else {
-        setStatusBanner({
-          kind: 'info',
-          text: `تنبيهات شهر ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]} لهذه المحاصيل مزامنة مسبقاً اليوم في جرس الإشعارات.`,
-        });
+        setStatusBanner({ kind: 'info', text: 'التنبيهات ذات الأولوية لهذا الشهر موجودة مسبقاً على هذا الجهاز.' });
       }
     } catch {
-      setStatusBanner({
-        kind: 'error',
-        text: 'حدث خطأ أثناء الاتصال بالخادم لمزامنة التنبيهات.',
-      });
+      setStatusBanner({ kind: 'error', text: 'تعذر حفظ تنبيهات الشهر على هذا الجهاز.' });
     } finally {
       setSyncingMonthAlerts(false);
     }
   };
 
-  const handleToggleReminder = async (reminder: CalendarReminderItem) => {
-    try {
-      const res = await fetch(`/api/calendar/reminders/${reminder.id}`, {
-        method: 'PATCH',
-        headers: await getFarmerAuthHeaders(true),
-        body: JSON.stringify({ enabled: !reminder.enabled }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setReminders((prev) => {
-          const next = prev.map((r) => (r.id === reminder.id ? data.reminder : r));
-          persistCache(next);
-          return next;
-        });
-      }
-    } catch {
-      setStatusBanner({ kind: 'error', text: 'تعذر تحديث حالة التنبيه.' });
-    }
+  const handleToggleReminder = (reminder: CalendarReminderItem) => {
+    setReminders((prev) => {
+      const next = prev.map((item) => item.id === reminder.id ? { ...item, enabled: !item.enabled } : item);
+      persistCache(next);
+      return next;
+    });
   };
 
-  const handleDispatchReminderNow = async (reminder: CalendarReminderItem) => {
-    try {
-      const res = await fetch(`/api/calendar/reminders/${reminder.id}`, {
-        method: 'PATCH',
-        headers: await getFarmerAuthHeaders(true),
-        body: JSON.stringify({ dispatchNow: true }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setReminders((prev) => {
-          const next = prev.map((r) => (r.id === reminder.id ? data.reminder : r));
-          persistCache(next);
-          return next;
-        });
-        if (typeof data.unreadCount === 'number') {
-          onNotificationsUpdated?.(data.unreadCount);
-        }
-        maybeShowBrowserNotification(reminder.title, reminder.message);
-        setStatusBanner({
-          kind: 'success',
-          text: `تم إرسال تذكير «${reminder.cropName}» إلى مركز التنبيهات بنجاح.`,
-        });
-      }
-    } catch {
-      setStatusBanner({ kind: 'error', text: 'تعذر إرسال التذكير الآن.' });
-    }
+  const handleDispatchReminderNow = (reminder: CalendarReminderItem) => {
+    const now = Date.now();
+    addLocalNotification({
+      id: `dispatch-${reminder.id}-${now}`,
+      title: reminder.title,
+      message: reminder.message,
+      type: 'crop_advice',
+      targetGovernorate: reminder.governorate,
+      timestamp: now,
+      read: false,
+    });
+    maybeShowBrowserNotification(reminder.title, reminder.message);
+    onNotificationsUpdated?.(unreadNotifsCount + 1);
+    setStatusBanner({ kind: 'success', text: `تمت إضافة تذكير «${reminder.cropName}» إلى مركز الإشعارات على هذا الجهاز.` });
   };
 
-  const handleDeleteReminder = async (reminder: CalendarReminderItem) => {
-    try {
-      const res = await fetch(`/api/calendar/reminders/${reminder.id}`, {
-        method: 'DELETE',
-        headers: await getFarmerAuthHeaders(),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setReminders((prev) => {
-          const next = prev.filter((r) => r.id !== reminder.id);
-          persistCache(next);
-          return next;
-        });
-        setStatusBanner({
-          kind: 'info',
-          text: `تم حذف التنبيه المجدول لمحصول «${reminder.cropName}».`,
-        });
-      }
-    } catch {
-      setStatusBanner({ kind: 'error', text: 'تعذر حذف التنبيه.' });
-    }
+  const handleDeleteReminder = (reminder: CalendarReminderItem) => {
+    setReminders((prev) => {
+      const next = prev.filter((item) => item.id !== reminder.id);
+      persistCache(next);
+      return next;
+    });
+    setStatusBanner({ kind: 'info', text: `تم حذف التذكير المحلي لمحصول «${reminder.cropName}».` });
   };
 
   return (
@@ -551,7 +440,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             مواعيد الزراعة والري والحصاد والتنبيهات الموسمية
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 dark:text-slate-300">
-            خطط عمل شهرية وسنوية لجميع محاصيل المشروع (14 محصولاً عُمانياً) مخصصة حسب منطقتك المناخية ومربوطة بمركز الإشعارات.
+            خطط عمل شهرية وسنوية لجميع محاصيل المشروع (14 محصولاً عُمانياً) مخصصة حسب منطقتك المناخية ووتُحفظ التذكيرات على جهازك دون الحاجة إلى حساب.
           </p>
         </div>
 
