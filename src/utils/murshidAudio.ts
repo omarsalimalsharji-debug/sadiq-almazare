@@ -528,7 +528,7 @@ export async function speakMurshid(
       }
       utter.volume = eff.volume;
       utter.rate = rate;
-      utter.pitch = mood === 'warning' ? 0.95 : 0.98;
+      utter.pitch = mood === 'warning' ? 0.96 : 1.02;
 
       let settled = false;
       const moveNext = () => {
