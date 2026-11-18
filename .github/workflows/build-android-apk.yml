@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - codex/restore-classic-home-apk-profile-2026-11-18
+      - codex/development-from-main-2026-11-18
   pull_request:
     branches:
       - codex/development-from-main-2026-11-18
