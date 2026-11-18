@@ -29,7 +29,7 @@ import { HomeView } from './components/HomeView.tsx';
 import { CategoryHubView, HubPageId } from './components/CategoryHubView.tsx';
 const PlantDiagnosisView = lazy(() => import('./components/PlantDiagnosisView.tsx').then(m => ({ default: m.PlantDiagnosisView })));
 const PestDiagnosisView = lazy(() => import('./components/PestDiagnosisView.tsx').then(m => ({ default: m.PestDiagnosisView })));
-const CartoonVideosView = lazy(() => import('./components/CartoonVideosView.tsx').then(m => ({ default: m.CartoonVideosView })));
+const CartoonVideosView = lazy(() => import('./components/MurshidVideosLibrary.tsx').then(m => ({ default: m.MurshidVideosLibrary })));
 const GamesView = lazy(() => import('./components/GamesView.tsx').then(m => ({ default: m.GamesView })));
 const LeaderboardView = lazy(() => import('./components/LeaderboardView.tsx').then(m => ({ default: m.LeaderboardView })));
 const LibraryView = lazy(() => import('./components/LibraryView.tsx').then(m => ({ default: m.LibraryView })));
@@ -51,8 +51,7 @@ import {
   DEFAULT_SEASONAL_CONFIG,
   computeOmaniHijriState,
 } from './utils/islamicCalendar.ts';
-import { auth } from './firebase.ts';
-import { onAuthStateChanged } from 'firebase/auth';
+import { countUnreadNotifications } from './utils/notificationState.ts';
 
 const VALID_PAGES: Set<ActivePage> = new Set([
   'home',
@@ -276,11 +275,12 @@ export default function App() {
         .catch(() => {});
     };
     const fetchNotificationsCount = () => {
-      fetch('/api/notifications')
+      const governorate = user.governorate || '';
+      fetch(`/api/notifications?governorate=${encodeURIComponent(governorate)}`, { cache: 'no-store' })
         .then((res) => res.json())
         .then((data) => {
           if (data.success && Array.isArray(data.notifications)) {
-            setUnreadNotifsCount(data.notifications.filter((n: any) => !n.read).length);
+            setUnreadNotifsCount(countUnreadNotifications(data.notifications, governorate));
           }
         })
         .catch(() => {});
@@ -293,7 +293,7 @@ export default function App() {
       fetchNotificationsCount();
     }, 60000);
     return () => clearInterval(timer);
-  }, []);
+  }, [user.governorate]);
 
   const hijriState = React.useMemo(
     () => computeOmaniHijriState(seasonalConfig),
@@ -366,28 +366,7 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // Firebase Auth Session Sync (keeps Google farmer session intact across reloads)
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (fbUser) => {
-      if (fbUser) {
-        const isBootstrapAdmin =
-          fbUser.email?.toLowerCase() === 'alsharji73@gmail.com' && fbUser.emailVerified;
-        setUser((prev) => {
-          if (prev.id === 'admin-omar' || prev.isModerator) return prev;
-          return {
-            ...prev,
-            id: fbUser.uid,
-            name: fbUser.displayName || prev.name,
-            role: isBootstrapAdmin ? 'مدير التطبيق' : prev.role,
-            isAdmin: isBootstrapAdmin || prev.isAdmin,
-          };
-        });
-      }
-    });
-    return () => unsub();
-  }, []);
-
-  // Ramadan Smart Mode (follows automatic Hijri occasion unless overridden)
+  // Farmer browsing is anonymous; staff access remains protected by the server session.\n\n  // Ramadan Smart Mode (follows automatic Hijri occasion unless overridden)
   const [isRamadanMode, setIsRamadanMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('farmer_ramadan_mode');
     return saved !== null ? saved === 'true' : true;
