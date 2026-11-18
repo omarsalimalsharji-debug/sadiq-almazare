@@ -277,8 +277,9 @@ export default function App() {
         })
         .catch(() => {});
     };
-    const fetchNotificationsCount = () => {
-      fetch('/api/notifications')
+    const fetchNotificationsCount = async () => {
+      const token = await auth.currentUser?.getIdToken().catch(() => null);
+      fetch('/api/notifications', { cache: 'no-store', headers: token ? { Authorization: `Bearer ${token}` } : {} })
         .then((res) => res.json())
         .then((data) => {
           if (!data.success || !Array.isArray(data.notifications)) return;
