@@ -366,7 +366,9 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // Farmer browsing is anonymous; staff access remains protected by the server session.\n\n  // Ramadan Smart Mode (follows automatic Hijri occasion unless overridden)
+  // Farmer browsing is anonymous; staff access remains protected by the server session.
+
+  // Ramadan Smart Mode (follows automatic Hijri occasion unless overridden)
   const [isRamadanMode, setIsRamadanMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('farmer_ramadan_mode');
     return saved !== null ? saved === 'true' : true;
