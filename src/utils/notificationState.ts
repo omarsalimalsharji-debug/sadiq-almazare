@@ -67,7 +67,7 @@ export function mergeNotifications(serverItems: NotificationRecord[], governorat
     if (!item || !item.id || unique.has(item.id)) continue;
     const target = String(item.targetGovernorate || '').trim();
     const selected = String(governorate || '').replace(/^محافظة\s*/, '').trim();
-    const isNationwide = !target || /كافة المحافظات|سلطنة عُمان|جميع المحافظات/i.test(target);
+    const isNationwide = !target || /كافة المحافظات|كافة محافظات|جميع المحافظات|جميع محافظات|سلطنة عُمان/i.test(target);
     const matchesRegion = !selected || target.includes(selected) || selected.includes(target.replace(/^محافظة\s*/, '').trim());
     if (isNationwide || matchesRegion) unique.set(item.id, { ...item, read: isNotificationRead(item) });
   }
@@ -152,7 +152,7 @@ export function notifyNewServerNotifications(items: NotificationRecord[], govern
   const visible = mergeNotifications(items, governorate).filter((item) =>
     (items || []).some((serverItem) => serverItem.id === item.id)
   );
-  const key = `sadiq_seen_server_notifications_v1:${String(governorate || 'all').replace(/\\s+/g, '_')}`;
+  const key = `sadiq_seen_server_notifications_v1:${String(governorate || 'all').replace(/\s+/g, '_')}`;
   let seen: string[] | null = null;
   try {
     const parsed = JSON.parse(localStorage.getItem(key) || 'null');
