@@ -1688,7 +1688,7 @@ async function runUnifiedAgriVisionDiagnosis(params: {
 
   const parsed = JSON.parse(response.text || '{}');
 
-  const isAgri = parsed.isAgricultureRelated !== false;
+  const isAgri = parsed.isAgricultureRelated === true;
   const rawConfidence = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0;
   const clampedConfidence = Math.max(0, Math.min(100, Math.round(rawConfidence)));
 
@@ -1804,7 +1804,7 @@ async function runUnifiedAgriVisionDiagnosis(params: {
     isAgricultureRelated: isAgri,
     detectedSubject: needsClearerPhoto ? 'unclear' : detectedSubject,
     diagnosisCategory,
-    problemType,
+    problemType: needsClearerPhoto ? 'مرض' : problemType,
     cropName: (parsed.cropName || cropName || (detectedSubject === 'insect' ? 'محصول زراعي' : 'نبات زراعي')).trim(),
     problemName: needsClearerPhoto
       ? 'تعذر تأكيد التشخيص من هذه الصورة'
@@ -1819,25 +1819,25 @@ async function runUnifiedAgriVisionDiagnosis(params: {
       ? (parsed.clarificationMessage ||
           'الصورة غير واضحة بما يكفي أو لا تُظهر النسيج النباتي أو الحشرة بدقة. يرجى التقاط صورة واحدة قريبة ومُركّزة في إضاءة نهارية جيدة.')
       : '',
-    conditionSummary:
-      (parsed.conditionSummary || '').trim() ||
-      (needsClearerPhoto
-        ? 'لم يتمكن النظام من التحقق من أعراض أو معالم زراعية واضحة في الصورة المقدمة.'
-        : 'تم تحليل العلامات المرئية الظاهرة في الصورة.'),
-    visibleSymptomsList: visibleSymptomsArr,
-    visibleSymptoms: visibleSymptomsText || 'لم تُرصد أعراض واضحة في الصورة.',
-    causes: causesArr,
-    severity,
-    severityLabel:
-      insectNature === 'beneficial'
+    conditionSummary: needsClearerPhoto
+      ? 'لم يتمكن النظام من التحقق من أعراض أو معالم زراعية واضحة في الصورة المقدمة.'
+      : ((parsed.conditionSummary || '').trim() || 'تم تحليل العلامات المرئية الظاهرة في الصورة.'),
+    visibleSymptomsList: needsClearerPhoto ? [] : visibleSymptomsArr,
+    visibleSymptoms: needsClearerPhoto
+      ? 'لم تُرصد علامات كافية تسمح بوصف الأعراض.'
+      : (visibleSymptomsText || 'لم تُرصد أعراض واضحة في الصورة.'),
+    causes: needsClearerPhoto ? [] : causesArr,
+    severity: needsClearerPhoto ? 'منخفضة' : severity,
+    severityLabel: needsClearerPhoto
+      ? 'غير محددة — لا يمكن تقدير الشدة من الصورة'
+      : insectNature === 'beneficial'
         ? 'غير ضارة — حشرة نافعة'
         : (parsed.severityLabel || severity),
-    treatmentSteps: treatmentStepsArr,
-    organicRemedy:
-      (parsed.organicRemedy || '').trim() ||
-      treatmentStepsArr.join(' — ') ||
-      'اتباع الإجراءات الوقائية الزراعية الملائمة ومراقبة المحصول.',
-    preventionTips: preventionTipsArr,
+    treatmentSteps: needsClearerPhoto ? [] : treatmentStepsArr,
+    organicRemedy: needsClearerPhoto
+      ? 'يرجى إعادة تصوير الجزء المصاب بوضوح قبل اختيار أي إجراء علاجي.'
+      : ((parsed.organicRemedy || '').trim() || treatmentStepsArr.join(' — ') || 'اتباع الإجراءات الوقائية الزراعية الملائمة ومراقبة المحصول.'),
+    preventionTips: needsClearerPhoto ? [] : preventionTipsArr,
     pesticideRecommendation: {
       needed: allowPesticide,
       productAr: allowPesticide ? (parsed.pesticideProductAr || '').trim() : '',
@@ -1849,14 +1849,14 @@ async function runUnifiedAgriVisionDiagnosis(params: {
         : '',
     },
     chemicalRemedy: chemicalRemedyCombined,
-    whenToContactEngineer:
-      (parsed.whenToContactEngineer || '').trim() ||
-      'تواصل مع المهندس الزراعي أو دائرة التنمية الزراعية عند تزايد الأعراض سريعاً، أو في حال التباس التشخيص، أو قبل اتخاذ قرار الرش العلاجي الواسع.',
+    whenToContactEngineer: needsClearerPhoto
+      ? 'أعد التصوير من مسافة قريبة وفي ضوء النهار، واستشر المهندس الزراعي إذا كانت الحالة تتفاقم أو كان الضرر واسعاً.'
+      : ((parsed.whenToContactEngineer || '').trim() || 'تواصل مع المهندس الزراعي أو دائرة التنمية الزراعية عند تزايد الأعراض سريعاً، أو في حال التباس التشخيص، أو قبل اتخاذ قرار الرش العلاجي الواسع.'),
     omaniFarmingNote:
       (parsed.omaniFarmingNote || '').trim() ||
       `راعِ ظروف الحرارة والرطوبة في ${locationLabel} ونفّذ عمليات الفحص والرش (إن لزم) في الصباح الباكر أو قبل الغروب.`,
     advisoryNote: MANDATORY_ADVISORY,
-    possibleConditions: possibleConditionsArr,
+    possibleConditions: needsClearerPhoto ? [] : possibleConditionsArr,
     insectDetails:
       detectedSubject === 'insect' && !needsClearerPhoto
         ? {
@@ -1872,16 +1872,16 @@ async function runUnifiedAgriVisionDiagnosis(params: {
         : null,
     photoParts: images.map((_, i) => (i === 0 ? 'primary' : `extra-${i}`)),
     // Legacy pest alias fields for smooth compatibility
-    pestName: parsed.problemName || '',
+    pestName: needsClearerPhoto ? '' : (parsed.problemName || ''),
     severityLevel:
       severity === 'عالية' ? 'شديد الخطورة' : severity === 'متوسطة' ? 'متوسط الخطورة' : 'قليل الضرر',
-    affectedParts: insectTargetCropsArr,
-    lifeCycleNote: parsed.insectLifeCycle || '',
-    organicAndBiologicalControl: parsed.insectControlMethod || parsed.organicRemedy || '',
+    affectedParts: needsClearerPhoto ? [] : insectTargetCropsArr,
+    lifeCycleNote: needsClearerPhoto ? '' : (parsed.insectLifeCycle || ''),
+    organicAndBiologicalControl: needsClearerPhoto ? '' : (parsed.insectControlMethod || parsed.organicRemedy || ''),
     safeChemicalOptions: chemicalRemedyCombined,
-    immediateAction: treatmentStepsArr[0] || parsed.organicRemedy || '',
+    immediateAction: needsClearerPhoto ? 'إعادة التصوير بوضوح قبل اتخاذ إجراء علاجي.' : (treatmentStepsArr[0] || parsed.organicRemedy || ''),
     officialDisclaimer: MANDATORY_ADVISORY,
-    omaniGuidance: parsed.omaniFarmingNote || '',
+    omaniGuidance: needsClearerPhoto ? '' : (parsed.omaniFarmingNote || ''),
   };
 
   if (smartDiagnosisCache.size >= SMART_CACHE_MAX_ITEMS) {
