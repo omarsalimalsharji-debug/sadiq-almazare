@@ -2768,7 +2768,7 @@ app.patch('/api/calendar/reminders/:id', requireFarmerAuth, writeRateLimit, (req
   const reminder = storage.calendarReminders.find((r) => r.id === req.params.id && r.userId === req.farmerUid);
   if (!reminder) return res.status(404).json({ error: 'التنبيه المجدول غير موجود.' });
 
-  if (typeof req.body?.enabled === 'boolean) {
+  if (typeof req.body?.enabled === 'boolean' {
     reminder.enabled = req.body.enabled;
   }
   if (typeof req.body?.cadence === 'string' &&
