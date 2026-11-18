@@ -43,11 +43,14 @@ jobs:
       - name: Build web application
         run: bun run build
 
+      - name: Select JSON Capacitor config for CI
+        run: rm capacitor.config.ts
+
       - name: Generate Android project
-        run: bunx cap add android --config capacitor.config.json
+        run: bunx cap add android
 
       - name: Sync Capacitor
-        run: bunx cap sync android --config capacitor.config.json
+        run: bunx cap sync android
 
       - name: Build debug APK
         run: |
