@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { auth } from '../firebase.ts';
 import { 
   X, 
   Bell, 
@@ -36,12 +37,14 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'weather' | 'crop_advice' | 'ramadan'>('all');
   const [loading, setLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'denied');
 
   const fetchNotifs = async () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const res = await fetch('/api/notifications');
+      const token = await auth.currentUser?.getIdToken().catch(() => null);
+      const res = await fetch('/api/notifications', { cache: 'no-store', headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.notifications)) {
         setNotifications(data.notifications);
@@ -58,14 +61,29 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   };
 
   useEffect(() => {
+    if (!isOpen) return;
     fetchNotifs();
+    const refreshTimer = window.setInterval(fetchNotifs, 30000);
+    return () => window.clearInterval(refreshTimer);
   }, [isOpen]);
+
+  const enableDeviceNotifications = async () => {
+    if (!('Notification' in window)) {
+      setFetchError('المتصفح لا يدعم إشعارات الجهاز. ستظل التنبيهات متاحة داخل التطبيق.');
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === 'granted') setFetchError('تم تفعيل إشعارات الجهاز عند وصول تنبيه جديد أثناء استخدام التطبيق في الخلفية.');
+    else setFetchError('لم يتم منح إذن إشعارات الجهاز. يمكنك متابعة التنبيهات من داخل التطبيق.');
+  };
 
   const markAllAsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     onNotificationsCountChange(0);
     try {
-      await fetch('/api/notifications/read-all', { method: 'POST' });
+      const token = await auth.currentUser?.getIdToken().catch(() => null);
+      await fetch('/api/notifications/read-all', { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {} });
     } catch {
       // keep local state optimistic without noisy error
     }
@@ -128,13 +146,16 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             <span className="text-stone-600 dark:text-slate-300">
               {fetchError ? fetchError : loading ? 'جاري المزامنة...' : `إجمالي التنبيهات: ${notifications.length}`}
             </span>
-            <button
-              onClick={fetchNotifs}
-              disabled={loading}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-[11px]"
-            >
-              تحديث الآن
-            </button>
+            <div className="flex items-center gap-1.5">
+              {'Notification' in window && notificationPermission !== 'granted' && (
+                <button type="button" onClick={enableDeviceNotifications} className="px-2.5 py-1.5 rounded-lg bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-200 font-bold text-[10px]">
+                  تفعيل إشعارات الجهاز
+                </button>
+              )}
+              <button onClick={fetchNotifs} disabled={loading} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-[11px]">
+                تحديث الآن
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">

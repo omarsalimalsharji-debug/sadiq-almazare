@@ -6,7 +6,7 @@
  * صاحب فكرة التطبيق ومديره: عمر الشرجي – سلطنة عمان
  */
 
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { ActivePage, ThemeMode, UserProfile } from './types/index.ts';
 import { LocationProvider, UnifiedLocationState } from './context/LocationContext.tsx';
 
@@ -147,6 +147,8 @@ export default function App() {
   const [isNotifDrawerOpen, setIsNotifDrawerOpen] = useState<boolean>(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(0);
+  const [liveNotification, setLiveNotification] = useState<{ id: string; title: string; message: string } | null>(null);
+  const seenNotificationIdsRef = useRef<Set<string> | null>(null);
 
   const handleNavigate = useCallback((page: ActivePage, itemId?: string) => {
     stopAllMurshidAudio();
@@ -275,13 +277,29 @@ export default function App() {
         })
         .catch(() => {});
     };
-    const fetchNotificationsCount = () => {
-      fetch('/api/notifications')
+    const fetchNotificationsCount = async () => {
+      const token = await auth.currentUser?.getIdToken().catch(() => null);
+      fetch('/api/notifications', { cache: 'no-store', headers: token ? { Authorization: `Bearer ${token}` } : {} })
         .then((res) => res.json())
         .then((data) => {
-          if (data.success && Array.isArray(data.notifications)) {
-            setUnreadNotifsCount(data.notifications.filter((n: any) => !n.read).length);
+          if (!data.success || !Array.isArray(data.notifications)) return;
+          const items = data.notifications as Array<{ id: string; title: string; message: string; read: boolean; timestamp?: number }>;
+          setUnreadNotifsCount(items.filter((n) => !n.read).length);
+          const currentIds = new Set(items.map((n) => n.id));
+          if (seenNotificationIdsRef.current) {
+            const fresh = items
+              .filter((n) => !seenNotificationIdsRef.current?.has(n.id))
+              .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            if (fresh.length > 0) {
+              const newest = fresh[0];
+              setLiveNotification({ id: newest.id, title: newest.title, message: newest.message });
+              window.setTimeout(() => setLiveNotification((current) => current?.id === newest.id ? null : current), 8000);
+              if (document.visibilityState !== 'visible' && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification(newest.title, { body: newest.message, icon: '/icon.svg', tag: newest.id });
+              }
+            }
           }
+          seenNotificationIdsRef.current = currentIds;
         })
         .catch(() => {});
     };
@@ -290,6 +308,7 @@ export default function App() {
     const timer = setInterval(() => {
       setSeasonalTick(Date.now());
       fetchSeasonalConfig();
+      fetchNotificationsCount();
     }, 60000);
     return () => clearInterval(timer);
   }, []);
@@ -453,6 +472,22 @@ export default function App() {
       }`}
     >
       
+      {liveNotification && (
+        <button
+          type="button"
+          onClick={() => { setIsNotifDrawerOpen(true); setLiveNotification(null); }}
+          className="fixed top-[calc(env(safe-area-inset-top)+5.25rem)] inset-x-3 sm:inset-x-auto sm:left-6 sm:right-auto z-[60] max-w-md rounded-2xl border border-emerald-300/70 dark:border-emerald-400/30 bg-white/95 dark:bg-[#132247]/95 backdrop-blur-md p-3.5 shadow-2xl text-right flex items-start gap-3"
+          aria-live="polite"
+        >
+          <span className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">🔔</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-black text-slate-900 dark:text-white">{liveNotification.title}</span>
+            <span className="block mt-1 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 line-clamp-2">{liveNotification.message}</span>
+            <span className="block mt-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">اضغط لفتح مركز التنبيهات</span>
+          </span>
+        </button>
+      )}
+
       {/* Comprehensive Header with Top Bar Contract & Hamburger */}
       <Header
         activePage={activePage}
