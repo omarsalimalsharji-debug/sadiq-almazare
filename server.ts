@@ -3069,7 +3069,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
             : 'cheerful';
     const cacheKey = crypto
       .createHash('sha256')
-      .update(`v3-murshid-tts:${voiceMood}:${cleanText}`)
+      .update(`v4-murshid-puck-tts:${voiceMood}:${cleanText}`)
       .digest('hex');
 
     const ttsDiskCacheDir = path.join(DATA_DIR, 'tts-cache');
@@ -3098,13 +3098,13 @@ app.post('/api/cartoon/tts', async (req, res) => {
 
     const styleMap: Record<string, string> = {
       cheerful:
-        'Authentic, charismatic modern Omani male agricultural advisor (Murshid) with warm natural breath, clear Arabic diction, welcoming Omani Gulf cadence, lively friendly inflection, zero robotic monotony',
+        'A warm, confident male Arabic agricultural host for an Omani farming app; friendly Gulf rhythm, natural pauses, clear Modern Standard Arabic diction, relaxed smile in the voice, never theatrical or robotic',
       curious:
-        'Warm, engaging Omani Arabic male agricultural educator (Murshid) speaking with natural thoughtful curiosity, crystal-clear pronunciation of palm and pest terms, and approachable human pacing',
+        'A thoughtful, friendly male Arabic agricultural educator; curious but calm, precise pronunciation of Omani crop and pest names, measured conversational pacing',
       warning:
-        'Caring, confident Omani male agricultural mentor (Murshid) speaking with gentle firm urgency, clear warnings on honeydew and pesticide safety, and warm reassurance',
+        'A caring, mature male Arabic agricultural mentor; clear and composed safety warning, firm but never alarming, reassuring close',
       proud:
-        'Enthusiastic, proud Omani male agricultural advisor (Murshid) celebrating harvest success with uplifting warm vocal energy and natural studio clarity',
+        'A warm male Arabic presenter celebrating a farmer's success with genuine joy, controlled energy, and clean studio diction',
     };
 
     const response = await ai.models.generateContent({
@@ -3126,7 +3126,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Charon' },
+            prebuiltVoiceConfig: { voiceName: 'Puck' },
           },
         },
       },
