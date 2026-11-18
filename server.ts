@@ -2621,7 +2621,7 @@ app.get('/api/notifications', (req, res) => {
   const visible = storage.notifications.filter((n: any) => {
     if (n.targetUserId) return false;
     const target = String(n.targetGovernorate || '').replace(/^محافظة\s*/, '').trim();
-    const nationwide = !target || /كافة المحافظات|جميع المحافظات|سلطنة عُمان/i.test(target);
+    const nationwide = !target || /كافة المحافظات|كافة محافظات|جميع المحافظات|جميع محافظات|سلطنة عُمان/i.test(target);
     return nationwide || !governorate || target.includes(governorate) || governorate.includes(target);
   });
   return res.setHeader('Cache-Control', 'no-store').json({ success: true, notifications: visible });
