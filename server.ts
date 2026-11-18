@@ -2617,10 +2617,10 @@ app.delete('/api/community/posts/:postId/comments/:commentId', requireStaff, (re
 
 // --- 9. Notifications APIs ---
 app.get('/api/notifications', (req, res) => {
-  const governorate = String(req.query.governorate || '').replace(/^محافظة\\s*/, '').trim();
+  const governorate = String(req.query.governorate || '').replace(/^محافظة\s*/, '').trim();
   const visible = storage.notifications.filter((n: any) => {
     if (n.targetUserId) return false;
-    const target = String(n.targetGovernorate || '').replace(/^محافظة\\s*/, '').trim();
+    const target = String(n.targetGovernorate || '').replace(/^محافظة\s*/, '').trim();
     const nationwide = !target || /كافة المحافظات|جميع المحافظات|سلطنة عُمان/i.test(target);
     return nationwide || !governorate || target.includes(governorate) || governorate.includes(target);
   });
