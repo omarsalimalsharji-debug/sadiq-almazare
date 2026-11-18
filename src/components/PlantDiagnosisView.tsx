@@ -371,6 +371,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       } catch {
         setSaveMessage('تم عرض التشخيص، لكن مساحة التخزين المحلية ممتلئة.');
       }
+      setSaveMessage('تم حفظ التشخيص في سجل هذا الجهاز.');
       return next;
     });
   };
