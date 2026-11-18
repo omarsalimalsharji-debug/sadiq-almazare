@@ -180,7 +180,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
   const [ambientEnabled, setAmbientEnabled] = useState<boolean>(true);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
-  const [voiceProfile, setVoiceProfile] = useState<VoiceStudioProfile>('studio');
+  const [voiceProfile, setVoiceProfile] = useState<VoiceStudioProfile>('warm');
   const [audioStatusNote, setAudioStatusNote] = useState<string | null>(null);
   const [ttsFailed, setTtsFailed] = useState<boolean>(false);
   const [previewMoodOverride, setPreviewMoodOverride] = useState<MurshidStageMood | null>(null);
@@ -514,7 +514,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
               : mood === 'proud' || mood === 'celebrate'
                 ? 'proud'
                 : 'cheerful';
-      const key = `v3-murshid-tts:${apiMood}:${vocalized}`;
+      const key = `v4-murshid-puck-tts:${apiMood}:${vocalized}`;
       const cached = ttsCacheRef.current.get(key);
       if (cached) return cached;
 
@@ -627,16 +627,6 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
       setAudioStatusNote(null);
       setTtsFailed(false);
 
-      ensureAudioAnalyser();
-
-      const base64Wav = await fetchSceneTts(
-        targetScene.vocalizedNarration || targetScene.narration,
-        targetScene.murshidMood
-      );
-
-      if (playSessionRef.current !== session) return;
-      setIsLoadingAudio(false);
-
       const advanceNext = () => {
         if (playSessionRef.current !== session) return;
         if (idx + 1 < episode.scenes.length) {
@@ -647,6 +637,34 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
           audioLevelRef.current = 0;
         }
       };
+
+      // On phones, begin speech inside the original tap handler. Waiting for the
+      // server TTS request first can consume Android/iOS transient user activation.
+      const isMobilePlayback =
+        typeof navigator !== 'undefined' &&
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+      if (isMobilePlayback) {
+        setIsLoadingAudio(false);
+        setAudioStatusNote('يبدأ صوت مُرشد مباشرة على الهاتف لتفادي حظر تشغيل الصوت.');
+        speakBrowserFallbackChunks(
+          targetScene.vocalizedNarration || targetScene.narration,
+          targetScene.murshidMood,
+          session,
+          advanceNext
+        );
+        return;
+      }
+
+      ensureAudioAnalyser();
+
+      const base64Wav = await fetchSceneTts(
+        targetScene.vocalizedNarration || targetScene.narration,
+        targetScene.murshidMood
+      );
+
+      if (playSessionRef.current !== session) return;
+      setIsLoadingAudio(false);
 
       if (base64Wav && audioRef.current) {
         const audioEl = audioRef.current;

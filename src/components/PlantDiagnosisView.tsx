@@ -81,6 +81,8 @@ interface PesticideRecommendation {
 
 interface InsectDetails {
   nature: 'beneficial' | 'harmful' | 'neutral' | 'none';
+  sex?: 'male' | 'female' | 'undetermined';
+  sexEvidence?: string;
   targetCrops: string[];
   damage: string;
   lifeCycle: string;
@@ -692,17 +694,19 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
             <Scan className="w-3.5 h-3.5" />
             <span>
               {initialFocus === 'insect'
-                ? 'التشخيص الذكي للحشرات والأمراض الزراعية'
-                : 'مختبر التشخيص الزراعي الذكي — سلطنة عُمان'}
+                ? 'التشخيص الذكي للحشرات الزراعية'
+                : 'مختبر تشخيص أمراض ومشكلات النبات — سلطنة عُمان'}
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
             {initialFocus === 'insect'
-              ? 'اكتشاف الحشرات وأمراض النبات'
-              : 'اكتشاف أمراض النباتات والحشرات'}
+              ? 'تشخيص الحشرات الزراعية'
+              : 'تشخيص أمراض ومشكلات النباتات'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/80">
-            صورة واحدة واضحة تكفي — يتعرف النظام تلقائياً على النبات أو الورقة أو الحشرة.
+            {initialFocus === 'insect'
+              ? 'ارفع صورة واحدة واضحة للحشرة، وسيحلل النظام شكلها وعلاماتها لتحديدها مبدئياً.'
+              : 'ارفع صورة واحدة واضحة للنبات أو الجزء المصاب، وسيحلل النظام الأعراض والعلامات الظاهرة.'}
           </p>
         </div>
 
@@ -793,7 +797,9 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                     : 'التقط أو ارفع صورة واضحة'}
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-300/80 leading-relaxed">
-                  قرّب الكاميرا نحو الورقة المصابة أو النبات أو الحشرة في إضاءة نهارية واضحة.
+                  {initialFocus === 'insect'
+                    ? 'صوّر الحشرة من قرب مع إظهار جسمها وأجنحتها وأرجلها قدر الإمكان، دون اهتزاز.'
+                    : 'صوّر الورقة أو الجزء المصاب من قرب، مع إظهار الأعراض بوضوح ودون اهتزاز.'}
                 </p>
               </div>
 
@@ -1277,7 +1283,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                       <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 bg-slate-50 dark:bg-[#0b1329]/70 px-4 py-3 rounded-2xl border border-slate-200/70 dark:border-sky-300/15">
                         <div className="text-right sm:text-left">
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
-                            نسبة الثقة التقديرية
+                            مستوى الثقة في التشخيص المبدئي
                           </div>
                           <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
                             {result.confidenceScore}%
@@ -1431,6 +1437,26 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                                     <Bug className="w-4 h-4 text-emerald-500" />
                                     <span>التشخيص العلمي للحشرة</span>
                                   </h4>
+
+                                  <div className="rounded-xl border border-indigo-200/70 dark:border-indigo-400/20 bg-indigo-50/70 dark:bg-indigo-950/20 p-3 space-y-1.5">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                                      <span className="font-extrabold text-slate-900 dark:text-white">تقدير جنس الحشرة:</span>
+                                      <span className="font-bold text-indigo-700 dark:text-indigo-300">
+                                        {result.insectDetails.sex === 'male'
+                                          ? 'ذكر'
+                                          : result.insectDetails.sex === 'female'
+                                            ? 'أنثى'
+                                            : 'غير محدد من الصورة'}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+                                      {result.insectDetails.sexEvidence ||
+                                        'لا تظهر علامة تشريحية واضحة تسمح بتحديد الجنس بثقة.'}
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                      يُعرض التقدير عند وجود علامات مرئية موثوقة فقط؛ وقد يتعذر تحديد الجنس من صورة واحدة.
+                                    </p>
+                                  </div>
 
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700 dark:text-slate-300">
                                     <div>

@@ -1,0 +1,84 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - codex/restore-classic-home-apk-profile-2026-11-18
+      - codex/development-from-main-2026-11-18
+  pull_request:
+    branches:
+      - codex/development-from-main-2026-11-18
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: TypeScript check
+        run: bun run lint
+
+      - name: Build web application
+        run: bun run build
+
+      - name: Select JSON Capacitor config for CI
+        run: rm capacitor.config.ts
+
+      - name: Generate Android project
+        run: bunx cap add android
+
+      - name: Sync Capacitor
+        run: bunx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Prepare APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk sadiq-almazare.apk
+
+      - name: Upload APK for pull request review
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sadiq-almazare-android-apk
+          path: sadiq-almazare.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish APK release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: صديق المزارع - أحدث نسخة أندرويد
+          body: نسخة APK قابلة للتثبيت من تطبيق صديق المزارع.
+          files: sadiq-almazare.apk
+          overwrite_files: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

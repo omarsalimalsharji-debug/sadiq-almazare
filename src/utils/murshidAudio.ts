@@ -397,7 +397,7 @@ export async function speakMurshid(
     volume: volumeOpt,
     rate = 0.90,
     mood = 'cheerful',
-    preferStudioAudio = false,
+    preferStudioAudio = true,
     onSpeakingChange,
     onEnd,
   } = options || {};
@@ -436,8 +436,15 @@ export async function speakMurshid(
     // ignore
   }
 
-  // Optional server studio TTS clip (cached per session, graceful cooldown fallback)
-  if (preferStudioAudio && Date.now() >= studioTtsCooldownUntil) {
+  // Mobile browsers often revoke transient user activation after a network await.
+  // Start Web Speech synchronously on phones so Android/iOS do not block Murshid audio.
+  const isMobileSpeechRuntime =
+    typeof navigator !== 'undefined' &&
+    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+  // Optional server studio TTS clip (cached per session, graceful cooldown fallback).
+  // Keep this network-first path for desktop; mobile uses immediate native speech.
+  if (preferStudioAudio && !isMobileSpeechRuntime && Date.now() >= studioTtsCooldownUntil) {
     try {
       const cacheKey = `${mood}:${vocalized}`;
       let base64Audio = studioAudioSessionCache.get(cacheKey);
@@ -506,6 +513,13 @@ export async function speakMurshid(
   }
 
   try {
+    // Resume Android Chrome's speech engine after route changes or an interrupted session.
+    try {
+      window.speechSynthesis.resume();
+    } catch {
+      // Some WebViews expose resume but do not implement it reliably.
+    }
+
     const chunks = chunkArabicSpeech(vocalized, 135);
     const voice = pickBestMurshidVoice();
 

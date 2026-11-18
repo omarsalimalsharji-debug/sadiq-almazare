@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sprout,
+  Download,
   MessageCircle,
   BookOpen,
   Gamepad2,
@@ -102,15 +103,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
     };
   }, [location.governorateId, location.lat, location.lon, location.wilayatId, location.wilayat, location.village]);
 
-  const firstName = user.name.split(' ')[0] || user.name;
+  const firstName = user.name?.trim().split(' ')[0] || '';
   const wilayatDisplay = lang === 'ar' ? location.wilayat : location.wilayatEn;
+  const welcomePhrases = firstName
+    ? MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay)
+    : [
+        'حياك الله في صديق المزارع! أنا مُرشد، رفيقك في المعرفة الزراعية.',
+        'أهلاً بك! اختر الخدمة الزراعية التي تحتاج إليها، وأنا هنا لمساعدتك.',
+      ];
 
   const welcomeLine = useMemo(
-    () =>
-      pickVariedPhrase(
-        MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay),
-        firstName.length + wilayatDisplay.length
-      ),
+    () => pickVariedPhrase(welcomePhrases, firstName.length + wilayatDisplay.length),
     [firstName, wilayatDisplay]
   );
 
@@ -121,7 +124,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
     }
     const phrase = pickFreshPhrase(
       'home-welcome',
-      MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay)
+      firstName
+        ? MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay)
+        : ['حياك الله في صديق المزارع! أنا مُرشد، جاهز لمساعدتك في شؤون مزرعتك.']
     );
     speakMurshid(phrase, {
       muted: murshidMuted,
@@ -270,7 +275,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               ) : (
                 <>
                   <Volume2 className="w-3 h-3" />
-                  <span>{lang === 'ar' ? `مرشد · ${firstName}` : 'Murshid'}</span>
+                  <span>{lang === 'ar' ? (firstName ? `مرشد · ${firstName}` : 'استمع لمرشد') : 'Murshid'}</span>
                 </>
               )}
             </button>
@@ -296,6 +301,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </button>
         )}
       </section>
+
+      <a
+        href="https://github.com/omarsalimalsharji-debug/sadiq-almazare/releases/download/android-latest/sadiq-almazare.apk"
+        className="w-full min-h-[48px] rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition-colors"
+        aria-label={lang === 'ar' ? 'تحميل تطبيق صديق المزارع للأندرويد APK' : 'Download Farmer Friend Android APK'}
+      >
+        <Download className="w-5 h-5" />
+        <span>{lang === 'ar' ? 'تحميل تطبيق الأندرويد (APK)' : 'Download Android app (APK)'}</span>
+      </a>
 
       {/* 2. Four Main Category Cards ONLY — 2x2 Responsive Grid */}
       <section

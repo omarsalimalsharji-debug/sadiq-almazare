@@ -44,6 +44,7 @@ import {
 } from '../firebase.ts';
 
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
+import { MurshidQuickGame } from './MurshidQuickGame.tsx';
 import { MURSHID_PHRASES, pickFreshPhrase } from '../data/murshidDialogue.ts';
 import {
   getMurshidAudioPrefs,
@@ -577,6 +578,9 @@ export const GamesView: React.FC<GamesViewProps> = ({
           <span>لوحة المتصدرين (Firebase)</span>
         </button>
       </div>
+
+      {/* Quick rescue-the-seedling game now lives in the games area, not the home page */}
+      {!selectedGame && <MurshidQuickGame />}
 
       {/* Featured Murshid's Agricultural Adventures Card */}
       {!selectedGame && onOpenMurshidAdventures && (

@@ -191,11 +191,16 @@ export default function App() {
   const [user, setUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('farmer_user_profile');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
+      try {
+        const parsed = JSON.parse(saved);
+        // Remove the historical demo name; never assign a person's name without their input.
+        if (parsed.name === 'سالم بن سعيد الحارثي') parsed.name = '';
+        return parsed;
+      } catch (e) { /* fallback */ }
     }
     return {
       id: 'usr-oman-default',
-      name: 'سالم بن سعيد الحارثي',
+      name: '',
       role: 'مزارع',
       governorate: 'محافظة الداخلية',
       wilayat: 'نزوى',
@@ -285,6 +290,7 @@ export default function App() {
     const timer = setInterval(() => {
       setSeasonalTick(Date.now());
       fetchSeasonalConfig();
+      fetchNotificationsCount();
     }, 60000);
     return () => clearInterval(timer);
   }, []);

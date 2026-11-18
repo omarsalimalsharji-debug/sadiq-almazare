@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Calendar as CalendarIcon,
   AlertCircle,
@@ -41,6 +41,8 @@ import {
 import { computeOmaniHijriState } from '../utils/islamicCalendar.ts';
 import { UserProfile } from '../types/index.ts';
 import { useLocation } from '../context/LocationContext.tsx';
+import { auth } from '../firebase.ts';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export interface CalendarReminderItem {
   id: string;
@@ -104,7 +106,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const { location } = useLocation();
   const realCurrentMonthIdx = new Date().getMonth();
-  const userId = user?.id || 'usr-oman-default';
+  const [firebaseUid, setFirebaseUid] = useState<string | null>(auth.currentUser?.uid ?? null);
+  const userId = firebaseUid || 'guest';
+  const remindersCacheKey = `${STORAGE_REMINDERS_CACHE_KEY}:${userId}`;
+  const reminderRequestId = useRef(0);
+
+  useEffect(() => onAuthStateChanged(auth, (fbUser) => {
+    setFirebaseUid(fbUser?.uid ?? null);
+  }), []);
   const hijri = computeOmaniHijriState();
 
   const [selectedMonthIdx, setSelectedMonthIdx] = useState<number>(realCurrentMonthIdx);
@@ -118,7 +127,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const [reminders, setReminders] = useState<CalendarReminderItem[]>(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_REMINDERS_CACHE_KEY);
+      const raw = localStorage.getItem(remindersCacheKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed;
@@ -171,17 +180,40 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const persistCache = useCallback((list: CalendarReminderItem[]) => {
     try {
-      localStorage.setItem(STORAGE_REMINDERS_CACHE_KEY, JSON.stringify(list));
+      localStorage.setItem(remindersCacheKey, JSON.stringify(list));
     } catch {
       // ignore storage quota errors
     }
+  }, [remindersCacheKey]);
+
+  const getFarmerAuthHeaders = useCallback(async (includeJson = false): Promise<Record<string, string>> => {
+    const signedInUser = auth.currentUser;
+    if (!signedInUser) throw new Error('يرجى تسجيل الدخول بحساب Google لحفظ التذكيرات ومزامنتها. يمكنك متابعة تصفح التقويم كزائر.');
+    const idToken = await signedInUser.getIdToken();
+    return { ...(includeJson ? { 'Content-Type': 'application/json' } : {}), Authorization: `Bearer ${idToken}` };
   }, []);
 
+  useEffect(() => {
+    // Clear the previous account's reminders immediately when identity changes.
+    reminderRequestId.current += 1;
+    setReminders([]);
+    setLoadingReminders(Boolean(firebaseUid));
+  }, [firebaseUid]);
+
   const fetchReminders = useCallback(async () => {
+    const requestId = ++reminderRequestId.current;
+    if (!userId || userId === 'guest' || auth.currentUser?.uid !== userId) {
+      setReminders([]);
+      setLoadingReminders(false);
+      return;
+    }
     setLoadingReminders(true);
     try {
-      const res = await fetch(`/api/calendar/reminders?userId=${encodeURIComponent(userId)}`);
+      const headers = await getFarmerAuthHeaders();
+      if (requestId !== reminderRequestId.current || auth.currentUser?.uid !== userId) return;
+      const res = await fetch('/api/calendar/reminders', { headers });
       const data = await res.json();
+      if (requestId !== reminderRequestId.current || auth.currentUser?.uid !== userId) return;
       if (res.ok && data.success && Array.isArray(data.reminders)) {
         setReminders(data.reminders);
         persistCache(data.reminders);
@@ -190,14 +222,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         }
       }
     } catch {
-      // fallback silently to cached reminders
+      // Keep the current account's in-memory list empty on authentication or network errors.
     } finally {
-      setLoadingReminders(false);
+      if (requestId === reminderRequestId.current) setLoadingReminders(false);
     }
-  }, [userId, onNotificationsUpdated, persistCache]);
+  }, [userId, onNotificationsUpdated, persistCache, getFarmerAuthHeaders]);
 
   useEffect(() => {
     fetchReminders();
+    return () => { reminderRequestId.current += 1; };
   }, [fetchReminders]);
 
   const maybeShowBrowserNotification = (title: string, body: string) => {
@@ -300,9 +333,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     try {
       const res = await fetch('/api/calendar/reminders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getFarmerAuthHeaders(true),
         body: JSON.stringify({
-          userId,
           cropId: crop.id,
           cropName: crop.nameAr,
           monthIndex: selectedMonthIdx,
@@ -346,10 +378,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           text: `تم حفظ جدولة تنبيه «${crop.nameAr}» (${CADENCE_LABELS[cadence]}) لشهر ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]}.`,
         });
       }
-    } catch {
+    } catch (error) {
       setStatusBanner({
         kind: 'error',
-        text: 'تعذر الاتصال بالخادم لحفظ التنبيه. يرجى المحاولة مجدداً.',
+        text: error instanceof Error ? error.message : 'تعذر الاتصال بالخادم لحفظ التنبيه. يرجى المحاولة مجدداً.',
       });
     } finally {
       setBusyCropId(null);
@@ -437,7 +469,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     try {
       const res = await fetch(`/api/calendar/reminders/${reminder.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getFarmerAuthHeaders(true),
         body: JSON.stringify({ enabled: !reminder.enabled }),
       });
       const data = await res.json();
@@ -457,7 +489,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     try {
       const res = await fetch(`/api/calendar/reminders/${reminder.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getFarmerAuthHeaders(true),
         body: JSON.stringify({ dispatchNow: true }),
       });
       const data = await res.json();
@@ -485,6 +517,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     try {
       const res = await fetch(`/api/calendar/reminders/${reminder.id}`, {
         method: 'DELETE',
+        headers: await getFarmerAuthHeaders(),
       });
       const data = await res.json();
       if (res.ok && data.success) {

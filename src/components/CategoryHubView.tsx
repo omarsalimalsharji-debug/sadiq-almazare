@@ -147,7 +147,7 @@ export const CategoryHubView: React.FC<CategoryHubViewProps> = ({
     hub_advisor: {
       titleAr: 'مرشدك الزراعي والمجتمع',
       titleEn: 'Agri Guide & Community',
-      subtitleAr: 'استشارات مُرشد الفورية، ديوانية المزارعين، القرآن والإذاعة',
+      subtitleAr: 'استشارات مُرشد الفورية، مجلس المزارعين، القرآن والإذاعة',
       subtitleEn: 'Instant Murshid advice, farmer forum, Quran & live radio',
       voiceIntroAr:
         'حياك الله في ركن مرشدك الزراعي. يمكنك التحدث معي في الدردشة الذكية أو استعراض نصيحة اليوم والاستماع للقرآن والإذاعة.',
@@ -156,7 +156,7 @@ export const CategoryHubView: React.FC<CategoryHubViewProps> = ({
       tiles: [
         {
           id: 'community',
-          titleAr: 'اسأل مُرشد والديوانية',
+          titleAr: 'اسأل مُرشد والمجلس',
           titleEn: 'Ask Murshid & Forum',
           subtitleAr: 'استشارات فورية وتجارب المزارعين',
           subtitleEn: 'Live AI consultation & farmer chat',
