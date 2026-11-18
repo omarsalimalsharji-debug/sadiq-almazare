@@ -287,12 +287,19 @@ export default function App() {
     };
     fetchSeasonalConfig();
     fetchNotificationsCount();
+    const refreshNotifications = () => fetchNotificationsCount();
+    window.addEventListener('sadiq-local-notification-added', refreshNotifications);
+    window.addEventListener('sadiq-notifications-read', refreshNotifications);
     const timer = setInterval(() => {
       setSeasonalTick(Date.now());
       fetchSeasonalConfig();
       fetchNotificationsCount();
     }, 60000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('sadiq-local-notification-added', refreshNotifications);
+      window.removeEventListener('sadiq-notifications-read', refreshNotifications);
+    };
   }, [user.governorate]);
 
   const hijriState = React.useMemo(
