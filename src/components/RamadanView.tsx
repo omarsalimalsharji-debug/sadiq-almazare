@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   MoonStar, 
   Sparkles, 
@@ -11,16 +11,28 @@ import {
   ChevronLeft, 
   BookOpen, 
   Share2,
-  Check,
   ShieldCheck
 } from 'lucide-react';
 import { RAMADAN_30_FACTS, RAMADAN_NUTRITION_TIPS, RamadanInsight, RamadanNutritionTip } from '../data/agriculturalData.ts';
+import { useShare } from '../context/ShareContext.tsx';
 
-export const RamadanView: React.FC = () => {
+interface RamadanViewProps {
+  initialDay?: number;
+}
+
+export const RamadanView: React.FC<RamadanViewProps> = ({ initialDay }) => {
+  const { openShare } = useShare();
   // Current Ramadan Day Selector (1 to 30)
-  const [selectedDay, setSelectedDay] = useState<number>(14);
+  const [selectedDay, setSelectedDay] = useState<number>(() =>
+    initialDay && initialDay >= 1 && initialDay <= 30 ? initialDay : 14
+  );
   const [activeTab, setActiveTab] = useState<'facts' | 'nutrition' | 'archive'>('facts');
-  const [copiedNotification, setCopiedNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialDay && initialDay >= 1 && initialDay <= 30) {
+      setSelectedDay(initialDay);
+    }
+  }, [initialDay]);
 
   // Daily greetings rotation
   const RAMADAN_GREETINGS = [
@@ -35,9 +47,32 @@ export const RamadanView: React.FC = () => {
   const currentNutrition: RamadanNutritionTip = RAMADAN_NUTRITION_TIPS.find(n => n.day === selectedDay) || RAMADAN_NUTRITION_TIPS[(selectedDay - 1) % RAMADAN_NUTRITION_TIPS.length];
 
   const handleShareDayContent = () => {
-    navigator.clipboard?.writeText(`معلومة اليوم الرمضانية (${selectedDay} رمضان) من تطبيق صديق المزارع: ${currentFact.title} - ${currentFact.fact}`);
-    setCopiedNotification('تم نسخ بطاقة اليوم للمشاركة!');
-    setTimeout(() => setCopiedNotification(null), 2500);
+    if (activeTab === 'nutrition') {
+      openShare({
+        kind: 'tip',
+        title: `النصيحة الغذائية ليوم ${selectedDay} رمضان: ${currentNutrition.item}`,
+        summary: currentNutrition.intakeAdvice,
+        highlights: currentNutrition.provenBenefits.slice(0, 3),
+        categoryLabel: `${currentNutrition.category} · رمضان 1447 هـ`,
+        badgeMetric: `اليوم ${selectedDay} رمضان`,
+        page: 'daily_tips',
+        itemId: String(selectedDay),
+        authorOrSource: 'الإرشاد الغذائي الرمضاني — صديق المزارع',
+      });
+      return;
+    }
+
+    openShare({
+      kind: 'tip',
+      title: `${currentFact.title} (${selectedDay} رمضان)`,
+      summary: currentFact.fact,
+      highlights: currentFact.hadithOrWisdom ? [currentFact.hadithOrWisdom] : undefined,
+      categoryLabel: `${currentFact.category} · رمضان 1447 هـ`,
+      badgeMetric: `اليوم ${selectedDay} رمضان`,
+      page: 'daily_tips',
+      itemId: String(selectedDay),
+      authorOrSource: 'مراجع وزارة الثروة الزراعية والسمكية وموارد المياه',
+    });
   };
 
   return (
@@ -109,19 +144,12 @@ export const RamadanView: React.FC = () => {
 
       </div>
 
-      {copiedNotification && (
-        <div className="p-3 rounded-xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between">
-          <span>{copiedNotification}</span>
-          <Check className="w-4 h-4 text-amber-600" />
-        </div>
-      )}
-
       {/* Tabs Switcher: 30 Agricultural Insights vs Ramadan Nutrition Advice */}
-      <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 dark:border-stone-800 pb-3">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setActiveTab('facts')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               activeTab === 'facts'
                 ? 'bg-emerald-600 text-white shadow-sm'
                 : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
@@ -131,7 +159,7 @@ export const RamadanView: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('nutrition')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               activeTab === 'nutrition'
                 ? 'bg-amber-600 text-white shadow-sm'
                 : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
@@ -141,7 +169,7 @@ export const RamadanView: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('archive')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               activeTab === 'archive'
                 ? 'bg-stone-900 text-white dark:bg-stone-700 shadow-sm'
                 : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
@@ -152,11 +180,12 @@ export const RamadanView: React.FC = () => {
         </div>
 
         <button
+          type="button"
           onClick={handleShareDayContent}
-          className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white flex items-center gap-1.5"
+          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-400/30 text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
         >
           <Share2 className="w-4 h-4" />
-          <span className="hidden sm:inline">مشاركة</span>
+          <span>مشاركة بطاقة اليوم</span>
         </button>
       </div>
 

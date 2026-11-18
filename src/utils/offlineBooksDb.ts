@@ -17,6 +17,7 @@ interface OfflineBookRecord {
 
 interface OfflineFileRecord {
   id: string;
+  pdfUrl?: string;
   blob: Blob;
   fileName: string;
   cachedAt: number;
@@ -120,7 +121,7 @@ export async function cacheBookPdfOffline(
       req.onsuccess = () => resolve(req.result as OfflineFileRecord | undefined);
       req.onerror = () => resolve(undefined);
     });
-    if (existing?.blob) {
+    if (existing?.blob && existing.pdfUrl === pdfUrl) {
       db.close();
       return existing.blob;
     }
@@ -133,6 +134,7 @@ export async function cacheBookPdfOffline(
     const blob = await res.blob();
     const record: OfflineFileRecord = {
       id: bookId,
+      pdfUrl,
       blob,
       fileName,
       cachedAt: Date.now(),

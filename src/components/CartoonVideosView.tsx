@@ -22,7 +22,9 @@ import {
   MonitorPlay,
   Search,
   AudioWaveform,
+  Share2,
 } from 'lucide-react';
+import { useShare } from '../context/ShareContext.tsx';
 import {
   CartoonEpisode,
   MurshidPose,
@@ -94,7 +96,12 @@ interface VoiceReportEntry {
   sha256Key: string;
 }
 
-export const CartoonVideosView: React.FC = () => {
+interface CartoonVideosViewProps {
+  initialEpisodeId?: string | null;
+}
+
+export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpisodeId }) => {
+  const { openShare } = useShare();
   const [activeStudioTab, setActiveStudioTab] = useState<StudioTab>('videos');
 
   const [customEpisodes, setCustomEpisodes] = useState<CartoonEpisode[]>(() => {
@@ -145,9 +152,19 @@ export const CartoonVideosView: React.FC = () => {
   );
 
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
-  const [activeEpisodeId, setActiveEpisodeId] = useState<string>(
-    INITIAL_CARTOON_EPISODES[0].id
-  );
+  const [activeEpisodeId, setActiveEpisodeId] = useState<string>(() => {
+    if (initialEpisodeId && INITIAL_CARTOON_EPISODES.some((ep) => ep.id === initialEpisodeId)) {
+      return initialEpisodeId;
+    }
+    return INITIAL_CARTOON_EPISODES[0].id;
+  });
+
+  useEffect(() => {
+    if (initialEpisodeId && allEpisodes.some((ep) => ep.id === initialEpisodeId)) {
+      setActiveEpisodeId(initialEpisodeId);
+      setSceneIndex(0);
+    }
+  }, [initialEpisodeId, allEpisodes]);
 
   // Unified Interactive Canvas state (for all 6 Omani Murshid episodes & custom AI episodes)
   const [sceneIndex, setSceneIndex] = useState<number>(0);
@@ -1074,6 +1091,30 @@ export const CartoonVideosView: React.FC = () => {
                         ) : (
                           <Volume2 className="w-4 h-4 text-emerald-600" />
                         )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openShare({
+                            kind: 'episode',
+                            title: activeEpisode.title,
+                            summary: activeEpisode.takeaway,
+                            highlights: activeEpisode.summaryPoints
+                              ? [...activeEpisode.summaryPoints]
+                              : activeEpisode.scenes.slice(0, 3).map((s) => s.subtitle),
+                            categoryLabel: activeEpisode.category,
+                            badgeMetric: activeEpisode.durationLabel,
+                            page: 'cartoon_videos',
+                            itemId: activeEpisode.id,
+                            authorOrSource: 'أستوديو مُرشد التوعوي',
+                          })
+                        }
+                        className="min-h-[44px] px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/60 text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                        title="مشاركة الحلقة عبر وسائل التواصل"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        <span>مشاركة الحلقة</span>
                       </button>
                     </div>
                   </div>

@@ -17,8 +17,10 @@ import {
   ArrowDown,
   Trophy,
   RefreshCw,
+  Share2,
 } from 'lucide-react';
 import { UserProfile } from '../types/index.ts';
+import { useShare } from '../context/ShareContext.tsx';
 import {
   ADVENTURE_STAGES,
   AdventureStageId,
@@ -119,6 +121,7 @@ export const MurshidAdventuresGame: React.FC<MurshidAdventuresGameProps> = ({
   onScoreUpdated,
   onBackToGames,
 }) => {
+  const { openShare } = useShare();
   const [progress, setProgress] = useState<SavedProgress>(() => loadProgress());
   const [activeStageId, setActiveStageId] = useState<AdventureStageId | null>(null);
   const [phase, setPhase] = useState<'map' | 'playing' | 'summary'>('map');
@@ -1257,8 +1260,33 @@ export const MurshidAdventuresGame: React.FC<MurshidAdventuresGameProps> = ({
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               type="button"
+              onClick={() =>
+                openShare({
+                  kind: 'achievement',
+                  title: `أنهيت مرحلة «${summaryData.stage.titleAr}» في مغامرات مرشد!`,
+                  summary: summaryData.messageAr,
+                  highlights: [
+                    `التقييم: ${summaryData.stars} من 3 نجوم`,
+                    `نقاط الجولة: ${summaryData.score}`,
+                    `الرصيد المضاف: +${summaryData.pointsSynced} نقطة`,
+                  ],
+                  categoryLabel: 'مغامرات مرشد الزراعية',
+                  badgeMetric: `${summaryData.stars} ★ · ${summaryData.score} نقطة`,
+                  locationLabel: `${user.governorate} · ${user.wilayat}`,
+                  page: 'murshid_adventures',
+                  authorOrSource: user.name,
+                })
+              }
+              className="min-h-[46px] px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md whitespace-nowrap shrink-0"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>مشاركة النتيجة</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => startStage(summaryData.stage.id)}
-              className="min-h-[46px] px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-white font-bold text-xs sm:text-sm flex items-center gap-2"
+              className="min-h-[46px] px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-white font-bold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap shrink-0"
             >
               <RotateCcw className="w-4 h-4" />
               <span>إعادة المرحلة</span>
@@ -1269,7 +1297,7 @@ export const MurshidAdventuresGame: React.FC<MurshidAdventuresGameProps> = ({
                 <button
                   type="button"
                   onClick={() => startStage(ADVENTURE_STAGES[summaryData.stage.order].id)}
-                  className="min-h-[46px] px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md"
+                  className="min-h-[46px] px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md whitespace-nowrap shrink-0"
                 >
                   <Trophy className="w-4 h-4" />
                   <span>المرحلة التالية</span>
@@ -1279,7 +1307,7 @@ export const MurshidAdventuresGame: React.FC<MurshidAdventuresGameProps> = ({
             <button
               type="button"
               onClick={handleReturnToMap}
-              className="min-h-[46px] px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs sm:text-sm flex items-center gap-2"
+              className="min-h-[46px] px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap shrink-0"
             >
               <Award className="w-4 h-4" />
               <span>خريطة المراحل</span>

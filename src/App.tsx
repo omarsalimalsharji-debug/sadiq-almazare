@@ -20,6 +20,7 @@ import { GlobalMiniPlayer } from './components/GlobalMiniPlayer.tsx';
 import { OfflineIndicator } from './components/OfflineIndicator.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { LocationSelectorBar } from './components/LocationSelectorBar.tsx';
+import { ShareProvider } from './context/ShareContext.tsx';
 
 // Primary Home View (eager) + Secondary Views (lazy-loaded)
 import { HomeView } from './components/HomeView.tsx';
@@ -50,12 +51,70 @@ import {
 import { auth } from './firebase.ts';
 import { onAuthStateChanged } from 'firebase/auth';
 
+const VALID_PAGES: Set<ActivePage> = new Set([
+  'home',
+  'plant_diagnosis',
+  'pest_diagnosis',
+  'cartoon_videos',
+  'encyclopedia',
+  'calendar',
+  'alerts',
+  'weather',
+  'community',
+  'games',
+  'murshid_adventures',
+  'cultural_quiz',
+  'leaderboard',
+  'library',
+  'quran',
+  'radio',
+  'daily_tips',
+  'profile',
+  'settings',
+  'help_support',
+  'login',
+  'admin',
+]);
+
+function readInitialDeepLink(): { page: ActivePage; itemId: string | null } {
+  if (typeof window === 'undefined') return { page: 'home', itemId: null };
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const bookParam = params.get('book');
+    if (bookParam) {
+      return { page: 'library', itemId: bookParam };
+    }
+    const rawPage = params.get('page') as ActivePage | null;
+    const item = params.get('item');
+    if (rawPage && VALID_PAGES.has(rawPage)) {
+      return { page: rawPage, itemId: item };
+    }
+  } catch {
+    // Fallback cleanly to home
+  }
+  return { page: 'home', itemId: null };
+}
+
 export default function App() {
-  const [activePage, setActivePage] = useState<ActivePage>('home');
+  const initialDeepLink = React.useMemo(() => readInitialDeepLink(), []);
+  const [activePage, setActivePage] = useState<ActivePage>(initialDeepLink.page);
+  const [deepLinkItemId, setDeepLinkItemId] = useState<string | null>(initialDeepLink.itemId);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isNotifDrawerOpen, setIsNotifDrawerOpen] = useState<boolean>(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(0);
+
+  const handleNavigate = useCallback((page: ActivePage) => {
+    setActivePage(page);
+    setDeepLinkItemId(null);
+    if (typeof window !== 'undefined' && window.location.search) {
+      try {
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch {
+        // Ignore history restriction
+      }
+    }
+  }, []);
 
   // Language state (ar / en)
   const [lang, setLang] = useState<'ar' | 'en'>(() => {
@@ -324,6 +383,7 @@ export default function App() {
   }, []);
 
   return (
+    <ShareProvider>
     <LocationProvider
       initialGovernorate={user.governorate}
       initialWilayat={user.wilayat}
@@ -335,7 +395,7 @@ export default function App() {
       {/* Comprehensive Header with Top Bar Contract & Hamburger */}
       <Header
         activePage={activePage}
-        onNavigate={setActivePage}
+        onNavigate={handleNavigate}
         onToggleSidebar={() => setIsSidebarOpen(true)}
         onToggleNotifications={() => setIsNotifDrawerOpen(true)}
         unreadNotificationsCount={unreadNotifsCount}
@@ -354,7 +414,7 @@ export default function App() {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         activePage={activePage}
-        onNavigate={setActivePage}
+        onNavigate={handleNavigate}
         user={user}
         onToggleLogin={() => setIsLoginModalOpen(true)}
         lang={lang}
@@ -420,15 +480,15 @@ export default function App() {
         )}
 
         {activePage === 'cartoon_videos' && (
-          <CartoonVideosView />
+          <CartoonVideosView initialEpisodeId={deepLinkItemId} />
         )}
 
         {activePage === 'games' && (
           <GamesView
             user={user}
             onScoreUpdated={handleScoreUpdated}
-            onNavigateToLeaderboard={() => setActivePage('leaderboard')}
-            onOpenMurshidAdventures={() => setActivePage('murshid_adventures')}
+            onNavigateToLeaderboard={() => handleNavigate('leaderboard')}
+            onOpenMurshidAdventures={() => handleNavigate('murshid_adventures')}
           />
         )}
 
@@ -436,8 +496,8 @@ export default function App() {
           <GamesView
             user={user}
             onScoreUpdated={handleScoreUpdated}
-            onNavigateToLeaderboard={() => setActivePage('leaderboard')}
-            onOpenMurshidAdventures={() => setActivePage('murshid_adventures')}
+            onNavigateToLeaderboard={() => handleNavigate('leaderboard')}
+            onOpenMurshidAdventures={() => handleNavigate('murshid_adventures')}
             initialGameType="cultural"
           />
         )}
@@ -445,7 +505,7 @@ export default function App() {
         {activePage === 'leaderboard' && (
           <LeaderboardView
             user={user}
-            onNavigateToGames={() => setActivePage('games')}
+            onNavigateToGames={() => handleNavigate('games')}
           />
         )}
 
@@ -453,6 +513,7 @@ export default function App() {
           <LibraryView
             user={user}
             onUpdateBookmarks={handleUpdateBookmarks}
+            initialBookId={deepLinkItemId}
           />
         )}
 
@@ -486,9 +547,9 @@ export default function App() {
 
         {(activePage === 'daily_tips' || (activePage as string) === 'ramadan') && (
           hijriState.occasion === 'ramadan' ? (
-            <RamadanView />
+            <RamadanView initialDay={deepLinkItemId ? Number(deepLinkItemId) : undefined} />
           ) : (
-            <DailyTipsView />
+            <DailyTipsView initialTipId={deepLinkItemId ? Number(deepLinkItemId) : undefined} />
           )
         )}
 
@@ -512,7 +573,7 @@ export default function App() {
         )}
 
         {activePage === 'encyclopedia' && (
-          <EncyclopediaView />
+          <EncyclopediaView initialArticleId={deepLinkItemId} />
         )}
 
         {activePage === 'community' && (
@@ -563,12 +624,12 @@ export default function App() {
       <OfflineIndicator />
 
       {/* Sticky Global Mini-Player for continuous audio playback across navigation */}
-      <GlobalMiniPlayer onNavigate={setActivePage} />
+      <GlobalMiniPlayer onNavigate={handleNavigate} />
 
       {/* Mobile-First Fixed Bottom Navigation Bar */}
       <BottomNav
         activePage={activePage}
-        onNavigate={setActivePage}
+        onNavigate={handleNavigate}
         onOpenSidebar={() => setIsSidebarOpen(true)}
         lang={lang}
       />
@@ -605,5 +666,6 @@ export default function App() {
 
     </div>
     </LocationProvider>
+    </ShareProvider>
   );
 }

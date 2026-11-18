@@ -33,16 +33,20 @@ import {
   getOfflineCachedBookIds,
   cacheBookPdfOffline,
 } from '../utils/offlineBooksDb.ts';
+import { useShare } from '../context/ShareContext.tsx';
 
 interface LibraryViewProps {
   user: UserProfile;
   onUpdateBookmarks: (bookmarkedIds: string[]) => void;
+  initialBookId?: string | null;
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
   user,
   onUpdateBookmarks,
+  initialBookId,
 }) => {
+  const { openShare } = useShare();
   const [books, setBooks] = useState<Book[]>(INITIAL_BOOKS);
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
   const [collectionFilter, setCollectionFilter] = useState<'all' | 'bookmarked' | 'offline'>('all');
@@ -51,6 +55,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   // Reader state
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [readerMode, setReaderMode] = useState<'text' | 'pdf'>('text');
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [showChaptersMenu, setShowChaptersMenu] = useState<boolean>(false);
   const [showLegendBox, setShowLegendBox] = useState<boolean>(false);
@@ -112,6 +117,16 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (!initialBookId || books.length === 0) return;
+    const match = books.find((b) => b.id === initialBookId);
+    if (match) {
+      setActiveReadingBook(match);
+      const savedPage = Number(localStorage.getItem(`read_page_${match.id}`)) || 1;
+      setCurrentPage(Math.min(savedPage, match.pages?.length || 1));
+    }
+  }, [initialBookId, books]);
+
   const filteredBooks = books.filter((b) => {
     const matchesCat = selectedCategory === 'الكل' || b.category === selectedCategory;
     const matchesCollection =
@@ -129,6 +144,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   const handleOpenBook = async (book: Book) => {
     setActiveReadingBook(book);
+    setReaderMode('text');
     setShowChaptersMenu(false);
     setActiveParagraphIndex(null);
     const savedPage = localStorage.getItem(`read_page_${book.id}`);
@@ -229,8 +245,20 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   };
 
   const handleShare = (book: Book) => {
-    navigator.clipboard?.writeText(window.location.origin + `?book=${book.id}`);
-    showToast('ok', `تم نسخ رابط كتاب "${book.title}" للمشاركة.`);
+    openShare({
+      kind: 'book',
+      title: book.title,
+      summary: book.description,
+      highlights: [
+        `تأليف: ${book.author}`,
+        `التصنيف: ${book.category}`,
+        `عدد الفصول: ${book.pages?.length || book.pagesCount || 1} فصول`,
+      ],
+      categoryLabel: book.category,
+      page: 'library',
+      itemId: book.id,
+      authorOrSource: book.author,
+    });
   };
 
   const handleDeleteBook = async (bookId: string) => {
@@ -596,21 +624,50 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
               {/* Reader Controls */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowChaptersMenu((v) => !v)}
-                  className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
-                    showChaptersMenu
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700'
-                  }`}
-                  title="فهرس الأبواب والفصول"
-                >
-                  <List className="w-4 h-4" />
-                  <span className="hidden sm:inline">الفهرس</span>
-                </button>
+                {activeReadingBook.pdfUrl && (
+                  <div className="inline-flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
+                    <button
+                      type="button"
+                      onClick={() => setReaderMode('text')}
+                      className={`min-h-[32px] px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap ${
+                        readerMode === 'text'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
+                      }`}
+                    >
+                      قراءة تفاعلية
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReaderMode('pdf')}
+                      className={`min-h-[32px] px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap ${
+                        readerMode === 'pdf'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
+                      }`}
+                    >
+                      الكتاب المصوّر PDF
+                    </button>
+                  </div>
+                )}
 
-                {activeReadingBook.hasCitationBadges && (
+                {readerMode === 'text' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowChaptersMenu((v) => !v)}
+                    className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
+                      showChaptersMenu
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700'
+                    }`}
+                    title="فهرس الأبواب والفصول"
+                  >
+                    <List className="w-4 h-4" />
+                    <span className="hidden sm:inline">الفهرس</span>
+                  </button>
+                )}
+
+                {readerMode === 'text' && activeReadingBook.hasCitationBadges && (
                   <button
                     type="button"
                     onClick={() => setShowLegendBox((v) => !v)}
@@ -636,25 +693,37 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   <span className="hidden sm:inline">تحميل</span>
                 </button>
 
-                <div className="hidden sm:flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-lg">
-                  <button
-                    onClick={() => setZoomLevel((prev) => Math.max(85, prev - 15))}
-                    className="p-1 rounded text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700"
-                    title="تصغير الخط"
-                  >
-                    <ZoomOut className="w-4 h-4" />
-                  </button>
-                  <span className="text-[11px] font-mono px-1 font-bold text-stone-700 dark:text-stone-300">
-                    {zoomLevel}%
-                  </span>
-                  <button
-                    onClick={() => setZoomLevel((prev) => Math.min(155, prev + 15))}
-                    className="p-1 rounded text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700"
-                    title="تكبير الخط"
-                  >
-                    <ZoomIn className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleShare(activeReadingBook)}
+                  className="min-h-[38px] px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1"
+                  title="مشاركة الكتاب"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">مشاركة</span>
+                </button>
+
+                {readerMode === 'text' && (
+                  <div className="hidden sm:flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-lg">
+                    <button
+                      onClick={() => setZoomLevel((prev) => Math.max(85, prev - 15))}
+                      className="p-1 rounded text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700"
+                      title="تصغير الخط"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <span className="text-[11px] font-mono px-1 font-bold text-stone-700 dark:text-stone-300">
+                      {zoomLevel}%
+                    </span>
+                    <button
+                      onClick={() => setZoomLevel((prev) => Math.min(155, prev + 15))}
+                      className="p-1 rounded text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700"
+                      title="تكبير الخط"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
 
                 <button
                   onClick={() => setActiveReadingBook(null)}
@@ -666,16 +735,18 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               </div>
             </div>
 
-            {/* Arabic TTS Voice Reader Bar */}
-            <BookSpeechControls
-              paragraphs={pageParagraphs}
-              pageKey={`${activeReadingBook.id}-p${currentPage}`}
-              activeParagraphIndex={activeParagraphIndex}
-              onActiveParagraphChange={setActiveParagraphIndex}
-            />
+            {/* Arabic TTS Voice Reader Bar (Text Mode) */}
+            {readerMode === 'text' && (
+              <BookSpeechControls
+                paragraphs={pageParagraphs}
+                pageKey={`${activeReadingBook.id}-p${currentPage}`}
+                activeParagraphIndex={activeParagraphIndex}
+                onActiveParagraphChange={setActiveParagraphIndex}
+              />
+            )}
 
             {/* Citation Symbols Legend Drawer ([م] [ج] [ع] [ت]) */}
-            {showLegendBox && (
+            {readerMode === 'text' && showLegendBox && (
               <div className="px-4 py-3 border-b border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px]">
                 {CITATION_LEGEND.map((item) => (
                   <div
@@ -691,125 +762,148 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               </div>
             )}
 
-            {/* Main Reader Body (+ Optional Chapter Drawer) */}
-            <div className="flex-1 flex overflow-hidden relative">
-              {showChaptersMenu && (
-                <aside className="w-64 sm:w-72 border-l border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950 overflow-y-auto p-3 space-y-1.5 shrink-0">
-                  <div className="text-xs font-bold text-stone-500 dark:text-stone-400 px-2 pb-1">
-                    فهرس الأبواب والفصول ({activeReadingBook.pages.length})
-                  </div>
-                  {activeReadingBook.pages.map((pg, idx) => (
-                    <button
-                      key={pg.pageNumber}
-                      onClick={() => {
-                        handlePageChange(idx + 1);
-                        setShowChaptersMenu(false);
-                      }}
-                      className={`w-full text-right p-2.5 rounded-xl text-xs transition-colors space-y-0.5 ${
-                        currentPage === idx + 1
-                          ? 'bg-emerald-600 text-white font-bold'
-                          : 'hover:bg-stone-200/70 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300'
-                      }`}
-                    >
-                      <div className="text-[10px] opacity-80">
-                        {pg.chapter || `الفصل ${idx + 1}`}
-                      </div>
-                      <div className="line-clamp-2">{pg.title}</div>
-                    </button>
-                  ))}
-                </aside>
-              )}
-
-              <div className="flex-1 overflow-y-auto p-5 sm:p-8 bg-stone-50/40 dark:bg-stone-950/40">
-                {currentPageData ? (
-                  <div
-                    className="max-w-3xl mx-auto space-y-4 text-stone-900 dark:text-stone-100"
-                    style={{ fontSize: `${(zoomLevel / 100) * 15}px` }}
+            {/* Main Reader Body: Either Full Illustrated PDF or Structured Interactive Text */}
+            {readerMode === 'pdf' && activeReadingBook.pdfUrl ? (
+              <div className="flex-1 flex flex-col bg-stone-100 dark:bg-stone-950 overflow-hidden">
+                <iframe
+                  src={`${activeReadingBook.pdfUrl}#view=FitH`}
+                  title={activeReadingBook.title}
+                  className="w-full flex-1 border-0"
+                />
+                <div className="px-4 py-2 bg-white dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500 dark:text-stone-400">
+                  <span>عرض النسخة المصوّرة الكاملة بصيغة PDF</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadBook(activeReadingBook)}
+                    className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1"
                   >
-                    <div className="border-b border-stone-200 dark:border-stone-800 pb-3 space-y-1">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-bold">
-                        <span>
-                          {currentPageData.chapter || 'محتوى الكتاب'} · {currentPage} من{' '}
-                          {activeReadingBook.pages.length}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-stone-500 dark:text-stone-400">
-                          <WifiOff className="w-3 h-3 text-emerald-600" />
-                          <span>محفوظ للقراءة دون إنترنت</span>
-                        </span>
+                    <Download className="w-3.5 h-3.5" />
+                    <span>تنزيل نسخة PDF كاملة</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 flex overflow-hidden relative">
+                  {showChaptersMenu && (
+                    <aside className="w-64 sm:w-72 border-l border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950 overflow-y-auto p-3 space-y-1.5 shrink-0">
+                      <div className="text-xs font-bold text-stone-500 dark:text-stone-400 px-2 pb-1">
+                        فهرس الأبواب والفصول ({activeReadingBook.pages.length})
                       </div>
-                      <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white leading-snug">
-                        {currentPageData.title}
-                      </h2>
-                    </div>
-
-                    {/* Structured Paragraphs with Active Speech Highlighting */}
-                    <div className="space-y-3 leading-loose">
-                      {pageParagraphs.map((para, idx) => {
-                        const isSpoken = activeParagraphIndex === idx;
-                        return (
-                          <p
-                            key={`${currentPage}-${idx}`}
-                            ref={(el) => {
-                              paragraphRefs.current[idx] = el;
-                            }}
-                            onClick={() => setActiveParagraphIndex(idx)}
-                            className={`rounded-xl px-3 py-2 transition-colors cursor-pointer text-justify ${
-                              isSpoken
-                                ? 'bg-emerald-100/90 dark:bg-emerald-900/45 text-stone-950 dark:text-white ring-1 ring-emerald-500/50 font-medium'
-                                : 'text-stone-800 dark:text-stone-200 hover:bg-stone-100/80 dark:hover:bg-stone-800/40'
-                            }`}
-                          >
-                            {para}
-                          </p>
-                        );
-                      })}
-                    </div>
-
-                    {activeReadingBook.hasCitationBadges && (
-                      <div className="pt-4 mt-4 border-t border-stone-200 dark:border-stone-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-stone-600 dark:text-stone-400">
-                        {CITATION_LEGEND.map((item) => (
-                          <div key={item.code}>
-                            <strong className="font-mono text-emerald-700 dark:text-emerald-400">
-                              {item.code}
-                            </strong>{' '}
-                            {item.label}
+                      {activeReadingBook.pages.map((pg, idx) => (
+                        <button
+                          key={pg.pageNumber}
+                          onClick={() => {
+                            handlePageChange(idx + 1);
+                            setShowChaptersMenu(false);
+                          }}
+                          className={`w-full text-right p-2.5 rounded-xl text-xs transition-colors space-y-0.5 ${
+                            currentPage === idx + 1
+                              ? 'bg-emerald-600 text-white font-bold'
+                              : 'hover:bg-stone-200/70 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300'
+                          }`}
+                        >
+                          <div className="text-[10px] opacity-80">
+                            {pg.chapter || `الفصل ${idx + 1}`}
                           </div>
-                        ))}
+                          <div className="line-clamp-2">{pg.title}</div>
+                        </button>
+                      ))}
+                    </aside>
+                  )}
+
+                  <div className="flex-1 overflow-y-auto p-5 sm:p-8 bg-stone-50/40 dark:bg-stone-950/40">
+                    {currentPageData ? (
+                      <div
+                        className="max-w-3xl mx-auto space-y-4 text-stone-900 dark:text-stone-100"
+                        style={{ fontSize: `${(zoomLevel / 100) * 15}px` }}
+                      >
+                        <div className="border-b border-stone-200 dark:border-stone-800 pb-3 space-y-1">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-bold">
+                            <span>
+                              {currentPageData.chapter || 'محتوى الكتاب'} · {currentPage} من{' '}
+                              {activeReadingBook.pages.length}
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-stone-500 dark:text-stone-400">
+                              <WifiOff className="w-3 h-3 text-emerald-600" />
+                              <span>محفوظ للقراءة دون إنترنت</span>
+                            </span>
+                          </div>
+                          <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white leading-snug">
+                            {currentPageData.title}
+                          </h2>
+                        </div>
+
+                        {/* Structured Paragraphs with Active Speech Highlighting */}
+                        <div className="space-y-3 leading-loose">
+                          {pageParagraphs.map((para, idx) => {
+                            const isSpoken = activeParagraphIndex === idx;
+                            return (
+                              <p
+                                key={`${currentPage}-${idx}`}
+                                ref={(el) => {
+                                  paragraphRefs.current[idx] = el;
+                                }}
+                                onClick={() => setActiveParagraphIndex(idx)}
+                                className={`rounded-xl px-3 py-2 transition-colors cursor-pointer text-justify ${
+                                  isSpoken
+                                    ? 'bg-emerald-100/90 dark:bg-emerald-900/45 text-stone-950 dark:text-white ring-1 ring-emerald-500/50 font-medium'
+                                    : 'text-stone-800 dark:text-stone-200 hover:bg-stone-100/80 dark:hover:bg-stone-800/40'
+                                }`}
+                              >
+                                {para}
+                              </p>
+                            );
+                          })}
+                        </div>
+
+                        {activeReadingBook.hasCitationBadges && (
+                          <div className="pt-4 mt-4 border-t border-stone-200 dark:border-stone-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-stone-600 dark:text-stone-400">
+                            {CITATION_LEGEND.map((item) => (
+                              <div key={item.code}>
+                                <strong className="font-mono text-emerald-700 dark:text-emerald-400">
+                                  {item.code}
+                                </strong>{' '}
+                                {item.label}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-16 text-stone-400 text-xs">
+                        محتوى هذه الصفحة قيد المراجعة الفنية
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="text-center py-16 text-stone-400 text-xs">
-                    محتوى هذه الصفحة قيد المراجعة الفنية
+                </div>
+
+                {/* Viewer Bottom Pagination */}
+                <div className="p-3 sm:p-4 border-t border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-between text-xs">
+                  <button
+                    disabled={currentPage <= 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    className="min-h-[42px] px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 disabled:opacity-40 flex items-center gap-1.5 font-semibold"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                    <span>الفصل السابق</span>
+                  </button>
+
+                  <div className="font-mono text-stone-600 dark:text-stone-300 font-bold">
+                    {currentPage} / {activeReadingBook.pages.length}
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* Viewer Bottom Pagination */}
-            <div className="p-3 sm:p-4 border-t border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-between text-xs">
-              <button
-                disabled={currentPage <= 1}
-                onClick={() => handlePageChange(currentPage - 1)}
-                className="min-h-[42px] px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 disabled:opacity-40 flex items-center gap-1.5 font-semibold"
-              >
-                <ChevronRight className="w-4 h-4" />
-                <span>الفصل السابق</span>
-              </button>
-
-              <div className="font-mono text-stone-600 dark:text-stone-300 font-bold">
-                {currentPage} / {activeReadingBook.pages.length}
-              </div>
-
-              <button
-                disabled={currentPage >= activeReadingBook.pages.length}
-                onClick={() => handlePageChange(currentPage + 1)}
-                className="min-h-[42px] px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 flex items-center gap-1.5 font-bold"
-              >
-                <span>الفصل التالي</span>
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-            </div>
+                  <button
+                    disabled={currentPage >= activeReadingBook.pages.length}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    className="min-h-[42px] px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 flex items-center gap-1.5 font-bold"
+                  >
+                    <span>الفصل التالي</span>
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

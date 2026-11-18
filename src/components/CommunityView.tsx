@@ -18,6 +18,7 @@ import {
   Square,
 } from 'lucide-react';
 import { UserProfile } from '../types/index.ts';
+import { useShare } from '../context/ShareContext.tsx';
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
 import { speakMurshid, stopAllMurshidAudio } from '../utils/murshidAudio.ts';
 
@@ -68,6 +69,7 @@ const STARTER_AI_QUESTIONS = [
 ];
 
 export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
+  const { openShare } = useShare();
   const [activeTab, setActiveTab] = useState<'ai_chat' | 'forum'>('ai_chat');
   const [posts, setPosts] = useState<Post[]>([]);
   const [newContent, setNewContent] = useState<string>('');
@@ -541,16 +543,37 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
                         )}
                       </button>
 
-                      {msg.id !== 'ai-welcome' && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {msg.id !== 'ai-welcome' && (
+                          <button
+                            type="button"
+                            onClick={() => handleShareAdviceToForum(msg)}
+                            className="min-h-[36px] px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 whitespace-nowrap shrink-0"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                            <span>نشر في الديوانية</span>
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handleShareAdviceToForum(msg)}
-                          className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                          onClick={() =>
+                            openShare({
+                              kind: 'advice',
+                              title: `استشارة زراعية من مُرشد · ${aiCropFocus}`,
+                              summary: msg.text,
+                              highlights: (msg.practicalSteps || []).slice(0, 3),
+                              categoryLabel: `ديوانية المزارعين · ${aiCropFocus}`,
+                              locationLabel: `${user.governorate} · ${user.wilayat}`,
+                              page: 'community',
+                              authorOrSource: 'المستشار الزراعي الذكي — مُرشد',
+                            })
+                          }
+                          className="min-h-[36px] px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/50 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-[11px] font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
                         >
                           <Share2 className="w-3.5 h-3.5" />
-                          <span>مشاركة هذه الإرشادات في الديوانية</span>
+                          <span>مشاركة خارجية</span>
                         </button>
-                      )}
+                      </div>
                     </div>
                   )}
 

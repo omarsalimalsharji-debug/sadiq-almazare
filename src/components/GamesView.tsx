@@ -21,7 +21,9 @@ import {
   CloudCheck,
   Volume2,
   VolumeX,
+  Share2,
 } from 'lucide-react';
+import { useShare } from '../context/ShareContext.tsx';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import {
   doc,
@@ -142,6 +144,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
   onOpenMurshidAdventures,
   initialGameType,
 }) => {
+  const { openShare } = useShare();
   const [selectedGame, setSelectedGame] = useState<GameKey | null>(
     (initialGameType as GameKey) || null
   );
@@ -822,21 +825,52 @@ export const GamesView: React.FC<GamesViewProps> = ({
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
+              type="button"
+              onClick={() => {
+                const gameTitle =
+                  GAMES_CATALOG.find((g) => g.key === selectedGame)?.title || 'التحدي الزراعي';
+                const earned = verifiedResult?.verifiedScore ?? 0;
+                const correctCount = verifiedResult?.correctCount ?? 0;
+                const totalQ = verifiedResult?.totalQuestions ?? currentQuestions.length;
+                openShare({
+                  kind: 'achievement',
+                  title: `حققت +${earned} نقطة في ${gameTitle}!`,
+                  summary: `أتممت تحدي «${gameTitle}» بإجابة صحيحة على ${correctCount} من أصل ${totalQ} أسئلة في تطبيق صديق المزارع الذكي.`,
+                  highlights: [
+                    `النقاط المعتمدة: +${earned}`,
+                    `الإجابات الصحيحة: ${correctCount}/${totalQ}`,
+                    verifiedResult?.streakBonus
+                      ? `مكافأة التتابع: +${verifiedResult.streakBonus}`
+                      : 'تحدي المعرفة الزراعية العُمانية',
+                  ],
+                  categoryLabel: 'التحديات والمسابقات الزراعية',
+                  badgeMetric: `+${earned} نقطة`,
+                  locationLabel: `${user.governorate} · ${user.wilayat}`,
+                  page: 'games',
+                  authorOrSource: user.name,
+                });
+              }}
+              className="min-h-[44px] px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-2 shadow-md whitespace-nowrap shrink-0"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>مشاركة النتيجة</span>
+            </button>
+            <button
               onClick={() => handleStartGame(selectedGame)}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-md"
+              className="min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-md whitespace-nowrap shrink-0"
             >
               <RotateCcw className="w-4 h-4" />
               <span>جولة جديدة</span>
             </button>
             <button
               onClick={() => setSelectedGame(null)}
-              className="px-5 py-2.5 rounded-xl bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-semibold"
+              className="min-h-[44px] px-5 py-2.5 rounded-xl bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-semibold whitespace-nowrap shrink-0"
             >
               اختيار لعبة أخرى
             </button>
             <button
               onClick={onNavigateToLeaderboard}
-              className="px-5 py-2.5 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-xs font-bold"
+              className="min-h-[44px] px-5 py-2.5 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-xs font-bold whitespace-nowrap shrink-0"
             >
               عرض الترتيب العام
             </button>

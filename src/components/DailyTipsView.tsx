@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Lightbulb, MapPin, Droplets, Sprout, ShieldAlert, Volume2, Square } from 'lucide-react';
+import { Lightbulb, MapPin, Droplets, Sprout, ShieldAlert, Volume2, Square, Share2 } from 'lucide-react';
 import { useLocation } from '../context/LocationContext.tsx';
+import { useShare } from '../context/ShareContext.tsx';
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
 import { speakMurshid, stopAllMurshidAudio } from '../utils/murshidAudio.ts';
 
@@ -65,8 +66,13 @@ const TIP_CATEGORIES = [
   'البيئة والنحل',
 ];
 
-export const DailyTipsView: React.FC = () => {
+interface DailyTipsViewProps {
+  initialTipId?: number;
+}
+
+export const DailyTipsView: React.FC<DailyTipsViewProps> = ({ initialTipId }) => {
   const { location, agroAdvice } = useLocation();
+  const { openShare } = useShare();
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
   const [murshidSpeaking, setMurshidSpeaking] = useState<boolean>(false);
 
@@ -77,11 +83,15 @@ export const DailyTipsView: React.FC = () => {
   }, []);
 
   const todayTip = useMemo(() => {
+    if (initialTipId && Number.isFinite(initialTipId)) {
+      const matched = DAILY_AGRICULTURAL_TIPS.find((t) => t.id === initialTipId);
+      if (matched) return matched;
+    }
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 0);
     const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000);
     return DAILY_AGRICULTURAL_TIPS[dayOfYear % DAILY_AGRICULTURAL_TIPS.length];
-  }, []);
+  }, [initialTipId]);
 
   const archiveTips = useMemo(() => {
     return DAILY_AGRICULTURAL_TIPS.filter((t) => {
@@ -136,31 +146,52 @@ export const DailyTipsView: React.FC = () => {
 
         <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-white/10">
           <div className="text-[11px] text-emerald-300">المصدر المعتمد: {todayTip.source}</div>
-          <button
-            type="button"
-            onClick={() => {
-              if (murshidSpeaking) {
-                stopAllMurshidAudio(setMurshidSpeaking);
-              } else {
-                speakMurshid(`${todayTip.title}. ${todayTip.tip}`, {
-                  onSpeakingChange: setMurshidSpeaking,
-                });
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                openShare({
+                  kind: 'tip',
+                  title: todayTip.title,
+                  summary: todayTip.tip,
+                  categoryLabel: todayTip.category,
+                  locationLabel: `${location.governorate} · ${location.wilayat}`,
+                  page: 'daily_tips',
+                  itemId: String(todayTip.id),
+                  authorOrSource: todayTip.source,
+                })
               }
-            }}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold flex items-center gap-2 transition-colors whitespace-nowrap"
-          >
-            {murshidSpeaking ? (
-              <>
-                <Square className="w-3.5 h-3.5 fill-current" />
-                <span>إيقاف الصوت</span>
-              </>
-            ) : (
-              <>
-                <Volume2 className="w-4 h-4" />
-                <span>استمع لنصيحة اليوم بصوت مرشد</span>
-              </>
-            )}
-          </button>
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold flex items-center gap-2 transition-colors whitespace-nowrap shrink-0"
+            >
+              <Share2 className="w-4 h-4 text-emerald-300" />
+              <span>مشاركة النصيحة</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (murshidSpeaking) {
+                  stopAllMurshidAudio(setMurshidSpeaking);
+                } else {
+                  speakMurshid(`${todayTip.title}. ${todayTip.tip}`, {
+                    onSpeakingChange: setMurshidSpeaking,
+                  });
+                }
+              }}
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold flex items-center gap-2 transition-colors whitespace-nowrap shrink-0"
+            >
+              {murshidSpeaking ? (
+                <>
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>إيقاف الصوت</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-4 h-4" />
+                  <span>استمع لنصيحة اليوم بصوت مرشد</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -253,8 +284,27 @@ export const DailyTipsView: React.FC = () => {
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-stone-100 dark:border-sky-300/15 text-[10px] text-stone-400">
-                {item.source}
+              <div className="pt-3 border-t border-stone-100 dark:border-sky-300/15 flex items-center justify-between gap-2">
+                <span className="text-[10px] text-stone-400 truncate">{item.source}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    openShare({
+                      kind: 'tip',
+                      title: item.title,
+                      summary: item.tip,
+                      categoryLabel: item.category,
+                      locationLabel: `${location.governorate} · ${location.wilayat}`,
+                      page: 'daily_tips',
+                      itemId: String(item.id),
+                      authorOrSource: item.source,
+                    })
+                  }
+                  className="min-h-[36px] px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>مشاركة</span>
+                </button>
               </div>
             </div>
           ))}

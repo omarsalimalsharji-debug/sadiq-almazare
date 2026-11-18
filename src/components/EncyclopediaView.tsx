@@ -1,17 +1,12 @@
-import React, { useState } from 'react';
-import { 
-  BookOpen, 
-  Search, 
-  Bookmark, 
-  Share2, 
-  ChevronDown, 
-  ChevronUp, 
-  Sparkles, 
-  TreePine, 
-  Droplet, 
-  Wheat, 
-  Flower2 
+import React, { useEffect, useState } from 'react';
+import {
+  BookOpen,
+  Search,
+  Share2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
+import { useShare } from '../context/ShareContext.tsx';
 
 interface Article {
   id: string;
@@ -89,9 +84,22 @@ const ENCYCLOPEDIA_ARTICLES: Article[] = [
   }
 ];
 
-export const EncyclopediaView: React.FC = () => {
+interface EncyclopediaViewProps {
+  initialArticleId?: string | null;
+}
+
+export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({ initialArticleId }) => {
+  const { openShare } = useShare();
   const [search, setSearch] = useState<string>('');
-  const [expandedId, setExpandedId] = useState<string | null>(ENCYCLOPEDIA_ARTICLES[0].id);
+  const [expandedId, setExpandedId] = useState<string | null>(
+    initialArticleId || ENCYCLOPEDIA_ARTICLES[0].id
+  );
+
+  useEffect(() => {
+    if (initialArticleId && ENCYCLOPEDIA_ARTICLES.some((a) => a.id === initialArticleId)) {
+      setExpandedId(initialArticleId);
+    }
+  }, [initialArticleId]);
 
   const filtered = ENCYCLOPEDIA_ARTICLES.filter(a => 
     a.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -183,6 +191,31 @@ export const EncyclopediaView: React.FC = () => {
                       </ul>
                     </div>
                   )}
+
+                  <div className="pt-2 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between gap-3">
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                      الموسوعة الزراعية العمانية · {art.category}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openShare({
+                          kind: 'article',
+                          title: art.title,
+                          summary: art.summary,
+                          highlights: art.tips.slice(0, 3),
+                          categoryLabel: art.category,
+                          page: 'encyclopedia',
+                          itemId: art.id,
+                          authorOrSource: 'الموسوعة الزراعية العمانية',
+                        })
+                      }
+                      className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap transition-colors"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>مشاركة المقال</span>
+                    </button>
+                  </div>
 
                 </div>
               )}

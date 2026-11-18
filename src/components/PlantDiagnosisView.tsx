@@ -28,6 +28,7 @@ import {
   Focus,
   FlaskConical,
   Square,
+  Share2,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -65,6 +66,7 @@ import {
 } from '../utils/soundEffects.ts';
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
 import { speakMurshid, stopAllMurshidAudio } from '../utils/murshidAudio.ts';
+import { useShare } from '../context/ShareContext.tsx';
 
 type ProblemType = 'مرض' | 'حشرة' | 'نقص عناصر' | 'سليم';
 type SeverityLevel = 'منخفضة' | 'متوسطة' | 'عالية';
@@ -162,6 +164,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   initialFocus = 'auto',
 }) => {
   const { location } = useLocation();
+  const { openShare } = useShare();
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const lastAnalyzedSignatureRef = useRef<string | null>(null);
@@ -1156,37 +1159,65 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                           </p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (murshidSpeaking) {
-                            stopAllMurshidAudio();
-                            setMurshidSpeaking(false);
-                            return;
-                          }
-                          setMurshidSpeaking(true);
-                          speakMurshid(
-                            `${result.problemName}. ${result.conditionSummary || result.visibleSymptoms}`,
-                            {
-                              onSpeakingChange: setMurshidSpeaking,
-                              onEnd: () => setMurshidSpeaking(false),
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (murshidSpeaking) {
+                              stopAllMurshidAudio();
+                              setMurshidSpeaking(false);
+                              return;
                             }
-                          );
-                        }}
-                        className="min-h-[44px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap"
-                      >
-                        {murshidSpeaking ? (
-                          <>
-                            <Square className="w-4 h-4 fill-current" />
-                            <span>إيقاف الصوت</span>
-                          </>
-                        ) : (
-                          <>
-                            <Volume2 className="w-4 h-4" />
-                            <span>ملخص بصوت مُرشد</span>
-                          </>
-                        )}
-                      </button>
+                            setMurshidSpeaking(true);
+                            speakMurshid(
+                              `${result.problemName}. ${result.conditionSummary || result.visibleSymptoms}`,
+                              {
+                                onSpeakingChange: setMurshidSpeaking,
+                                onEnd: () => setMurshidSpeaking(false),
+                              }
+                            );
+                          }}
+                          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                        >
+                          {murshidSpeaking ? (
+                            <>
+                              <Square className="w-4 h-4 fill-current" />
+                              <span>إيقاف الصوت</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-4 h-4" />
+                              <span>ملخص بصوت مُرشد</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openShare({
+                              kind: 'diagnosis',
+                              title: `${result.problemName}${result.cropName ? ` — ${result.cropName}` : ''}`,
+                              summary:
+                                result.conditionSummary ||
+                                result.visibleSymptoms ||
+                                result.organicRemedy,
+                              highlights: (result.treatmentSteps && result.treatmentSteps.length > 0
+                                ? result.treatmentSteps
+                                : [result.organicRemedy]
+                              ).slice(0, 3),
+                              categoryLabel: theme.label,
+                              locationLabel: effectiveLocationLabel,
+                              badgeMetric: `ثقة التقدير: ${result.confidenceScore}%`,
+                              page: initialFocus === 'insect' ? 'pest_diagnosis' : 'plant_diagnosis',
+                            })
+                          }
+                          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white dark:bg-[#132247] border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 text-xs font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          <span>مشاركة التشخيص</span>
+                        </button>
+                      </div>
                     </div>
 
                     {/* 1. Primary Header: Category + Arabic & English Names */}
