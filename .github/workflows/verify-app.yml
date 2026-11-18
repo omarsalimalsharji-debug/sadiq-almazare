@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - codex/development-from-main-2026-11-18
 
 permissions:
   contents: read
