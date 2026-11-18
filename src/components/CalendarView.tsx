@@ -359,10 +359,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           text: `تم حفظ جدولة تنبيه «${crop.nameAr}» (${CADENCE_LABELS[cadence]}) لشهر ${OMAN_MONTH_NAMES_SHORT[selectedMonthIdx]}.`,
         });
       }
-    } catch {
+    } catch (error) {
       setStatusBanner({
         kind: 'error',
-        text: 'تعذر الاتصال بالخادم لحفظ التنبيه. يرجى المحاولة مجدداً.',
+        text: error instanceof Error ? error.message : 'تعذر الاتصال بالخادم لحفظ التنبيه. يرجى المحاولة مجدداً.',
       });
     } finally {
       setBusyCropId(null);
