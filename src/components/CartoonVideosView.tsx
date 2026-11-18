@@ -627,16 +627,6 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
       setAudioStatusNote(null);
       setTtsFailed(false);
 
-      ensureAudioAnalyser();
-
-      const base64Wav = await fetchSceneTts(
-        targetScene.vocalizedNarration || targetScene.narration,
-        targetScene.murshidMood
-      );
-
-      if (playSessionRef.current !== session) return;
-      setIsLoadingAudio(false);
-
       const advanceNext = () => {
         if (playSessionRef.current !== session) return;
         if (idx + 1 < episode.scenes.length) {
@@ -647,6 +637,34 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
           audioLevelRef.current = 0;
         }
       };
+
+      // On phones, begin speech inside the original tap handler. Waiting for the
+      // server TTS request first can consume Android/iOS transient user activation.
+      const isMobilePlayback =
+        typeof navigator !== 'undefined' &&
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+      if (isMobilePlayback) {
+        setIsLoadingAudio(false);
+        setAudioStatusNote('يبدأ صوت مُرشد مباشرة على الهاتف لتفادي حظر تشغيل الصوت.');
+        speakBrowserFallbackChunks(
+          targetScene.vocalizedNarration || targetScene.narration,
+          targetScene.murshidMood,
+          session,
+          advanceNext
+        );
+        return;
+      }
+
+      ensureAudioAnalyser();
+
+      const base64Wav = await fetchSceneTts(
+        targetScene.vocalizedNarration || targetScene.narration,
+        targetScene.murshidMood
+      );
+
+      if (playSessionRef.current !== session) return;
+      setIsLoadingAudio(false);
 
       if (base64Wav && audioRef.current) {
         const audioEl = audioRef.current;

@@ -7,13 +7,47 @@
   --color-navy-card: #132247;
 }
 
-/* Custom smooth transitions, typography & luxury navy glassmorphism */
+/* Responsive foundation: prevent child content from forcing a wider mobile viewport. */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 100%;
+}
+
 html, body {
   font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
   scroll-behavior: smooth;
-  overflow-x: hidden;
-  max-width: 100%;
+  overflow-x: clip;
   -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  margin: 0;
+}
+
+#root {
+  min-height: 100dvh;
+  isolation: isolate;
+}
+
+img, video, canvas, svg {
+  max-width: 100%;
+}
+
+button, input, select, textarea {
+  font: inherit;
+}
+
+button {
+  touch-action: manipulation;
 }
 
 .heading-balance {
@@ -107,4 +141,37 @@ html, body {
                     radial-gradient(rgba(16, 185, 129, 0.09) 1.5px, transparent 1.5px);
   background-size: 32px 32px;
   background-position: 0 0, 16px 16px;
+}
+
+/* Compact phone layout and native safe-area handling. */
+@media (max-width: 640px) {
+  html, body {
+    overscroll-behavior-x: none;
+  }
+
+  #root {
+    overflow-x: clip;
+  }
+
+  main, [role="main"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .min-w-max {
+    max-width: none;
+  }
+
+  .mobile-safe-bottom {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
