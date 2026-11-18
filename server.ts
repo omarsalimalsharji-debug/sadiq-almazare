@@ -1804,7 +1804,7 @@ async function runUnifiedAgriVisionDiagnosis(params: {
     isAgricultureRelated: isAgri,
     detectedSubject: needsClearerPhoto ? 'unclear' : detectedSubject,
     diagnosisCategory,
-    problemType: needsClearerPhoto ? 'مرض' : problemType,
+    problemType: needsClearerPhoto ? 'غير محدد' : problemType,
     cropName: (parsed.cropName || cropName || (detectedSubject === 'insect' ? 'محصول زراعي' : 'نبات زراعي')).trim(),
     problemName: needsClearerPhoto
       ? 'تعذر تأكيد التشخيص من هذه الصورة'
@@ -1827,7 +1827,7 @@ async function runUnifiedAgriVisionDiagnosis(params: {
       ? 'لم تُرصد علامات كافية تسمح بوصف الأعراض.'
       : (visibleSymptomsText || 'لم تُرصد أعراض واضحة في الصورة.'),
     causes: needsClearerPhoto ? [] : causesArr,
-    severity: needsClearerPhoto ? 'منخفضة' : severity,
+    severity: needsClearerPhoto ? 'غير محددة' : severity,
     severityLabel: needsClearerPhoto
       ? 'غير محددة — لا يمكن تقدير الشدة من الصورة'
       : insectNature === 'beneficial'
@@ -1852,9 +1852,10 @@ async function runUnifiedAgriVisionDiagnosis(params: {
     whenToContactEngineer: needsClearerPhoto
       ? 'أعد التصوير من مسافة قريبة وفي ضوء النهار، واستشر المهندس الزراعي إذا كانت الحالة تتفاقم أو كان الضرر واسعاً.'
       : ((parsed.whenToContactEngineer || '').trim() || 'تواصل مع المهندس الزراعي أو دائرة التنمية الزراعية عند تزايد الأعراض سريعاً، أو في حال التباس التشخيص، أو قبل اتخاذ قرار الرش العلاجي الواسع.'),
-    omaniFarmingNote:
-      (parsed.omaniFarmingNote || '').trim() ||
-      `راعِ ظروف الحرارة والرطوبة في ${locationLabel} ونفّذ عمليات الفحص والرش (إن لزم) في الصباح الباكر أو قبل الغروب.`,
+    omaniFarmingNote: needsClearerPhoto
+      ? ''
+      : ((parsed.omaniFarmingNote || '').trim() ||
+        `راعِ ظروف الحرارة والرطوبة في ${locationLabel} ونفّذ عمليات الفحص والرش (إن لزم) في الصباح الباكر أو قبل الغروب.`), 
     advisoryNote: MANDATORY_ADVISORY,
     possibleConditions: needsClearerPhoto ? [] : possibleConditionsArr,
     insectDetails:
@@ -1873,12 +1874,13 @@ async function runUnifiedAgriVisionDiagnosis(params: {
     photoParts: images.map((_, i) => (i === 0 ? 'primary' : `extra-${i}`)),
     // Legacy pest alias fields for smooth compatibility
     pestName: needsClearerPhoto ? '' : (parsed.problemName || ''),
-    severityLevel:
-      severity === 'عالية' ? 'شديد الخطورة' : severity === 'متوسطة' ? 'متوسط الخطورة' : 'قليل الضرر',
+    severityLevel: needsClearerPhoto
+      ? 'غير محددة — لا يمكن تقدير الشدة من الصورة'
+      : severity === 'عالية' ? 'شديد الخطورة' : severity === 'متوسطة' ? 'متوسط الخطورة' : 'قليل الضرر',
     affectedParts: needsClearerPhoto ? [] : insectTargetCropsArr,
     lifeCycleNote: needsClearerPhoto ? '' : (parsed.insectLifeCycle || ''),
     organicAndBiologicalControl: needsClearerPhoto ? '' : (parsed.insectControlMethod || parsed.organicRemedy || ''),
-    safeChemicalOptions: chemicalRemedyCombined,
+    safeChemicalOptions: needsClearerPhoto ? '' : chemicalRemedyCombined,
     immediateAction: needsClearerPhoto ? 'إعادة التصوير بوضوح قبل اتخاذ إجراء علاجي.' : (treatmentStepsArr[0] || parsed.organicRemedy || ''),
     officialDisclaimer: MANDATORY_ADVISORY,
     omaniGuidance: needsClearerPhoto ? '' : (parsed.omaniFarmingNote || ''),
