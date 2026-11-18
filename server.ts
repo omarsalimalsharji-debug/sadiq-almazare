@@ -1606,6 +1606,7 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
 راعِ البيئة المناخية للمنطقة المذكورة عند كتابة omaniFarmingNote والنصائح الوقائية، وحلل الصورة بدقة علمية الآن وأخرج JSON فقط.`,
   });
 
+  // Keep Gemini 4 Hydrogen as primary; use stable Gemini 3.8 Flash only when the primary is temporarily unavailable.
   const generateDiagnosis = (model: string) => ai.models.generateContent({
     model,
     contents: { parts },
