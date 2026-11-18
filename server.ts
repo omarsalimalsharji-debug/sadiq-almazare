@@ -3004,15 +3004,26 @@ function createDefaultQaReview(episodeId: string): EpisodeQaReviewState {
   };
 }
 
-app.get('/api/cartoon/reviews', (_req, res) => {
+function readCartoonMediaManifest(): any | null {
   const manifestPath = path.join(MEDIA_STORE_DIR, 'videos', 'manifest.json');
-  const voiceReportPath = path.join(MEDIA_STORE_DIR, 'voice-comparison', 'comparison-report.json');
-  let mediaManifest: any = null;
-  let voiceReport: any = null;
-
   try {
-    if (fs.existsSync(manifestPath)) mediaManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-  } catch { /* ignore */ }
+    if (fs.existsSync(manifestPath)) return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+  } catch {
+    // A missing or invalid manifest means no final videos are available yet.
+  }
+  return null;
+}
+
+app.get('/api/cartoon/manifest', (_req, res) => {
+  return res.setHeader('Cache-Control', 'no-store').json({
+    success: true,
+    mediaManifest: readCartoonMediaManifest(),
+  });
+});
+
+app.get('/api/cartoon/reviews', requireStaff, (_req, res) => {
+  const voiceReportPath = path.join(MEDIA_STORE_DIR, 'voice-comparison', 'comparison-report.json');
+  let voiceReport: any = null;
   try {
     if (fs.existsSync(voiceReportPath)) voiceReport = JSON.parse(fs.readFileSync(voiceReportPath, 'utf-8'));
   } catch { /* ignore */ }
@@ -3021,10 +3032,10 @@ app.get('/api/cartoon/reviews', (_req, res) => {
   for (const ep of INITIAL_CARTOON_EPISODES) {
     reviews[ep.id] = storage.cartoonQaReviews[ep.id] || createDefaultQaReview(ep.id);
   }
-  return res.json({ success: true, reviews, mediaManifest, voiceReport });
+  return res.json({ success: true, reviews, mediaManifest: readCartoonMediaManifest(), voiceReport });
 });
 
-app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, (req, res) => {
+app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, requireStaff, (req, res) => {
   const { episodeId } = req.params;
   if (!INITIAL_CARTOON_EPISODES.some((ep) => ep.id === episodeId)) {
     return res.status(404).json({ error: 'الحلقة غير موجودة في قائمة المراجعة.' });
@@ -3059,7 +3070,7 @@ app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, (req, res) => {
   return res.json({ success: true, review: current });
 });
 
-app.post('/api/cartoon/tts', async (req, res) => {
+app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
   try {
     const { text, mood } = req.body;
     const rawClean = typeof text === 'string' ? text.trim().slice(0, 800) : '';
@@ -3220,7 +3231,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
   }
 });
 
-app.post('/api/cartoon/generate-episode', aiRateLimit, async (req, res) => {
+app.post('/api/cartoon/generate-episode', requireStaff, aiRateLimit, async (req, res) => {
   try {
     const { topic } = req.body;
     const cleanTopic = typeof topic === 'string' ? topic.trim().slice(0, 200) : '';
