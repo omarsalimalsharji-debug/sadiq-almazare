@@ -1551,6 +1551,7 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
    - لا تصنّف الحشرة على أنها ضارة لمجرد ظهورها! تحقق هل هي حشرة نافعة (مثل خنفساء أبو العيد، أسد المن، نحل العسل، فرس النبي، الذبابة الحوامة، اليعسوب) أم حشرة ضارة (مثل سوسة النخيل، دوباس النخيل، حفار الساق، الذبابة البيضاء، المن، التربس، صانعات الأنفاق، العناكب).
      * إذا كانت نافعة: اضبط insectNature = "beneficial"، diagnosisCategory = "حشرة نافعة"، severity = "منخفضة"، severityLabel = "غير ضارة (حشرة نافعة)"، وأكّد على عدم رش المبيدات وحمايتها.
      * إذا كانت ضارة: اضبط insectNature = "harmful"، diagnosisCategory = "حشرة ضارة"، وحدد درجة الخطورة والمحاصيل والأضرار ودورة الحياة (فقط إذا توفرت معلومات علمية موثوقة، وإلا اكتب ذلك بصراحة).
+   - تقدير جنس الحشرة (ذكر/أنثى) ميزة اختيارية شديدة التحفظ: استخدم insectSex = "male" أو "female" فقط إذا كان النوع معروفاً وتظهر في الصورة علامة تشريحية فارقة موثوقة بوضوح، مثل اختلاف واضح في قرون الاستشعار أو شكل البطن أو آلة وضع البيض أو أعضاء التزاوج. لا تستنتج الجنس من اللون أو الحجم وحدهما، ولا تخمّن من صورة بعيدة أو غير مكتملة. في جميع الحالات غير الحاسمة استخدم insectSex = "undetermined" واكتب في insectSexEvidence سبب عدم إمكان التمييز أو العلامة المرئية التي دعمت التقدير. لا تجعل تحديد الجنس شرطاً لتشخيص نوع الحشرة.
    - إذا كانت الصورة لنبات أو ورقة أو ثمرة: اضبط detectedSubject = "plant"، وميّز بدقة بين:
      * "مرض فطري" / "مرض بكتيري" / "مرض فيروسي" (problemType = "مرض")
      * "نقص عناصر" (problemType = "نقص عناصر")
@@ -1655,6 +1656,8 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
           omaniFarmingNote: { type: Type.STRING },
           possibleConditions: { type: Type.ARRAY, items: { type: Type.STRING } },
           insectNature: { type: Type.STRING, enum: ['beneficial', 'harmful', 'neutral', 'none'] },
+          insectSex: { type: Type.STRING, enum: ['male', 'female', 'undetermined'] },
+          insectSexEvidence: { type: Type.STRING },
           insectTargetCrops: { type: Type.ARRAY, items: { type: Type.STRING } },
           insectDamage: { type: Type.STRING },
           insectLifeCycle: { type: Type.STRING },
@@ -1690,6 +1693,8 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
           'omaniFarmingNote',
           'possibleConditions',
           'insectNature',
+          'insectSex',
+          'insectSexEvidence',
           'insectTargetCrops',
           'insectDamage',
           'insectLifeCycle',
@@ -1876,6 +1881,8 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       detectedSubject === 'insect' && !needsClearerPhoto
         ? {
             nature: insectNature,
+            sex: ['male', 'female', 'undetermined'].includes(parsed.insectSex) ? parsed.insectSex : 'undetermined',
+            sexEvidence: (parsed.insectSexEvidence || '').trim() || 'لا تظهر في الصورة علامة تشريحية كافية لتحديد الجنس بثقة.',
             targetCrops: insectTargetCropsArr,
             damage: (parsed.insectDamage || '').trim(),
             lifeCycle:
