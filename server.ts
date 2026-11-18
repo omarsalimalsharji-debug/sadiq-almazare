@@ -23,6 +23,7 @@ import {
   Question,
   RadioStation
 } from './src/data/agriculturalData.ts';
+import { OMANI_DATE_PALM_DIAGNOSTIC_GUIDE } from './src/data/omaniDatePalmDiagnosticGuide.ts';
 import { DEFAULT_SEASONAL_CONFIG, SeasonalConfig } from './src/utils/islamicCalendar.ts';
 import { prepareArabicTextForTts } from './src/utils/arabicPronunciation.ts';
 import { INITIAL_CARTOON_EPISODES } from './src/data/cartoonEpisodesData.ts';
@@ -1521,6 +1522,8 @@ async function runUnifiedAgriVisionDiagnosis(params: {
 مهمتك تحليل صورة واحدة (أو أكثر إن وُجدت) لنبات أو ورقة أو ثمرة أو حشرة، وإخراج JSON دقيق يلتزم بالسلامة العلمية الكاملة والقوانين الزراعية في سلطنة عُمان.
 
 المحاصيل المدعومة في سلطنة عُمان تشمل: أشجار النخيل، الخضروات، أشجار الفاكهة (الليمون العماني، المانجو، الرمان، الموز...)، المحاصيل الحقلية (القمح العماني، الشعير، الذرة...)، الأعلاف (القت/البرسيم)، النباتات الزينة، والمحاصيل الموسمية.
+
+${OMANI_DATE_PALM_DIAGNOSTIC_GUIDE}
 
 إرشادات تفريقية للمحاصيل العُمانية (قرائن للفحص وليست تشخيصاً مؤكداً):
 - نخيل التمر: افحص موضع الإصابة ونمط انتشارها. وجود ثقوب أو نشارة ليفية أو إفرازات صمغية أو رائحة تخمر قد يثير الاشتباه في إصابة حفارات الجذع مثل سوسة النخيل، لكنه لا يكفي وحده لتأكيد النوع أو نفي الإصابة عند غياب العلامات. أما الندوة العسلية والطبقة السوداء السطحية على السعف فقد تتوافق مع آفات ماصة مثل دوباس النخيل، ويجب التمييز بينها وبين الغبار أو العفن السطحي وأسباب أخرى. لا تستنتج إصابة داخلية أو تحدد شدة الإصابة من صورة خارجية واحدة.
