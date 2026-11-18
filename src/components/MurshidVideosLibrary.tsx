@@ -29,7 +29,7 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
     setLoading(true);
     setLoadError('');
     try {
-      const response = await fetch('/api/cartoon/reviews', { cache: 'no-store' });
+      const response = await fetch('/api/cartoon/manifest', { cache: 'no-store' });
       if (!response.ok) throw new Error('تعذر الوصول إلى مكتبة المقاطع.');
       const data = await response.json();
       const episodes = Array.isArray(data?.mediaManifest?.episodes) ? data.mediaManifest.episodes : [];
