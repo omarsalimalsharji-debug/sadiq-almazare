@@ -2616,18 +2616,20 @@ app.delete('/api/community/posts/:postId/comments/:commentId', requireStaff, (re
 });
 
 // --- 9. Notifications APIs ---
-app.get('/api/notifications', optionalFarmerAuth, (req: FarmerAuthenticatedRequest, res) => {
-  const visible = storage.notifications.filter((n: any) => !n.targetUserId || n.targetUserId === req.farmerUid);
-  return res.json({ success: true, notifications: visible });
+app.get('/api/notifications', (req, res) => {
+  const governorate = String(req.query.governorate || '').replace(/^محافظة\\s*/, '').trim();
+  const visible = storage.notifications.filter((n: any) => {
+    if (n.targetUserId) return false;
+    const target = String(n.targetGovernorate || '').replace(/^محافظة\\s*/, '').trim();
+    const nationwide = !target || /كافة المحافظات|جميع المحافظات|سلطنة عُمان/i.test(target);
+    return nationwide || !governorate || target.includes(governorate) || governorate.includes(target);
+  });
+  return res.setHeader('Cache-Control', 'no-store').json({ success: true, notifications: visible });
 });
 
-app.post('/api/notifications/read-all', optionalFarmerAuth, (req: FarmerAuthenticatedRequest, res) => {
-  storage.notifications = storage.notifications.map((n: any) =>
-    !n.targetUserId || n.targetUserId === req.farmerUid ? { ...n, read: true } : n
-  );
-  saveStorage();
-  const visible = storage.notifications.filter((n: any) => !n.targetUserId || n.targetUserId === req.farmerUid);
-  return res.json({ success: true, notifications: visible });
+// Read state is device-local; never mark a shared broadcast as read for every farmer.
+app.post('/api/notifications/read-all', (_req, res) => {
+  return res.json({ success: true });
 });
 
 // --- 9B. Farmer Support Tickets & Feedback APIs ---
@@ -2979,7 +2981,7 @@ function getMuscatDayKey(ts = Date.now()): string {
 const cartoonTtsCache = new Map<string, string>();
 let cartoonTtsCooldownUntil = 0;
 
-const MEDIA_STORE_DIR = path.join(__dirname, 'media_store');
+const MEDIA_STORE_DIR = path.join(__dirname, 'public', 'media');
 app.use('/media', express.static(MEDIA_STORE_DIR, { maxAge: '7d' }));
 
 function createDefaultQaReview(episodeId: string): EpisodeQaReviewState {
