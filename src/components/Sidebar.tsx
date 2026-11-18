@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       titleAr: 'التوعية والألعاب التعليمية',
       titleEn: 'Awareness & Interactive Games',
       items: [
-        { id: 'cartoon_videos', labelAr: 'أستوديو حلقات مُرشد الكرتونية', labelEn: 'Murshid Educational Cartoons', icon: Clapperboard },
+        { id: 'cartoon_videos', labelAr: 'فيديوهات مُرشد الزراعية', labelEn: 'Murshid Agricultural Videos', icon: Clapperboard },
         { id: 'murshid_adventures', labelAr: 'مغامرات مرشد الزراعية', labelEn: "Murshid's Agricultural Adventures", icon: Gamepad2, badgeAr: 'لعبة', badgeEn: 'Play' },
         { id: 'games', labelAr: 'الألعاب الزراعية التفاعلية', labelEn: 'Interactive Agri Games', icon: Gamepad2, badgeAr: '6', badgeEn: '6' },
         { id: 'cultural_quiz', labelAr: 'المسابقة الثقافية العمانية', labelEn: 'Omani Cultural Quiz', icon: Trophy },
