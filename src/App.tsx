@@ -290,6 +290,7 @@ export default function App() {
     const timer = setInterval(() => {
       setSeasonalTick(Date.now());
       fetchSeasonalConfig();
+      fetchNotificationsCount();
     }, 60000);
     return () => clearInterval(timer);
   }, []);
