@@ -77,3 +77,63 @@ export function mergeNotifications(serverItems: NotificationRecord[], governorat
 export function countUnreadNotifications(items: NotificationRecord[], governorate?: string): number {
   return mergeNotifications(items, governorate).filter((item) => !isNotificationRead(item)).length;
 }
+
+export function dispatchDueLocalReminders(now = Date.now()): number {
+  const remindersKey = 'oman_calendar_reminders_cache_v1:device';
+  let reminders: any[] = [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(remindersKey) || '[]');
+    reminders = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return 0;
+  }
+
+  const todayTrigger = new Date(now);
+  todayTrigger.setHours(5, 30, 0, 0);
+  const monthTrigger = new Date(now);
+  monthTrigger.setDate(1);
+  monthTrigger.setHours(6, 0, 0, 0);
+  const todayKey = todayTrigger.toISOString().slice(0, 10);
+  let dispatched = 0;
+  let changed = false;
+
+  const next = reminders.map((reminder) => {
+    if (!reminder || !reminder.enabled) return reminder;
+    const base = Number(reminder.lastDispatchedAt || reminder.createdAt || 0);
+    if (!base) return reminder;
+    let due = false;
+    if (reminder.cadence === 'daily_dawn') {
+      due = now >= todayTrigger.getTime() && base < todayTrigger.getTime();
+    } else if (reminder.cadence === 'every_2_days') {
+      due = now - base >= 2 * 24 * 60 * 60 * 1000;
+    } else if (reminder.cadence === 'weekly') {
+      due = now - base >= 7 * 24 * 60 * 60 * 1000;
+    } else if (reminder.cadence === 'monthly_start') {
+      due = now >= monthTrigger.getTime() && base < monthTrigger.getTime();
+    }
+    if (!due) return reminder;
+
+    const notificationId = `scheduled-${reminder.id}-${todayKey}`;
+    addLocalNotification({
+      id: notificationId,
+      title: reminder.title || `تذكير زراعي: ${reminder.cropName || ''}`,
+      message: reminder.message || 'حان موعد متابعة النشاط الزراعي المسجل في تقويمك.',
+      type: 'crop_advice',
+      targetGovernorate: reminder.governorate,
+      timestamp: now,
+      read: false,
+    });
+    dispatched++;
+    changed = true;
+    return { ...reminder, lastDispatchedAt: now };
+  });
+
+  if (changed) {
+    try {
+      localStorage.setItem(remindersKey, JSON.stringify(next));
+    } catch {
+      // Notification delivery remains recorded locally even if reminder state cannot be refreshed.
+    }
+  }
+  return dispatched;
+}
