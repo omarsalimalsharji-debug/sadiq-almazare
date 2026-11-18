@@ -13,6 +13,7 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { UserProfile } from '../types/index.ts';
 import { INITIAL_BOOKS } from '../data/agriculturalData.ts';
+import { FARMER_AVATARS, FarmerAvatar } from './FarmerAvatar.tsx';
 import { OMAN_ADMINISTRATIVE_DATA, matchOmanLocationByNames } from '../data/omanLocationsData.ts';
 import { useLocation } from '../context/LocationContext.tsx';
 import {
@@ -48,6 +49,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [wilayatId, setWilayatId] = useState<string>(initialMatched.wilayat.id);
   const [village, setVillage] = useState<string>(initialMatched.village);
   const [role, setRole] = useState<string>(user.role);
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(user.avatarSeed || 'palm');
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
@@ -84,7 +86,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       governorate: nextGov,
       wilayat: nextWilayat,
       village: nextVillage,
-      role: role as any
+      role: role as any,
+      avatarSeed: selectedAvatar,
     });
     setIsEditing(false);
 
@@ -180,9 +183,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center font-bold text-2xl shadow-md">
-              {user.name.charAt(0)}
-            </div>
+            <FarmerAvatar seed={user.avatarSeed || selectedAvatar} size="lg" />
             <div>
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -273,6 +274,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <form onSubmit={handleSave} className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0e1936] border border-slate-200 dark:border-sky-300/15 space-y-3 text-xs">
             <div className="font-bold text-slate-900 dark:text-white">
               تحديث بيانات المزارع:
+            </div>
+
+            <div className="space-y-2">
+              <label className="block font-semibold">اختر صورتك الرمزية الزراعية:</label>
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                {FARMER_AVATARS.map((avatar) => (
+                  <button
+                    key={avatar.id}
+                    type="button"
+                    onClick={() => setSelectedAvatar(avatar.id)}
+                    aria-label={avatar.label}
+                    aria-pressed={selectedAvatar === avatar.id}
+                    className={"rounded-2xl p-2 flex flex-col items-center gap-1.5 border transition-all " + (selectedAvatar === avatar.id ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 ring-2 ring-emerald-500/20" : "border-slate-200 dark:border-sky-300/15 bg-white/70 dark:bg-[#132247] hover:border-emerald-300")}
+                  >
+                    <FarmerAvatar seed={avatar.id} size="md" />
+                    <span className="text-[9px] leading-tight text-center font-semibold">{avatar.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
