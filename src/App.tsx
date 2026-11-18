@@ -488,6 +488,8 @@ export default function App() {
           setUser(newUser);
           if (newUser.isAdmin || newUser.isModerator || options?.mustChangePassword) {
             setActivePage('admin');
+          } else if (activePage === 'admin') {
+            setActivePage('home');
           }
         }}
       />
@@ -710,7 +712,7 @@ export default function App() {
           <HelpSupportView />
         )}
 
-        {activePage === 'admin' && (
+        {activePage === 'admin' && (user.isAdmin || user.isModerator) && (
           <AdminView
             user={user}
             seasonalConfig={seasonalConfig}
@@ -719,6 +721,13 @@ export default function App() {
               setUnreadNotifsCount(prev => prev + 1);
             }}
           />
+        )}
+        {activePage === 'admin' && !user.isAdmin && !user.isModerator && (
+          <div className="mx-auto w-full max-w-xl rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-950/30">
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">هذه المنطقة مخصصة للإدارة</h2>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">يمكنك متابعة جميع الخدمات الزراعية دون تسجيل دخول. يلزم دخول إداري مصرح به للوصول إلى لوحة الإدارة.</p>
+            <button type="button" onClick={() => setIsLoginModalOpen(true)} className="mt-4 min-h-11 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-500">دخول الإدارة</button>
+          </div>
         )}
         </Suspense>
         </ErrorBoundary>
