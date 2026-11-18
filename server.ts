@@ -1778,14 +1778,10 @@ async function runUnifiedAgriVisionDiagnosis(params: {
     ? parsed.insectTargetCrops.filter((s: unknown) => typeof s === 'string' && s.trim()).slice(0, 8)
     : [];
 
-  const allowPesticide =
-    !needsClearerPhoto &&
-    insectNature !== 'beneficial' &&
-    diagnosisCategory !== 'نبات سليم' &&
-    diagnosisCategory !== 'إجهاد بيئي' &&
-    diagnosisCategory !== 'نقص عناصر' &&
-    Boolean(parsed.pesticideNeeded) &&
-    Boolean((parsed.pesticideProductAr || '').trim() || (parsed.pesticideProductEn || '').trim());
+  // Never expose model-generated pesticide names or rates as approved in Oman.
+  // Enable chemical recommendations only after a verified, current Omani registration
+  // catalogue is integrated and the crop/pest/product match can be checked server-side.
+  const allowPesticide = false;
 
   const pesticideProductText = allowPesticide
     ? [parsed.pesticideProductAr, parsed.pesticideProductEn].filter((v) => typeof v === 'string' && v.trim()).join(' — ')
@@ -1802,7 +1798,7 @@ async function runUnifiedAgriVisionDiagnosis(params: {
       }`
     : insectNature === 'beneficial'
       ? 'لا تستخدم أي مبيد كيميائي؛ هذه الحشرة نافعة وتساعد في حماية المحصول طبيعياً.'
-      : 'لا يُنصح باستخدام مبيدات كيميائية لهذه الحالة ما لم يثبت انتشار وبائي بعد الفحص الميداني.';
+      : 'لم تُعرض توصية بمبيد أو جرعة؛ إذ يجب التحقق أولاً من تسجيل المنتج واعتماده في سلطنة عُمان وملاءمته للمحصول والآفة. راجع المهندس الزراعي أو دائرة التنمية الزراعية، واتبع ملصق المنتج المعتمد عند وصفه.';
 
   const normalizedDiagnosis = {
     isAgricultureRelated: isAgri,
