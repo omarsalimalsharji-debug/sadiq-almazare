@@ -66,9 +66,9 @@ export function mergeNotifications(serverItems: NotificationRecord[], governorat
   for (const item of all) {
     if (!item || !item.id || unique.has(item.id)) continue;
     const target = String(item.targetGovernorate || '').trim();
-    const selected = String(governorate || '').replace(/^محافظة\\s*/, '').trim();
+    const selected = String(governorate || '').replace(/^محافظة\s*/, '').trim();
     const isNationwide = !target || /كافة المحافظات|سلطنة عُمان|جميع المحافظات/i.test(target);
-    const matchesRegion = !selected || target.includes(selected) || selected.includes(target.replace(/^محافظة\\s*/, '').trim());
+    const matchesRegion = !selected || target.includes(selected) || selected.includes(target.replace(/^محافظة\s*/, '').trim());
     if (isNationwide || matchesRegion) unique.set(item.id, { ...item, read: isNotificationRead(item) });
   }
   return [...unique.values()].sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
