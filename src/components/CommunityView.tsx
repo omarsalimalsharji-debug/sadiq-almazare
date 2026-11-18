@@ -96,7 +96,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
     {
       id: 'ai-welcome',
       role: 'assistant',
-      text: `مرحباً بك يا ${user.name} في الدردشة الزراعية الذكية لمزارعي سلطنة عُمان! أنا مستشارك الزراعي الميداني لمحافظة ${user.governorate}. اسألني عن الري، التسميد، مكافحة الآفات حسب القرار الوزاري 160/2023، أو إدارة البيوت المحمية.`,
+      text: `مرحباً بك في الدردشة الزراعية الذكية لمزارعي سلطنة عُمان! أنا مستشارك الزراعي الميداني لمحافظة ${user.governorate}. اسألني عن الري، التسميد، مكافحة الآفات وفق الاشتراطات المعتمدة، أو إدارة البيوت المحمية.`,
       practicalSteps: [
         'اختر المحصول من القائمة أعلاه لتخصيص الإرشادات وفق مناخ محافظتك.',
         'اكتب سؤالك بالتفصيل أو اختر أحد الأسئلة السريعة الجاهزة.',
@@ -333,7 +333,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
         {
           id: `a-${Date.now()}`,
           role: 'assistant',
-          text: 'تعذر الوصول الفوري للخادم، يمكنك مراجعة الإرشادات الأساسية أو طرح الاستفسار في ديوانية المزارعين.',
+          text: 'تعذر الوصول الفوري للخادم، يمكنك مراجعة الإرشادات الأساسية أو طرح الاستفسار في مجلس المزارعين.',
           timestamp: Date.now(),
         },
       ]);
@@ -368,7 +368,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
     setNewCategory(aiCropFocus);
     setNewContent(formatted);
     setActiveTab('forum');
-    setFeedback({ ok: true, text: 'تم نقل الإجابة إلى نموذج النشر في ديوانية المزارعين.' });
+    setFeedback({ ok: true, text: 'تم نقل الإجابة إلى نموذج النشر في مجلس المزارعين.' });
   };
 
   return (
@@ -378,7 +378,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
             <Users className="w-4 h-4" />
-            <span>ديوانية المزارعين والخبراء الزراعيين</span>
+            <span>مجلس المزارعين والخبراء الزراعيين</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-stone-900 dark:text-white mt-1">
             المجتمع الزراعي والدردشة الإرشادية
@@ -443,7 +443,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>ديوانية المزارعين ({posts.length})</span>
+          <span>مجلس المزارعين ({posts.length})</span>
         </button>
       </div>
 
@@ -551,7 +551,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
                             className="min-h-[36px] px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 whitespace-nowrap shrink-0"
                           >
                             <Share2 className="w-3.5 h-3.5" />
-                            <span>نشر في الديوانية</span>
+                            <span>نشر في المجلس</span>
                           </button>
                         )}
                         <button
@@ -562,7 +562,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
                               title: `استشارة زراعية من مُرشد · ${aiCropFocus}`,
                               summary: msg.text,
                               highlights: (msg.practicalSteps || []).slice(0, 3),
-                              categoryLabel: `ديوانية المزارعين · ${aiCropFocus}`,
+                              categoryLabel: `مجلس المزارعين · ${aiCropFocus}`,
                               locationLabel: `${user.governorate} · ${user.wilayat}`,
                               page: 'community',
                               authorOrSource: 'المستشار الزراعي الذكي — مُرشد',

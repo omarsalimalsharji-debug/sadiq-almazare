@@ -414,7 +414,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <label className="py-3.5 min-h-[56px] flex items-center justify-between gap-4 cursor-pointer">
             <div>
               <div className="font-bold text-slate-800 dark:text-white">
-                ردود وتنبيهات ديوانية المزارعين
+                ردود وتنبيهات مجلس المزارعين
               </div>
               <div className="text-[11px] text-slate-500 dark:text-slate-300/80">
                 متابعة تفاعلات وردود المزارعين والمهندسين في المنتدى الزراعي
