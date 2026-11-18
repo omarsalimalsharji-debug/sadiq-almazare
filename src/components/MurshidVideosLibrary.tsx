@@ -70,7 +70,6 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
 
   if (!selectedEpisode) return null;
   const videoUrl = selectedMedia?.video480pUrl || selectedMedia?.video1080pUrl || '';
-  const poster = selectedEpisode.heroArtwork;
 
   return (
     <section className="max-w-5xl mx-auto space-y-5 overflow-x-hidden">
@@ -91,7 +90,6 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
               controls
               playsInline
               preload="metadata"
-              poster={poster}
               className="w-full aspect-video bg-black object-contain"
             >
               <source src={videoUrl} type="video/mp4" />
@@ -112,7 +110,7 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
             <h2 className="font-extrabold text-slate-900 dark:text-white">{selectedEpisode.title}</h2>
             <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-300">
               <span>{selectedEpisode.category}</span>
-              {selectedMedia?.durationSec ? <span className="inline-flex items-center gap-1"><Clock3 className="w-3 h-3" />{Math.round(selectedMedia.durationSec)} ثانية</span> : <span>{selectedEpisode.durationLabel}</span>}
+              {selectedMedia?.durationSec ? <span className="inline-flex items-center gap-1"><Clock3 className="w-3 h-3" />{Math.round(selectedMedia.durationSec)} ثانية</span> : <span>المدة النهائية غير متاحة</span>}
             </div>
             <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{selectedEpisode.takeaway}</p>
           </div>
