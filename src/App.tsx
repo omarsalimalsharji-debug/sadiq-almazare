@@ -191,11 +191,16 @@ export default function App() {
   const [user, setUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('farmer_user_profile');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
+      try {
+        const parsed = JSON.parse(saved);
+        // Remove the historical demo name; never assign a person's name without their input.
+        if (parsed.name === 'سالم بن سعيد الحارثي') parsed.name = '';
+        return parsed;
+      } catch (e) { /* fallback */ }
     }
     return {
       id: 'usr-oman-default',
-      name: 'سالم بن سعيد الحارثي',
+      name: '',
       role: 'مزارع',
       governorate: 'محافظة الداخلية',
       wilayat: 'نزوى',
@@ -441,7 +446,7 @@ export default function App() {
       onLocationSync={handleLocationSync}
     >
     <div
-      className={`agri-app-shell min-h-[100dvh] overflow-x-hidden flex flex-col bg-[#f7faf6] text-slate-900 dark:bg-[#0b1329] dark:text-slate-100 navy-ambient-bg transition-colors duration-300 ${
+      className={`min-h-[100dvh] overflow-x-hidden flex flex-col bg-[#f7faf6] text-slate-900 dark:bg-[#0b1329] dark:text-slate-100 navy-ambient-bg transition-colors duration-300 ${
         activePage === 'home'
           ? 'pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:pb-5'
           : 'pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-10'
@@ -499,7 +504,7 @@ export default function App() {
 
       {/* Main Content View Container */}
       <main
-        className={`agri-main flex-1 max-w-7xl w-full mx-auto flex flex-col ${
+        className={`flex-1 max-w-7xl w-full mx-auto flex flex-col ${
           activePage === 'home'
             ? 'px-3 py-2.5 sm:px-6 sm:py-5 min-h-0'
             : 'px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-6'
