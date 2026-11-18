@@ -51,7 +51,7 @@ import {
   DEFAULT_SEASONAL_CONFIG,
   computeOmaniHijriState,
 } from './utils/islamicCalendar.ts';
-import { countUnreadNotifications } from './utils/notificationState.ts';
+import { countUnreadNotifications, dispatchDueLocalReminders } from './utils/notificationState.ts';
 
 const VALID_PAGES: Set<ActivePage> = new Set([
   'home',
@@ -286,6 +286,7 @@ export default function App() {
         .catch(() => {});
     };
     fetchSeasonalConfig();
+    dispatchDueLocalReminders();
     fetchNotificationsCount();
     const refreshNotifications = () => fetchNotificationsCount();
     window.addEventListener('sadiq-local-notification-added', refreshNotifications);
@@ -293,6 +294,7 @@ export default function App() {
     const timer = setInterval(() => {
       setSeasonalTick(Date.now());
       fetchSeasonalConfig();
+      dispatchDueLocalReminders();
       fetchNotificationsCount();
     }, 60000);
     return () => {
