@@ -41,7 +41,15 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   };
 
   useEffect(() => {
+    if (!isOpen) return;
     fetchNotifs();
+    const refresh = () => fetchNotifs();
+    window.addEventListener('sadiq-local-notification-added', refresh);
+    window.addEventListener('sadiq-notifications-read', refresh);
+    return () => {
+      window.removeEventListener('sadiq-local-notification-added', refresh);
+      window.removeEventListener('sadiq-notifications-read', refresh);
+    };
   }, [isOpen, governorate]);
 
   const markAllAsRead = () => {
