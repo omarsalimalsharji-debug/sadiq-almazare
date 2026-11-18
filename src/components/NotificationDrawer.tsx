@@ -1,57 +1,40 @@
-import React, { useState, useEffect } from 'react';\nimport { mergeNotifications, markNotificationsRead, NotificationRecord } from '../utils/notificationState.ts';
-import { 
-  X, 
-  Bell, 
-  CloudSun, 
-  Sprout, 
-  MoonStar, 
-  CheckCheck, 
-  AlertTriangle, 
-  Send,
-  Sparkles
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Bell, CloudSun, Sprout, MoonStar, RefreshCw } from 'lucide-react';
+import { mergeNotifications, markNotificationsRead, NotificationRecord } from '../utils/notificationState.ts';
 
-interface AppNotification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'weather' | 'crop_advice' | 'ramadan' | 'system';
-  targetGovernorate?: string;
-  timestamp: number;
-  read: boolean;
-}
-
+type AppNotification = NotificationRecord & { read: boolean };
 interface NotificationDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onNotificationsCountChange: (count: number) => void;
+  governorate?: string;
 }
 
 export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   isOpen,
   onClose,
-  onNotificationsCountChange
+  onNotificationsCountChange,
+  governorate = '',
 }) => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'weather' | 'crop_advice' | 'ramadan'>('all');
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchNotifs = async () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const res = await fetch(`/api/notifications?governorate=${encodeURIComponent(governorate)}`, { cache: 'no-store' });
-      const data = await res.json();
-      if (res.ok && data.success && Array.isArray(data.notifications)) {
-        setNotifications(data.notifications);
-        const unread = data.notifications.filter((n: any) => !n.read).length;
-        onNotificationsCountChange(unread);
-      } else {
-        setFetchError('تعذر تحديث قائمة التنبيهات حالياً.');
+      const response = await fetch(`/api/notifications?governorate=${encodeURIComponent(governorate)}`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !data.success || !Array.isArray(data.notifications)) {
+        throw new Error('تعذر تحديث قائمة التنبيهات حالياً.');
       }
-    } catch {
-      setFetchError('تعذر الاتصال بالخادم لجلب التنبيهات.');
+      const visible = mergeNotifications(data.notifications, governorate) as AppNotification[];
+      setNotifications(visible);
+      onNotificationsCountChange(visible.filter((item) => !item.read).length);
+    } catch (error) {
+      setFetchError(error instanceof Error ? error.message : 'تعذر الاتصال بالخادم لجلب التنبيهات.');
     } finally {
       setLoading(false);
     }
@@ -61,166 +44,68 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     fetchNotifs();
   }, [isOpen, governorate]);
 
-  const markAllAsRead = async () => {
-    markNotificationsRead(notifications.map((notification) => notification.id));
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markAllAsRead = () => {
+    markNotificationsRead(notifications.map((item) => item.id));
+    setNotifications((previous) => previous.map((item) => ({ ...item, read: true })));
     onNotificationsCountChange(0);
   };
 
   if (!isOpen) return null;
-
-  const filteredNotifications = notifications.filter((n) => {
+  const filtered = notifications.filter((item) => {
     if (filterType === 'all') return true;
-    if (filterType === 'unread') return !n.read;
-    return n.type === filterType;
+    if (filterType === 'unread') return !item.read;
+    return item.type === filterType;
   });
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-stone-950/65 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <div className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-[#0b1329] h-full shadow-2xl flex flex-col z-10 border-r border-stone-200 dark:border-sky-300/15 text-stone-900 dark:text-slate-100">
-        
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-sky-300/15 flex items-center justify-between bg-stone-50/70 dark:bg-[#0e1936]">
+      <button type="button" aria-label="إغلاق مركز الإشعارات" className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm" onClick={onClose} />
+      <section className="relative z-10 flex h-full w-full max-w-sm flex-col border-e border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-sky-300/15 dark:bg-[#0b1329] dark:text-slate-100 sm:max-w-md">
+        <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 p-4 dark:border-sky-300/15 dark:bg-[#0e1936]">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold">
-              <Bell className="w-5 h-5" />
-            </div>
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"><Bell className="h-5 w-5" /></span>
             <div>
-              <h3 className="font-bold text-sm text-stone-900 dark:text-white">
-                مركز التنبيهات والإشعارات
-              </h3>
-              <span className="text-[11px] text-stone-400">
-                تنبيهات الطقس والإرشاد الزراعي المعتمدة
-              </span>
+              <h2 className="text-sm font-extrabold">مركز التنبيهات والإشعارات</h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">تنبيهات الطقس والإرشاد الزراعي</p>
             </div>
           </div>
+          <button type="button" onClick={onClose} aria-label="إغلاق" className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10"><X className="h-5 w-5" /></button>
+        </header>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={markAllAsRead}
-              className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
-            >
-              تعيين كمقروء
-            </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-800 dark:hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <div className="space-y-3 border-b border-slate-200 bg-slate-100 p-3 dark:border-sky-300/15 dark:bg-[#132247]">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-slate-600 dark:text-slate-300">{fetchError || (loading ? 'جارٍ تحديث التنبيهات…' : `عدد التنبيهات: ${notifications.length}`)}</span>
+            <button type="button" onClick={fetchNotifs} disabled={loading} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-[11px] font-bold text-white disabled:opacity-50"><RefreshCw className="h-3.5 w-3.5" /> تحديث</button>
           </div>
-        </div>
-
-        {/* Live Refresh Bar + Filter Chips */}
-        <div className="p-3 bg-stone-100 dark:bg-[#132247] border-b border-stone-200 dark:border-sky-300/15 space-y-2.5 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-stone-600 dark:text-slate-300">
-              {fetchError ? fetchError : loading ? 'جاري المزامنة...' : `إجمالي التنبيهات: ${notifications.length}`}
-            </span>
-            <button
-              onClick={fetchNotifs}
-              disabled={loading}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-[11px]"
-            >
-              تحديث الآن
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-            {(
-              [
-                { id: 'all', label: 'الكل' },
-                { id: 'unread', label: 'غير مقروء' },
-                { id: 'weather', label: 'الطقس' },
-                { id: 'crop_advice', label: 'إرشاد زراعي' },
-                { id: 'ramadan', label: 'موسمي' },
-              ] as const
-            ).map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilterType(f.id)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
-                  filterType === f.id
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-white dark:bg-[#0e1936] text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-sky-300/15'
-                }`}
-              >
-                {f.label}
-              </button>
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {([{ id: 'all', label: 'الكل' }, { id: 'unread', label: 'غير مقروء' }, { id: 'weather', label: 'الطقس' }, { id: 'crop_advice', label: 'إرشاد زراعي' }, { id: 'ramadan', label: 'موسمي' }] as const).map((filter) => (
+              <button key={filter.id} type="button" onClick={() => setFilterType(filter.id)} className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${filterType === filter.id ? 'bg-emerald-600 text-white' : 'border border-slate-200 bg-white text-slate-600 dark:border-sky-300/15 dark:bg-[#0e1936] dark:text-slate-300'}`}>{filter.label}</button>
             ))}
+            <button type="button" onClick={markAllAsRead} className="whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40">تعيين كمقروء</button>
           </div>
         </div>
 
-        {/* Notifications List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {filteredNotifications.length === 0 ? (
-            <div className="text-center py-12 text-stone-400 text-xs">
-              لا توجد تنبيهات مطابقة في الوقت الحالي
-            </div>
-          ) : (
-            filteredNotifications.map((notif) => {
-              let Icon = Bell;
-              let iconColor = 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950';
-
-              if (notif.type === 'weather') {
-                Icon = CloudSun;
-                iconColor = 'text-amber-600 bg-amber-50 dark:bg-amber-950';
-              } else if (notif.type === 'crop_advice') {
-                Icon = Sprout;
-                iconColor = 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950';
-              } else if (notif.type === 'ramadan') {
-                Icon = MoonStar;
-                iconColor = 'text-amber-600 bg-amber-50 dark:bg-amber-950';
-              }
-
-              return (
-                <div
-                  key={notif.id}
-                  className={`p-3.5 rounded-2xl border transition-all space-y-2 ${
-                    notif.read
-                      ? 'bg-white dark:bg-[#132247]/70 border-stone-200 dark:border-sky-300/10 opacity-85'
-                      : 'bg-emerald-50/40 dark:bg-[#132247] border-emerald-300 dark:border-emerald-500/40'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${iconColor}`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <h4 className="font-bold text-xs text-stone-900 dark:text-white line-clamp-1">
-                        {notif.title}
-                      </h4>
-                    </div>
-
-                    <span className="text-[10px] text-stone-400 font-mono shrink-0">
-                      {new Date(notif.timestamp).toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-400">لا توجد تنبيهات مطابقة في الوقت الحالي</div>
+          ) : filtered.map((item) => {
+            const Icon = item.type === 'weather' ? CloudSun : item.type === 'crop_advice' ? Sprout : item.type === 'ramadan' ? MoonStar : Bell;
+            return (
+              <article key={item.id} className={`space-y-2 rounded-2xl border p-3.5 ${item.read ? 'border-slate-200 bg-white dark:border-sky-300/10 dark:bg-[#132247]/70' : 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-500/40 dark:bg-[#132247]'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"><Icon className="h-4 w-4" /></span>
+                    <h3 className="text-xs font-extrabold text-slate-900 dark:text-white">{item.title}</h3>
                   </div>
-
-                  <p className="text-xs text-stone-600 dark:text-slate-300 leading-relaxed text-justify">
-                    {notif.message}
-                  </p>
-
-                  {notif.targetGovernorate && (
-                    <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
-                      المحافظة: {notif.targetGovernorate}
-                    </div>
-                  )}
+                  <time className="shrink-0 text-[10px] text-slate-400">{new Date(item.timestamp).toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })}</time>
                 </div>
-              );
-            })
-          )}
+                <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">{item.message}</p>
+                {item.targetGovernorate && <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">المحافظة: {item.targetGovernorate}</p>}
+              </article>
+            );
+          })}
         </div>
-
-      </div>
+      </section>
     </div>
   );
 };
