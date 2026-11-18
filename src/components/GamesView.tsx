@@ -464,15 +464,27 @@ export const GamesView: React.FC<GamesViewProps> = ({
     const clientNonce = `game_${selectedGame}_${Date.now()}_${Math.random()
       .toString(36)
       .substring(2, 7)}`;
+    let anonymousFarmerId = '';
+    try {
+      anonymousFarmerId = localStorage.getItem('farmer_anon_device_id') || '';
+      if (!anonymousFarmerId) {
+        anonymousFarmerId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `farmer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem('farmer_anon_device_id', anonymousFarmerId);
+      }
+    } catch {
+      anonymousFarmerId = `farmer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
 
     try {
       const response = await fetch('/api/scores/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.id,
-          userName: user.name,
-          userGovernorate: `${user.governorate} (${user.wilayat})`,
+          userId: user.id && user.id !== 'usr-oman-default' ? user.id : anonymousFarmerId,
+          userName: user.name?.trim() || 'مزارع عُماني',
+          userGovernorate: `${user.governorate || 'سلطنة عُمان'} (${user.wilayat || 'غير محدد'})`,
           gameType: selectedGame,
           answers: answersLog,
           clientNonce,
