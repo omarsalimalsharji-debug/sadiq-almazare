@@ -103,7 +103,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     };
   }, [location.governorateId, location.lat, location.lon, location.wilayatId, location.wilayat, location.village]);
 
-  const firstName = user.name?.trim().split(/\\s+/)[0] || '';
+  const firstName = user.name?.trim().split(' ')[0] || '';
   const wilayatDisplay = lang === 'ar' ? location.wilayat : location.wilayatEn;
   const welcomePhrases = firstName
     ? MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay)
