@@ -100,9 +100,11 @@ interface VoiceReportEntry {
 
 interface CartoonVideosViewProps {
   initialEpisodeId?: string | null;
+  /** Public lesson-only mode hides internal voice QA and editorial review tools. */
+  publicMode?: boolean;
 }
 
-export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpisodeId }) => {
+export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpisodeId, publicMode = false }) => {
   const { openShare } = useShare();
   const [activeStudioTab, setActiveStudioTab] = useState<StudioTab>('videos');
 
@@ -836,9 +838,10 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
             <span>الدروس المتصلة</span>
           </button>
 
+          {!publicMode && (
           <button
             type="button"
-            onClick={() => setActiveStudioTab('voices')}
+            onClick={() => setActiveStudioTab('voices')
             className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap ${
               activeStudioTab === 'voices'
                 ? 'bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
@@ -848,10 +851,12 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>مختبر الأصوات والرخص</span>
           </button>
+          )}
 
+          {!publicMode && (
           <button
             type="button"
-            onClick={() => setActiveStudioTab('qa')}
+            onClick={() => setActiveStudioTab('qa')
             className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap ${
               activeStudioTab === 'qa'
                 ? 'bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
@@ -861,6 +866,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
             <ClipboardCheck className="w-3.5 h-3.5" />
             <span>فحص الجودة (3 مراجعين)</span>
           </button>
+          )}
         </div>
       </div>
 
