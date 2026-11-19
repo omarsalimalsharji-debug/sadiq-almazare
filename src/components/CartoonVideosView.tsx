@@ -681,19 +681,17 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
           await audioEl.play();
           return;
         } catch {
-          // fall through
+          setAudioStatusNote('تعذر تشغيل المقطع الصوتي. أعد المحاولة بعد لحظات.');
+          finish();
+          return;
         }
       }
 
-      if (!isMuted && volume > 0 && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setAudioStatusNote('تم تشغيل صوت مُرشد عبر النطق العربي الموحّد');
-        speakBrowserFallbackChunks(sampleText, mood, session, finish);
-        return;
-      }
-
-      fallbackTimerRef.current = setTimeout(finish, 3200);
+      setTtsFailed(true);
+      setAudioStatusNote('تعذر إنشاء صوت مرشد الذكي حالياً. لا يتم استخدام صوت الجهاز بديلاً عنه.');
+      finish();
     },
-    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, speakBrowserFallbackChunks, volume]
+    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, volume]
   );
 
   const handleGenerateCustomEpisode = async (e: React.FormEvent) => {
