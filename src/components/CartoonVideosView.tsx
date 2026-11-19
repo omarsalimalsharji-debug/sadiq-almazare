@@ -572,11 +572,28 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
       setIsLoadingAudio(false);
 
       if (!base64Wav || !audioRef.current) {
+        // Keep the lesson moving visually with subtitles; never replace the
+        // requested natural AI voice with a robotic device voice.
         setTtsFailed(true);
-        setAudioStatusNote('تعذر إنشاء صوت مرشد الذكي حالياً. يمكنك متابعة المشهد بالترجمة النصية أو إعادة المحاولة لاحقاً.');
-        setIsPlaying(false);
+        setAudioStatusNote('الصوت الذكي غير متاح مؤقتاً؛ يستمر الدرس بالرسوم والترجمة حتى لا يتوقف العرض.');
+        setIsPlaying(true);
         setExternalSpeechFinished();
         audioLevelRef.current = 0;
+        const estimatedDurationMs = Math.max(
+          5000,
+          Math.min(18000, targetScene.narration.trim().split(/\\s+/).length * 480)
+        );
+        fallbackTimerRef.current = setTimeout(() => {
+          fallbackTimerRef.current = null;
+          if (playSessionRef.current !== session) return;
+          if (idx + 1 < episode.scenes.length) {
+            playSceneAt(episode, idx + 1);
+          } else {
+            setIsPlaying(false);
+            setExternalSpeechFinished();
+            audioLevelRef.current = 0;
+          }
+        }, estimatedDurationMs);
         return;
       }
 
