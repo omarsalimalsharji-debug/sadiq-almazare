@@ -1843,7 +1843,7 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
 
   const diagnosticIdentity = `${String(parsed.scientificName || '')} ${String(parsed.problemName || '')} ${String(parsed.problemNameEn || '')}`.toLowerCase();
   const isDubasSpecies = /ommatissus|دوباس/.test(diagnosticIdentity);
-  const isRedPalmWeevilSpecies = /rhynchophorus\\s*ferrugineus|سوسة النخيل الحمراء/.test(diagnosticIdentity);
+  const isRedPalmWeevilSpecies = /rhynchophorus\s*ferrugineus|سوسة النخيل الحمراء/.test(diagnosticIdentity);
   const parsedInsectStage = ['egg', 'nymph', 'larva', 'pupa', 'adult', 'undetermined'].includes(parsed.insectLifeStage)
     ? parsed.insectLifeStage
     : 'undetermined';
@@ -1869,7 +1869,7 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
   }
 
   const parsedInstar = String(parsed.insectInstar || '').trim();
-  const validDubasInstar = /(?:العمر|الطور)\\s*(?:الأول|الاول|الثاني|الثالث|الرابع|الخامس)|(?:1st|2nd|3rd|4th|5th)\\s*instar/i.test(parsedInstar);
+  const validDubasInstar = /(?:العمر|الطور)\s*(?:الأول|الاول|الثاني|الثالث|الرابع|الخامس)|(?:1st|2nd|3rd|4th|5th)\s*instar/i.test(parsedInstar);
   const normalizedInsectInstar = isDubasSpecies && parsedInsectStage === 'nymph' &&
     Number(parsed.insectStageConfidence || 0) >= 60 && validDubasInstar
       ? parsedInstar
@@ -2728,10 +2728,10 @@ app.delete('/api/admin/diagnosis-history', requireAdmin, async (_req, res) => {
 
 // --- 9. Notifications APIs ---
 app.get('/api/notifications', (req, res) => {
-  const governorate = String(req.query.governorate || '').replace(/^محافظة\\s*/, '').trim();
+  const governorate = String(req.query.governorate || '').replace(/^محافظة\s*/, '').trim();
   const visible = storage.notifications.filter((n: any) => {
     if (n.targetUserId || isExpiredPalmSeasonTask(n)) return false;
-    const target = String(n.targetGovernorate || '').replace(/^محافظة\\s*/, '').trim();
+    const target = String(n.targetGovernorate || '').replace(/^محافظة\s*/, '').trim();
     const nationwide = !target || /كافة المحافظات|كافة محافظات|جميع المحافظات|جميع محافظات|سلطنة عُمان/i.test(target);
     return (!n.expiresAt || Number(n.expiresAt) > Date.now()) &&
       (nationwide || !governorate || target.includes(governorate) || governorate.includes(target));
