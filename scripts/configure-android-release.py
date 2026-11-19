@@ -7,8 +7,8 @@ if not gradle.exists():
     raise SystemExit("android/app/build.gradle was not generated")
 
 text = gradle.read_text(encoding="utf-8")
-text = re.sub(r"versionCode\\s*(?:=\\s*)?\\d+", "versionCode 3", text, count=1)
-text = re.sub(r"""versionName\\s*(?:=\\s*)?['"][^'"]+['"]""", 'versionName "1.0.3"', text, count=1)
+text = re.sub(r"versionCode\s*(?:=\s*)?\d+", "versionCode 3", text, count=1)
+text = re.sub(r"""versionName\s*(?:=\s*)?['"][^'"]+['"]""", 'versionName "1.0.3"', text, count=1)
 
 keystore = os.environ.get("ANDROID_KEYSTORE_PATH")
 if keystore:
@@ -23,12 +23,12 @@ if keystore:
     }
 """
     if "signingConfigs {" not in text:
-        text = text.replace("    buildTypes {", signing + "\\n    buildTypes {", 1)
-    release_pattern = r"(release\\s*\\{)"
+        text = text.replace("    buildTypes {", signing + "\n    buildTypes {", 1)
+    release_pattern = r"(release\s*\{)"
     if "signingConfig signingConfigs.release" not in text:
         text, count = re.subn(
             release_pattern,
-            lambda match: match.group(1) + "\\n            signingConfig signingConfigs.release",
+            lambda match: match.group(1) + "\n            signingConfig signingConfigs.release",
             text,
             count=1,
         )
