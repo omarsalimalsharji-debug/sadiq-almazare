@@ -27,7 +27,7 @@ export default defineConfig(() => {
           scope: '/',
           icons: [
             {
-              src: '/icon.svg',
+              src: '/icon.svg?v=4',
               sizes: 'any',
               type: 'image/svg+xml',
               purpose: 'any maskable',
