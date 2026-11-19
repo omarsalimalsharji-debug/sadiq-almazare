@@ -5,8 +5,7 @@ import {
   MapPin, 
   Edit3, 
   Check, 
-  Cloud,
-  Download
+  Cloud
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
