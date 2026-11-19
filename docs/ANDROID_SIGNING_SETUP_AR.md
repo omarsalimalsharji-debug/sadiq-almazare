@@ -13,7 +13,7 @@
 
 ```powershell
 keytool -genkeypair -v -keystore .\sadiq-release.jks -alias sadiq-almazare -keyalg RSA -keysize 4096 -validity 10000
-` ```
+```
 
 احتفظ بكلمة مرور المخزن وكلمة مرور المفتاح والاسم المستعار في مدير كلمات مرور آمن.
 
@@ -21,7 +21,7 @@ keytool -genkeypair -v -keystore .\sadiq-release.jks -alias sadiq-almazare -keya
 
 ```powershell
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\sadiq-release.jks")) | Set-Clipboard
-` ```
+```
 
 ## إضافة GitHub Secrets
 
