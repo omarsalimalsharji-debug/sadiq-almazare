@@ -43,6 +43,7 @@ import {
   setExternalSpeechFinished,
   setMurshidMuted,
   setMurshidVolume,
+  speakMurshid,
   stopAllMurshidAudio,
   subscribeMurshidAudioPrefs,
 } from '../utils/murshidAudio.ts';
@@ -571,32 +572,6 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
       if (playSessionRef.current !== session) return;
       setIsLoadingAudio(false);
 
-      if (!base64Wav || !audioRef.current) {
-        // Keep the lesson moving visually with subtitles; never replace the
-        // requested natural AI voice with a robotic device voice.
-        setTtsFailed(true);
-        setAudioStatusNote('الصوت الذكي غير متاح مؤقتاً؛ يستمر الدرس بالرسوم والترجمة حتى لا يتوقف العرض.');
-        setIsPlaying(true);
-        setExternalSpeechFinished();
-        audioLevelRef.current = 0;
-        const estimatedDurationMs = Math.max(
-          5000,
-          Math.min(18000, targetScene.narration.trim().split(/\s+/).length * 480)
-        );
-        fallbackTimerRef.current = setTimeout(() => {
-          fallbackTimerRef.current = null;
-          if (playSessionRef.current !== session) return;
-          if (idx + 1 < episode.scenes.length) {
-            playSceneAt(episode, idx + 1);
-          } else {
-            setIsPlaying(false);
-            setExternalSpeechFinished();
-            audioLevelRef.current = 0;
-          }
-        }, estimatedDurationMs);
-        return;
-      }
-
       const advanceNext = () => {
         if (playSessionRef.current !== session) return;
         if (idx + 1 < episode.scenes.length) {
@@ -607,6 +582,34 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
           audioLevelRef.current = 0;
         }
       };
+
+      if (!base64Wav || !audioRef.current) {
+        // If the studio clip is unavailable, keep the lesson audible with the
+        // device's Arabic speech engine instead of silently advancing captions.
+        setTtsFailed(true);
+        setAudioStatusNote('الصوت الاستوديو غير متاح مؤقتاً؛ يستخدم مُرشد النطق العربي في جهازك بديلاً عنه.');
+        speakMurshid(targetScene.vocalizedNarration || targetScene.narration, {
+          mood: 'cheerful',
+          muted: isMuted,
+          volume: volume / 100,
+          rate: playbackSpeed,
+          onSpeakingChange: (speaking) => {
+            if (playSessionRef.current !== session) return;
+            setIsPlaying(speaking);
+            if (speaking) notifyExternalSpeechStarted();
+            else setExternalSpeechFinished();
+          },
+          onEnd: advanceNext,
+          onError: () => {
+            if (playSessionRef.current !== session) return;
+            setIsPlaying(false);
+            setAudioStatusNote('تعذر تشغيل الصوت على هذا الجهاز؛ يمكنك متابعة الدرس بالترجمة.');
+            setExternalSpeechFinished();
+            audioLevelRef.current = 0;
+          },
+        });
+        return;
+      }
 
       const audioEl = audioRef.current;
       audioEl.src = `data:audio/wav;base64,${base64Wav}`;
@@ -691,9 +694,16 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
 
       if (!base64Wav || !audioRef.current) {
         setTtsFailed(true);
-        setAudioStatusNote('تعذر إنشاء صوت مرشد الذكي حالياً. لا يتم استخدام صوت الجهاز بديلاً عنه.');
-        setIsPlaying(false);
-        setExternalSpeechFinished();
+        setAudioStatusNote('الصوت الاستوديو غير متاح مؤقتاً؛ يستخدم مُرشد النطق العربي في جهازك بديلاً عنه.');
+        speakMurshid(sampleText, {
+          mood: 'cheerful',
+          muted: isMuted,
+          volume: volume / 100,
+          rate: playbackSpeed,
+          onSpeakingChange: setIsPlaying,
+          onEnd: finish,
+          onError: finish,
+        });
         return;
       }
 
