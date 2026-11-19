@@ -326,9 +326,25 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
         }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        data = {};
+      }
       if (!response.ok || !data.success || !data.diagnosis) {
-        throw new Error(data.error || 'تعذر إتمام التحليل الذكي حالياً.');
+        const serverMessage = typeof data.error === 'string' ? data.error : '';
+        if (response.status === 413) {
+          throw new Error('حجم الصور المرفقة أكبر من الحد المسموح. اختر صورة واحدة فقط أو صورة أقل حجماً ثم أعد المحاولة.');
+        }
+        if (response.status === 429) {
+          throw new Error('تم تجاوز عدد محاولات التشخيص مؤقتاً. انتظر قليلاً ثم أعد المحاولة.');
+        }
+        if (response.status >= 500 && !serverMessage) {
+          throw new Error('خدمة التشخيص لا تستجيب حالياً. الصورة ما زالت محددة؛ أعد المحاولة بعد قليل.');
+        }
+        throw new Error(serverMessage || 'تعذر إرسال الصورة إلى خدمة التشخيص. تحقق من اتصال الإنترنت وحاول مجدداً.');
       }
 
       const diag: SmartDiagnosisResult = data.diagnosis;
