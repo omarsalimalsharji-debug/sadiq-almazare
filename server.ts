@@ -462,7 +462,7 @@ storage.dailyVisitIds = {};
 const previousNotificationCount = storage.notifications.length;
 storage.notifications = storage.notifications.filter((item: any) =>
   !['notif-1', 'notif-2'].includes(String(item?.id || '')) &&
-  !/تكميم عذوق|خف عذوق النخيل|عذوق نخيل الخلاص والفرض|نشاط رياح هابطة وفرص غبار/i.test(String(item?.title || '') + ' ' + String(item?.message || ''))
+  !/تكميم.{0,15}عذوق|خف.{0,15}عذوق|عذوق.{0,15}تكميم|نشاط رياح هابطة وفرص غبار/i.test(String(item?.title || '') + ' ' + String(item?.message || ''))
 );
 if (hadVisitorHistory || storage.notifications.length !== previousNotificationCount) saveStorage();
 
