@@ -104,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       titleAr: 'المجتمع والإرشاد والبث',
       titleEn: 'Community & Live Media',
       items: [
-        { id: 'community', labelAr: 'الدردشة والمجتمع الزراعي', labelEn: 'Farmer Chat & Community', icon: Users },
+        { id: 'community', labelAr: 'المنتدى الزراعي', labelEn: 'Agricultural Forum', icon: Users },
         { id: 'quran', labelAr: 'القرآن الكريم (الشيخ هزاع البلوشي)', labelEn: 'Holy Quran (Hazza Al-Balushi)', icon: BookMarked },
         { id: 'radio', labelAr: 'الإذاعات العمانية والبث المباشر', labelEn: 'Oman Live Radio', icon: Radio },
       ],
