@@ -27,17 +27,28 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
   'image/heif',
 ]);
 
-function loadImageFromFile(file: File): Promise<HTMLImageElement> {
+async function loadImageFromFile(file: File): Promise<{ source: CanvasImageSource; width: number; height: number; cleanup: () => void }> {
+  // Modern mobile browsers can decode HEIC/HEIF with createImageBitmap even when
+  // an HTMLImageElement cannot. Prefer this path and always convert to JPEG below.
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, cleanup: () => bitmap.close() };
+    } catch {
+      // Fall through to the native image decoder for formats it supports.
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(objectUrl);
-      resolve(img);
+      resolve({ source: img, width: img.naturalWidth || img.width, height: img.naturalHeight || img.height, cleanup: () => undefined });
     };
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error('تعذر قراءة ملف الصورة. تأكد من سلامة الصورة وأنها بصيغة JPG أو PNG أو WEBP.'));
+      reject(new Error('تعذر فتح الصورة على هذا الهاتف. إذا كانت بصيغة HEIC فحوّلها إلى JPG، أو اختر صورة JPG أو PNG.'));
     };
     img.src = objectUrl;
   });
@@ -103,9 +114,15 @@ function enhanceCanvasClarity(ctx: CanvasRenderingContext2D, width: number, heig
 }
 
 export async function compressAndEnhancePlantImage(file: File): Promise<ProcessedPlantImage> {
-  const normalizedType = (file.type || '').toLowerCase();
-  if (!normalizedType.startsWith('image/') || (normalizedType && !ALLOWED_IMAGE_MIME_TYPES.has(normalizedType))) {
-    throw new Error('صيغة الملف غير مدعومة. يرجى اختيار صورة بصيغة JPG أو PNG أو WEBP.');
+  const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+  const inferredType = fileExtension === 'jpg' || fileExtension === 'jpeg' ? 'image/jpeg'
+    : fileExtension === 'png' ? 'image/png'
+    : fileExtension === 'webp' ? 'image/webp'
+    : fileExtension === 'heic' ? 'image/heic'
+    : fileExtension === 'heif' ? 'image/heif' : '';
+  const normalizedType = (file.type || inferredType).toLowerCase();
+  if ((normalizedType && !ALLOWED_IMAGE_MIME_TYPES.has(normalizedType)) || (!normalizedType && !file.type.startsWith('image/'))) {
+    throw new Error('صيغة الملف غير مدعومة. يرجى اختيار صورة JPG أو PNG أو WEBP أو HEIC.');
   }
   if (file.size < 1024) {
     throw new Error('ملف الصورة صغير جداً أو تالف. يرجى التقاط أو اختيار صورة واضحة.');
@@ -114,9 +131,9 @@ export async function compressAndEnhancePlantImage(file: File): Promise<Processe
     throw new Error('حجم الصورة الأصلي كبير جداً (أكثر من 20 ميجابايت). يرجى اختيار صورة أصغر.');
   }
 
-  const img = await loadImageFromFile(file);
-  const srcWidth = img.naturalWidth || img.width;
-  const srcHeight = img.naturalHeight || img.height;
+  const decoded = await loadImageFromFile(file);
+  const srcWidth = decoded.width;
+  const srcHeight = decoded.height;
 
   if (srcWidth < MIN_DIMENSION || srcHeight < MIN_DIMENSION) {
     throw new Error('أبعاد الصورة صغيرة جداً ولا تسمح بفحص الأعراض أو الحشرة بوضوح. التقط صورة أقرب.');
@@ -137,7 +154,11 @@ export async function compressAndEnhancePlantImage(file: File): Promise<Processe
 
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+  try {
+    ctx.drawImage(decoded.source, 0, 0, targetWidth, targetHeight);
+  } finally {
+    decoded.cleanup();
+  }
 
   const enhanced = enhanceCanvasClarity(ctx, targetWidth, targetHeight);
   const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
