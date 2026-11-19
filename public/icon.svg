@@ -1,21 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10b981" />
-      <stop offset="55%" stop-color="#059669" />
-      <stop offset="100%" stop-color="#065f46" />
-    </linearGradient>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fde68a" />
-      <stop offset="100%" stop-color="#f59e0b" />
-    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#087b3d"/><stop offset=".55" stop-color="#00572f"/><stop offset="1" stop-color="#003c28"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0a6"/><stop offset=".5" stop-color="#f8c744"/><stop offset="1" stop-color="#d78a13"/></linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d7f77a"/><stop offset="1" stop-color="#42a82c"/></linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a7f1ff"/><stop offset=".5" stop-color="#24b9ec"/><stop offset="1" stop-color="#087ac4"/></linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5"/></filter>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
-  <circle cx="256" cy="256" r="196" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="6" />
-  <circle cx="344" cy="148" r="34" fill="url(#goldGrad)" />
-  <!-- Stylized Sprout & Palm Leaf Emblem -->
-  <path d="M256 392 C256 320, 256 260, 256 205" stroke="#ffffff" stroke-width="24" stroke-linecap="round" fill="none" />
-  <path d="M256 286 C194 282, 146 244, 142 184 C202 184, 248 220, 256 286 Z" fill="#ffffff" />
-  <path d="M256 254 C318 250, 366 212, 370 152 C310 152, 264 188, 256 254 Z" fill="#d1fae5" />
-  <path d="M188 394 Q256 364 324 394" stroke="url(#goldGrad)" stroke-width="18" stroke-linecap="round" fill="none" />
+  <rect x="8" y="8" width="496" height="496" rx="112" fill="url(#bg)" stroke="url(#gold)" stroke-width="12"/>
+  <circle cx="256" cy="246" r="190" fill="none" stroke="#f8e6a0" stroke-opacity=".22" stroke-width="5"/>
+  <circle cx="256" cy="225" r="132" fill="#f9d76a" opacity=".09"/>
+  <path d="M74 356 180 278 256 327 333 270 438 356Z" fill="#f2c96d"/>
+  <path d="m74 356 106-78 76 49 77-57 105 86-106-35-76 22-76-20Z" fill="#ffe5a0"/>
+  <path d="M55 389 Q155 347 256 378 T457 382 L457 438 55 438Z" fill="#238b39"/>
+  <path d="M48 420 Q157 375 253 407 T464 408" fill="none" stroke="#8bd64a" stroke-width="17" stroke-linecap="round"/>
+  <path d="M55 453 Q171 405 268 438 T459 436" fill="none" stroke="url(#gold)" stroke-width="12" stroke-linecap="round"/>
+  <ellipse cx="256" cy="396" rx="42" ry="12" fill="#001e16" opacity=".35" filter="url(#shadow)"/>
+  <path d="M256 389 C253 325 259 260 256 195" fill="none" stroke="#b9782e" stroke-width="31" stroke-linecap="round"/>
+  <path d="M256 386 C255 318 258 250 256 195" fill="none" stroke="#e5ad55" stroke-width="9" stroke-linecap="round" opacity=".75"/>
+  <g fill="none" stroke="url(#leaf)" stroke-width="17" stroke-linecap="round">
+    <path d="M256 206 Q156 195 94 117 Q183 126 256 206"/>
+    <path d="M256 206 Q111 221 76 176 Q162 160 256 206"/>
+    <path d="M256 206 Q181 113 185 75 Q243 113 256 206"/>
+    <path d="M256 206 Q232 105 256 54 Q281 120 256 206"/>
+    <path d="M256 206 Q318 111 376 78 Q370 151 256 206"/>
+    <path d="M256 206 Q376 132 433 126 Q403 204 256 206"/>
+    <path d="M256 206 Q391 224 440 184 Q378 157 256 206"/>
+  </g>
+  <g stroke="#e6f6a0" stroke-width="3" opacity=".85" fill="none">
+    <path d="M256 206 94 117 M256 206 76 176 M256 206 185 75 M256 206 256 54 M256 206 376 78 M256 206 433 126 M256 206 440 184"/>
+  </g>
+  <g fill="url(#gold)" stroke="#b96c16" stroke-width="2">
+    <ellipse cx="207" cy="244" rx="13" ry="19" transform="rotate(22 207 244)"/><ellipse cx="225" cy="259" rx="13" ry="19" transform="rotate(10 225 259)"/>
+    <ellipse cx="193" cy="267" rx="13" ry="19" transform="rotate(30 193 267)"/><ellipse cx="215" cy="282" rx="13" ry="19" transform="rotate(8 215 282)"/>
+    <ellipse cx="184" cy="289" rx="12" ry="18" transform="rotate(24 184 289)"/><ellipse cx="205" cy="304" rx="12" ry="18" transform="rotate(10 205 304)"/>
+    <ellipse cx="305" cy="244" rx="13" ry="19" transform="rotate(-22 305 244)"/><ellipse cx="287" cy="259" rx="13" ry="19" transform="rotate(-10 287 259)"/>
+    <ellipse cx="319" cy="267" rx="13" ry="19" transform="rotate(-30 319 267)"/><ellipse cx="297" cy="282" rx="13" ry="19" transform="rotate(-8 297 282)"/>
+    <ellipse cx="328" cy="289" rx="12" ry="18" transform="rotate(-24 328 289)"/><ellipse cx="307" cy="304" rx="12" ry="18" transform="rotate(-10 307 304)"/>
+  </g>
+  <path d="M351 354 C351 331 380 302 380 302 C380 302 409 331 409 354 A29 29 0 1 1 351 354Z" fill="url(#water)" stroke="#e0fbff" stroke-width="6"/>
+  <path d="M369 343 Q373 326 382 319" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".9"/>
+  <path d="M116 465 Q256 484 396 465" fill="none" stroke="#f5d77e" stroke-opacity=".75" stroke-width="4" stroke-linecap="round"/>
 </svg>
