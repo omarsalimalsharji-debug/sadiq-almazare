@@ -70,7 +70,7 @@ const STARTER_AI_QUESTIONS = [
 
 export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
   const { openShare } = useShare();
-  const [activeTab, setActiveTab] = useState<'ai_chat' | 'forum'>('ai_chat');
+  const [activeTab, setActiveTab] = useState<'ai_chat' | 'forum'>('forum');
   const [posts, setPosts] = useState<Post[]>([]);
   const [newContent, setNewContent] = useState<string>('');
   const [newCategory, setNewCategory] = useState<string>('نخيل التمر');
@@ -160,7 +160,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
       if (res.ok && data.success) {
         setPosts((prev) => [data.post, ...prev]);
         setNewContent('');
-        setFeedback({ ok: true, text: 'تم نشر مشاركتك في المجتمع الزراعي.' });
+        setFeedback({ ok: true, text: 'تم نشر مشاركتك في المنتدى الزراعي.' });
       } else {
         setFeedback({ ok: false, text: data.error || 'تعذر نشر المشاركة حالياً.' });
       }
@@ -333,7 +333,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
         {
           id: `a-${Date.now()}`,
           role: 'assistant',
-          text: 'تعذر الوصول الفوري للخادم، يمكنك مراجعة الإرشادات الأساسية أو طرح الاستفسار في مجلس المزارعين.',
+          text: 'تعذر الوصول الفوري للخادم، يمكنك مراجعة الإرشادات الأساسية أو طرح الاستفسار في المنتدى الزراعي.',
           timestamp: Date.now(),
         },
       ]);
@@ -368,7 +368,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
     setNewCategory(aiCropFocus);
     setNewContent(formatted);
     setActiveTab('forum');
-    setFeedback({ ok: true, text: 'تم نقل الإجابة إلى نموذج النشر في مجلس المزارعين.' });
+    setFeedback({ ok: true, text: 'تم نقل الإجابة إلى نموذج النشر في المنتدى الزراعي.' });
   };
 
   return (
@@ -378,10 +378,10 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
             <Users className="w-4 h-4" />
-            <span>مجلس المزارعين والخبراء الزراعيين</span>
+            <span>المنتدى الزراعي</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-stone-900 dark:text-white mt-1">
-            المجتمع الزراعي والدردشة الإرشادية
+            المنتدى الزراعي والاستشارات
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-0.5">
             اطرح استفساراتك الميدانية وتبادل النصائح مع المزارعين والمهندسين في كافة محافظات عُمان.
@@ -443,7 +443,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>مجلس المزارعين ({posts.length})</span>
+          <span>المنتدى الزراعي ({posts.length})</span>
         </button>
       </div>
 
@@ -551,7 +551,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
                             className="min-h-[36px] px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 whitespace-nowrap shrink-0"
                           >
                             <Share2 className="w-3.5 h-3.5" />
-                            <span>نشر في المجلس</span>
+                            <span>نشر في المنتدى</span>
                           </button>
                         )}
                         <button
@@ -562,7 +562,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user }) => {
                               title: `استشارة زراعية من مُرشد · ${aiCropFocus}`,
                               summary: msg.text,
                               highlights: (msg.practicalSteps || []).slice(0, 3),
-                              categoryLabel: `مجلس المزارعين · ${aiCropFocus}`,
+                              categoryLabel: `المنتدى الزراعي · ${aiCropFocus}`,
                               locationLabel: `${user.governorate} · ${user.wilayat}`,
                               page: 'community',
                               authorOrSource: 'المستشار الزراعي الذكي — مُرشد',
