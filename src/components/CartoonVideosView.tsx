@@ -507,7 +507,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
               : mood === 'proud' || mood === 'celebrate'
                 ? 'proud'
                 : 'cheerful';
-      const key = `v5-murshid-oman-natural-tts:${apiMood}:${vocalized}`;
+      const key = `v6-murshid-gacrux-oman-voice:${apiMood}:${vocalized}`;
       const cached = ttsCacheRef.current.get(key);
       if (cached) return cached;
 
