@@ -37,11 +37,8 @@ import {
 } from '../data/murshidDialogue.ts';
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
 import {
-  chunkArabicSpeech,
   getMurshidAudioPrefs,
-  initArabicVoices,
   notifyExternalSpeechStarted,
-  pickBestMurshidVoice,
   registerExternalMurshidAudioStopper,
   setExternalSpeechFinished,
   setMurshidMuted,
@@ -270,7 +267,6 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
   }, [fetchReviewsAndManifest]);
 
   useEffect(() => {
-    initArabicVoices();
     const unsubPrefs = subscribeMurshidAudioPrefs((prefs) => {
       setIsMuted(prefs.muted);
       setVolume(prefs.volume);
@@ -298,9 +294,6 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-    }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
     }
     environmentalSfx.setSpeakingDuck(false);
     environmentalSfx.stop();
@@ -514,7 +507,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
               : mood === 'proud' || mood === 'celebrate'
                 ? 'proud'
                 : 'cheerful';
-      const key = `v4-murshid-puck-tts:${apiMood}:${vocalized}`;
+      const key = `v5-murshid-oman-natural-tts:${apiMood}:${vocalized}`;
       const cached = ttsCacheRef.current.get(key);
       if (cached) return cached;
 
@@ -546,68 +539,6 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
     []
   );
 
-  const speakBrowserFallbackChunks = useCallback(
-    (
-      rawText: string,
-      mood: string,
-      session: number,
-      onComplete: () => void
-    ) => {
-      const effectiveVol = isMuted ? 0 : Math.max(0, Math.min(1, volume / 100));
-      if (effectiveVol <= 0.01 || typeof window === 'undefined' || !('speechSynthesis' in window)) {
-        fallbackTimerRef.current = setTimeout(onComplete, 3500);
-        return false;
-      }
-      const vocalized = prepareArabicTextForTts(rawText) || rawText;
-      const chunks = chunkArabicSpeech(vocalized, 135);
-      const bestArabicVoice = pickBestMurshidVoice();
-      const unifiedPitch =
-        mood === 'warning' || mood === 'surprised' || mood === 'gentle_sad'
-          ? 0.95
-          : 0.98;
-      const unifiedRate = Math.max(0.82, Math.min(1.2, playbackSpeed * 0.94));
-
-      const speakIdx = (chunkIdx: number) => {
-        if (playSessionRef.current !== session) return;
-        if (chunkIdx >= chunks.length) {
-          onComplete();
-          return;
-        }
-        const utter = new SpeechSynthesisUtterance(chunks[chunkIdx]);
-        if (bestArabicVoice) {
-          utter.voice = bestArabicVoice;
-          utter.lang = bestArabicVoice.lang;
-        } else {
-          utter.lang = 'ar-OM';
-        }
-        utter.pitch = unifiedPitch;
-        utter.rate = unifiedRate;
-        utter.volume = effectiveVol;
-
-        let settled = false;
-        const advanceChunk = () => {
-          if (settled || playSessionRef.current !== session) return;
-          settled = true;
-          if (fallbackTimerRef.current) {
-            clearTimeout(fallbackTimerRef.current);
-            fallbackTimerRef.current = null;
-          }
-          speakIdx(chunkIdx + 1);
-        };
-
-        utter.onend = advanceChunk;
-        utter.onerror = advanceChunk;
-        window.speechSynthesis.speak(utter);
-
-        const maxMs = Math.min(9500, Math.max(2400, chunks[chunkIdx].length * 95));
-        fallbackTimerRef.current = setTimeout(advanceChunk, maxMs);
-      };
-
-      speakIdx(0);
-      return true;
-    },
-    [isMuted, playbackSpeed, volume]
-  );
 
   const playSceneAt = useCallback(
     async (episode: CartoonEpisode, idx: number) => {
@@ -660,32 +591,23 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
           await audioEl.play();
           return;
         } catch {
-          // Fall through
+          setAudioStatusNote('تعذر تشغيل المقطع الصوتي. أعد المحاولة بعد لحظات.');
+          setIsPlaying(false);
+          setExternalSpeechFinished();
+          return;
         }
       }
 
       if (!base64Wav) {
         setTtsFailed(true);
-      }
-
-      if (!isMuted && volume > 0 && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setAudioStatusNote('تم تشغيل صوت مُرشد عبر النطق العربي الموحّد');
-        speakBrowserFallbackChunks(
-          targetScene.vocalizedNarration || targetScene.narration,
-          targetScene.murshidMood,
-          session,
-          advanceNext
-        );
-      } else {
-        setAudioStatusNote(
-          isMuted || volume === 0
-            ? 'الصوت مكتوم — تُعرض الترجمة النصية للمشهد تلقائياً.'
-            : 'تُعرض الترجمة النصية للمشهد تلقائياً.'
-        );
-        fallbackTimerRef.current = setTimeout(advanceNext, 4200);
+        setAudioStatusNote('تعذر إنشاء صوت مرشد الذكي حالياً. يمكنك متابعة المشهد بالترجمة النصية أو إعادة المحاولة لاحقاً.');
+        setIsPlaying(false);
+        setExternalSpeechFinished();
+        audioLevelRef.current = 0;
+        return;
       }
     },
-    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, speakBrowserFallbackChunks, volume]
+    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, volume]
   );
 
   useEffect(() => {
