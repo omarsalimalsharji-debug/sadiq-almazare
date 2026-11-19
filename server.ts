@@ -369,25 +369,7 @@ const defaultStorage: StorageSchema = {
       ]
     }
   ],
-  notifications: [
-    {
-      id: "notif-1",
-      title: "تنبيه مناخي: نشاط رياح هابطة وفرص غبار",
-      message: "توقع نشاط رياح مثيرة للغبار على محافظات البريمي والظاهرة والوسطى، يرجى إحكام أغطية البيوت المحمية وتأجيل رش المبيدات.",
-      type: "weather",
-      targetGovernorate: "الظاهرة والبريمي",
-      timestamp: Date.now() - 3600000 * 2,
-      read: false
-    },
-    {
-      id: "notif-2",
-      title: "إرشاد النخيل: مواعيد التكميم الميداني",
-      message: "توصية إدارة الإرشاد الزراعي بمتابعة تكميم عذوق نخيل الخلاص والفرض لحمايتها من العناكب وطيور القيظ.",
-      type: "crop_advice",
-      timestamp: Date.now() - 3600000 * 12,
-      read: false
-    }
-  ],
+  notifications: [],
   auditLogs: [
     {
       id: "aud-1",
@@ -468,6 +450,17 @@ function saveStorage() {
     console.error('Failed to save storage.json:', e);
   }
 }
+
+// Privacy-first policy: do not retain identifiable or device-level farmer visit trails.
+const hadVisitorHistory = Object.keys(storage.visitors || {}).length > 0 || Object.keys(storage.dailyVisitIds || {}).length > 0;
+storage.visitors = {};
+storage.dailyVisitIds = {};
+const previousNotificationCount = storage.notifications.length;
+storage.notifications = storage.notifications.filter((item: any) =>
+  !['notif-1', 'notif-2'].includes(String(item?.id || '')) &&
+  !/تكميم عذوق|خف عذوق النخيل|عذوق نخيل الخلاص والفرض|نشاط رياح هابطة وفرص غبار/i.test(String(item?.title || '') + ' ' + String(item?.message || ''))
+);
+if (hadVisitorHistory || storage.notifications.length !== previousNotificationCount) saveStorage();
 
 // Nonce set to prevent score replaying
 const submittedNonces = new Set<string>();
@@ -1119,63 +1112,8 @@ function detectBrowserLabel(ua: string): string {
   return `${os} · ${browser}`;
 }
 
-app.post('/api/visitors/track', (req, res) => {
-  try {
-    const { anonId, deviceType, currentPage } = req.body || {};
-    const ua = String(req.headers['user-agent'] || '');
-    const rawId = typeof anonId === 'string' && anonId.trim().length >= 6
-      ? anonId.trim().slice(0, 64)
-      : crypto.createHash('sha256').update(`${req.ip || 'ip'}:${ua}`).digest('hex').slice(0, 24);
-
-    const safeId = 'v_' + crypto.createHash('sha256').update(rawId).digest('hex').slice(0, 16);
-    const now = Date.now();
-    const todayKey = getMuscatDayKey(now);
-    const resolvedDevice = detectDeviceType(ua, deviceType);
-    const browserLabel = detectBrowserLabel(ua);
-    const pageStr = typeof currentPage === 'string' ? currentPage.slice(0, 40) : 'home';
-
-    const existing = storage.visitors[safeId];
-    if (existing) {
-      const prevSeen = existing.lastSeenAt || 0;
-      existing.lastSeenAt = now;
-      existing.deviceType = resolvedDevice;
-      existing.browserLabel = browserLabel;
-      existing.lastPage = pageStr;
-      if (now - prevSeen > 30 * 60 * 1000) {
-        existing.visitCount += 1;
-      }
-    } else {
-      storage.visitors[safeId] = {
-        anonId: safeId,
-        deviceType: resolvedDevice,
-        browserLabel,
-        firstVisitAt: now,
-        lastSeenAt: now,
-        visitCount: 1,
-        lastPage: pageStr,
-      };
-    }
-
-    if (!Array.isArray(storage.dailyVisitIds[todayKey])) {
-      storage.dailyVisitIds[todayKey] = [];
-    }
-    if (!storage.dailyVisitIds[todayKey].includes(safeId)) {
-      storage.dailyVisitIds[todayKey].push(safeId);
-    }
-
-    const allIds = Object.keys(storage.visitors);
-    if (allIds.length > 2000) {
-      allIds
-        .sort((a, b) => storage.visitors[a].lastSeenAt - storage.visitors[b].lastSeenAt)
-        .slice(0, allIds.length - 2000)
-        .forEach((oldId) => delete storage.visitors[oldId]);
-    }
-
-    saveStorage();
-    return res.json({ success: true });
-  } catch {
-    return res.json({ success: false });
-  }
+app.post('/api/visitors/track', (_req, res) => {
+  return res.status(410).json({ success: false, trackingDisabled: true });
 });
 
 app.get('/api/admin/visitors', requireAdmin, (_req, res) => {
@@ -1536,6 +1474,13 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
 - السياق العُماني: استخدم الولاية والنطاق المناخي والموسم ونوع الري كقرائن مساعدة فقط، ولا تعتبر وجود محصول أو آفة في منطقة عُمانية دليلاً على أن العينة مصابة بها. إذا لم تظهر علامة فارقة، اعرض احتمالات محدودة أو اطلب صوراً إضافية للوجهين العلوي والسفلي للورقة وقاعدة النبات أو الثمرة، ولا تخترع انتشاراً محلياً أو بيانات إحصائية.
 
 
+تمييز تخصصي إلزامي لآفات النخيل في عُمان:
+- دوباس النخيل Ommatissus lybicus: افصل بين مرحلة الحشرة (بيضة/حورية/حشرة كاملة) وبين الجيل الموسمي. تمر الحورية بخمسة أعمار؛ لا تحدد رقم العمر إلا إذا ظهرت سمات شكلية واضحة وصورة قريبة كافية، ولا تستنتج العمر من اللون وحده. الحورية لا تملك الأجنحة الكاملة، بينما الحشرة الكاملة مجنحة. في الحشرات الكاملة قد تساعد العلامات التالية: الأنثى غالباً أكبر (نحو 5–6 مم) وتظهر عليها بقع بطنية، والذكر أصغر (نحو 3–3.5 مم) وبطنه أكثر استطالة/تدرجاً وأجنحته أطول نسبياً. لا تقدّر الجنس إلا من لقطة ظهرية قريبة تظهر البطن والأجنحة مع مقياس واضح؛ وإلا فالجنس غير محدد.
+- لدوباس النخيل جيلان معروفان في عُمان: ربيعي وخريفي. يرتبط فقس الربيعي غالباً بفبراير–أبريل، والخريفي بأواخر أغسطس–أكتوبر، وقد تختلف المواعيد محلياً. في نوفمبر قد يكون الجيل الخريفي متأخراً أو في طور الحشرات الكاملة/وضع البيض بحسب الموقع والظروف؛ لا تثبت الجيل من صورة الحشرة وحدها. أخرج insectGeneration كترجيح موسمي فقط مع توضيح أنه استدلال تقويمي يحتاج رصد الحقل، ولا تصفه كتأكيد تشخيصي.
+- سوسة النخيل الحمراء Rhynchophorus ferrugineus: ميّز البيضة واليرقة والعذراء والحشرة الكاملة. في الحشرة الكاملة فقط قد يظهر الذكر بخصلة شعيرات قصيرة على السطح العلوي لنصف مقدمة الخرطوم، بينما يكون خرطوم الأنثى عادة أطول وأنحف وأقل شعراً/عارياً. لا تحكم على الجنس من اللون أو الحجم وحدهما؛ اطلب صورة ماكرو واضحة للخرطوم من الأعلى والجانب. لا تحاول تحديد جنس اليرقة أو العذراء من صورة غير تشريحية.
+- لا تخلط بين تحديد مرحلة الحياة وتحديد الجيل؛ الجيل لا يمكن إثباته بصرياً من صورة منفردة. إذا لم تظهر العلامات المطلوبة، أعد قيمة المرحلة أو العمر أو الجنس أو الجيل إلى «غير محدد» واشرح الصورة الإضافية المطلوبة.
+- اطلب عند الحاجة صوراً منفصلة: صورة عامة للنخلة/الورقة، لقطة قريبة للحشرة من الأعلى، ولقطة جانبية مع مسطرة صغيرة. لا تحفظ هذه الصور بعد انتهاء طلب التشخيص.
+
 قواعد حاسمة لا تهاون فيها:
 1. الفحص الأولي للصورة (الأهم):
    - حدد هل الصورة واضحة ومرتبطة فعلاً بالزراعة (نبات، ورقة، جذع، ثمرة، تربة مع أعراض، أو حشرة/آفة).
@@ -1659,6 +1604,13 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
           insectNature: { type: Type.STRING, enum: ['beneficial', 'harmful', 'neutral', 'none'] },
           insectSex: { type: Type.STRING, enum: ['male', 'female', 'undetermined'] },
           insectSexEvidence: { type: Type.STRING },
+          insectLifeStage: { type: Type.STRING, enum: ['egg', 'nymph', 'larva', 'pupa', 'adult', 'undetermined'] },
+          insectLifeStageLabel: { type: Type.STRING },
+          insectLifeStageEvidence: { type: Type.STRING },
+          insectInstar: { type: Type.STRING },
+          insectStageConfidence: { type: Type.INTEGER },
+          insectGeneration: { type: Type.STRING, enum: ['الجيل الربيعي', 'الجيل الخريفي', 'غير محدد'] },
+          insectGenerationEvidence: { type: Type.STRING },
           insectTargetCrops: { type: Type.ARRAY, items: { type: Type.STRING } },
           insectDamage: { type: Type.STRING },
           insectLifeCycle: { type: Type.STRING },
@@ -1696,6 +1648,13 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
           'insectNature',
           'insectSex',
           'insectSexEvidence',
+          'insectLifeStage',
+          'insectLifeStageLabel',
+          'insectLifeStageEvidence',
+          'insectInstar',
+          'insectStageConfidence',
+          'insectGeneration',
+          'insectGenerationEvidence',
           'insectTargetCrops',
           'insectDamage',
           'insectLifeCycle',
@@ -1919,6 +1878,13 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
             nature: insectNature,
             sex: ['male', 'female', 'undetermined'].includes(parsed.insectSex) ? parsed.insectSex : 'undetermined',
             sexEvidence: (parsed.insectSexEvidence || '').trim() || 'لا تظهر في الصورة علامة تشريحية كافية لتحديد الجنس بثقة.',
+            lifeStage: ['egg', 'nymph', 'larva', 'pupa', 'adult', 'undetermined'].includes(parsed.insectLifeStage) ? parsed.insectLifeStage : 'undetermined',
+            lifeStageLabel: (parsed.insectLifeStageLabel || '').trim() || 'غير محدد من الصورة',
+            lifeStageEvidence: (parsed.insectLifeStageEvidence || '').trim() || 'لا تظهر تفاصيل كافية لتحديد مرحلة الحياة بثقة.',
+            instar: (parsed.insectInstar || '').trim() || 'غير محدد',
+            stageConfidence: Math.max(0, Math.min(100, Number(parsed.insectStageConfidence) || 0)),
+            generation: ['الجيل الربيعي', 'الجيل الخريفي'].includes(parsed.insectGeneration) ? parsed.insectGeneration : 'غير محدد',
+            generationEvidence: (parsed.insectGenerationEvidence || '').trim() || 'لا يمكن إثبات الجيل من الصورة وحدها؛ يلزم رصد ميداني وتاريخ وموقع العينة.',
             targetCrops: insectTargetCropsArr,
             damage: (parsed.insectDamage || '').trim(),
             lifeCycle:
@@ -2658,12 +2624,24 @@ app.delete('/api/community/posts/:postId/comments/:commentId', requireStaff, (re
 
 // --- 9. Notifications APIs ---
 app.get('/api/notifications', (req, res) => {
-  const governorate = String(req.query.governorate || '').replace(/^محافظة\s*/, '').trim();
+  const governorate = String(req.query.governorate || '').replace(/^محافظة\\s*/, '').trim();
   const visible = storage.notifications.filter((n: any) => {
     if (n.targetUserId) return false;
-    const target = String(n.targetGovernorate || '').replace(/^محافظة\s*/, '').trim();
+    const target = String(n.targetGovernorate || '').replace(/^محافظة\\s*/, '').trim();
     const nationwide = !target || /كافة المحافظات|كافة محافظات|جميع المحافظات|جميع محافظات|سلطنة عُمان/i.test(target);
-    return nationwide || !governorate || target.includes(governorate) || governorate.includes(target);
+    return (!n.expiresAt || Number(n.expiresAt) > Date.now()) &&
+      (nationwide || !governorate || target.includes(governorate) || governorate.includes(target));
+  });
+  const month = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Muscat', month: 'numeric' }).format(new Date()));
+  const seasonalNotices: Record<number, { title: string; message: string }> = {
+    10: { title: 'أكتوبر: بدء موسم الزراعات الشتوية', message: 'ابدأ تجهيز أحواض الزراعة والمشاتل، واعتنِ بشتلات الطماطم والخيار والقرعيات والورقيات وفق نطاقك المناخي. راقب الذبابة البيضاء والمن داخل المشاتل.' },
+    11: { title: 'نوفمبر: ذروة زراعة المحاصيل الشتوية', message: 'هذا وقت مناسب لزراعة وشتل البصل والثوم والبطاطس والجزر والبنجر والخس والسبانخ والفجل في المناطق الملائمة. تابع رطوبة التربة والذبابة البيضاء والمن والتربس، وعدّل المواعيد حسب الارتفاع والولاية.' },
+    12: { title: 'ديسمبر: متابعة المحاصيل الشتوية', message: 'تابع تثبيت شتلات البصل والخضروات الشتوية، وانتظم في الري دون إغراق مع برودة الجو، وراقب المن والذبابة البيضاء. أضف التسميد وفق تحليل التربة واحتياج المحصول.' },
+  };
+  const seasonal = seasonalNotices[month];
+  if (seasonal) visible.push({
+    id: `oman-season-${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Muscat', year: 'numeric', month: '2-digit' })}`,
+    title: seasonal.title, message: seasonal.message, type: 'crop_advice', timestamp: Date.now(), read: false,
   });
   return res.setHeader('Cache-Control', 'no-store').json({ success: true, notifications: visible.map((notification: any) => ({ ...notification, read: false })) });
 });
