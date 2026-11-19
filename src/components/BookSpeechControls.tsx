@@ -5,7 +5,7 @@ import {
 import {
   getMurshidAudioPrefs,
   pauseMurshidAudio,
-  registerExternalMurshidAudioStopper,
+  subscribeMurshidSpeaking,
   resumeMurshidAudio,
   setMurshidVolume,
   speakMurshid,
@@ -99,13 +99,12 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
       setVolume(prefs.volume);
       if (prefs.muted) stopSpeech();
     });
-    const unregister = registerExternalMurshidAudioStopper(() => {
-      setStatus('idle');
-      onActiveParagraphChange(null);
+    const unsubscribeSpeaking = subscribeMurshidSpeaking((speaking) => {
+      if (!speaking) setStatus('idle');
     });
     return () => {
       unsubscribe();
-      unregister();
+      unsubscribeSpeaking();
       stopAllMurshidAudio();
     };
   }, [onActiveParagraphChange, stopSpeech]);
