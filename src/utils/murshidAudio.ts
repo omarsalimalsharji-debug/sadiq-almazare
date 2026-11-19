@@ -402,7 +402,7 @@ export async function speakMurshid(
     onEnd,
   } = options || {};
 
-  const eff = resolveEffectiveAudio(mutedOpt, volumeOpt);
+  void preferStudioAudio; // Kept for backwards-compatible callers; AI voice is now mandatory.\n  const eff = resolveEffectiveAudio(mutedOpt, volumeOpt);
   stopAllMurshidAudio(onSpeakingChange);
 
   const cleanRaw = text.trim();
@@ -436,135 +436,59 @@ export async function speakMurshid(
     // ignore
   }
 
-  // Optional server studio TTS clip (cached per session, graceful cooldown fallback)
-  if (preferStudioAudio && Date.now() >= studioTtsCooldownUntil) {
-    try {
-      const cacheKey = `${mood}:${vocalized}`;
-      let base64Audio = studioAudioSessionCache.get(cacheKey);
-      if (!base64Audio) {
-        const res = await fetch('/api/cartoon/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: vocalized, mood }),
-        });
-        const data = await res.json();
-        if (activePlaybackToken !== token) return;
-        if (res.ok && data?.success && typeof data?.audioBase64 === 'string' && data.audioBase64.length > 0) {
-          const studioClip: string = data.audioBase64;
-          base64Audio = studioClip;
-          if (studioAudioSessionCache.size >= 30) {
-            const firstKey = studioAudioSessionCache.keys().next().value;
-            if (firstKey) studioAudioSessionCache.delete(firstKey);
-          }
-          studioAudioSessionCache.set(cacheKey, studioClip);
-        } else if (data?.fallback === 'browser_tts' || data?.quotaExceeded || res.status === 429) {
-          studioTtsCooldownUntil = Date.now() + (Number(data?.retryAfterSec) || 600) * 1000;
-        }
-      }
-
-      if (base64Audio && typeof Audio !== 'undefined' && activePlaybackToken === token) {
-        const el = new Audio(`data:audio/wav;base64,${base64Audio}`);
-        el.volume = eff.volume;
-        el.playbackRate = Math.max(0.85, Math.min(1.25, rate / 0.94));
-        activeHtmlAudio = el;
-
-        const finishStudio = () => {
-          if (activePlaybackToken !== token) return;
-          activeHtmlAudio = null;
-          onSpeakingChange?.(false);
-          activeSpeakerSetter = null;
-          notifyGlobalSpeaking(false);
-          onEnd?.();
-        };
-
-        el.onended = finishStudio;
-        el.onerror = finishStudio;
-        notifyGlobalSpeaking(true);
-        onSpeakingChange?.(true);
-        await el.play();
-        return;
-      }
-    } catch {
-      // Fall back smoothly to unified Web Speech API
-    }
-  }
-
-  if (activePlaybackToken !== token) return;
-
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    notifyGlobalSpeaking(true);
-    onSpeakingChange?.(true);
-    const estMs = Math.min(3400, Math.max(1100, cleanRaw.length * 42));
-    activeSpeechTimer = setTimeout(() => {
-      if (activePlaybackToken !== token) return;
-      onSpeakingChange?.(false);
-      activeSpeakerSetter = null;
-      notifyGlobalSpeaking(false);
-      onEnd?.();
-    }, estMs);
-    return;
-  }
-
+  // Murshid always uses the server-generated natural AI voice.
+  // Never fall back to Android/Web Speech voices: that creates a robotic and inconsistent character.
   try {
-    const chunks = chunkArabicSpeech(vocalized, 135);
-    const voice = pickBestMurshidVoice();
-
-    const speakChunkAt = (chunkIdx: number) => {
+    const cacheKey = `${mood}:${vocalized}`;
+    let base64Audio = studioAudioSessionCache.get(cacheKey);
+    if (!base64Audio && Date.now() >= studioTtsCooldownUntil) {
+      const res = await fetch('/api/cartoon/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: vocalized, mood }),
+      });
+      const data = await res.json();
       if (activePlaybackToken !== token) return;
-      if (chunkIdx >= chunks.length) {
+      if (res.ok && data?.success && typeof data?.audioBase64 === 'string' && data.audioBase64.length > 0) {
+        base64Audio = data.audioBase64;
+        if (studioAudioSessionCache.size >= 30) {
+          const firstKey = studioAudioSessionCache.keys().next().value;
+          if (firstKey) studioAudioSessionCache.delete(firstKey);
+        }
+        studioAudioSessionCache.set(cacheKey, base64Audio);
+      } else {
+        studioTtsCooldownUntil = Date.now() + (Number(data?.retryAfterSec) || 60) * 1000;
+      }
+    }
+
+    if (base64Audio && typeof Audio !== 'undefined' && activePlaybackToken === token) {
+      const el = new Audio(`data:audio/wav;base64,${base64Audio}`);
+      el.volume = eff.volume;
+      el.playbackRate = Math.max(0.9, Math.min(1.12, rate / 0.94));
+      activeHtmlAudio = el;
+      const finish = () => {
+        if (activePlaybackToken !== token) return;
+        activeHtmlAudio = null;
         onSpeakingChange?.(false);
         activeSpeakerSetter = null;
         notifyGlobalSpeaking(false);
         onEnd?.();
-        return;
-      }
-
-      const utter = new SpeechSynthesisUtterance(chunks[chunkIdx]);
-      if (voice) {
-        utter.voice = voice;
-        utter.lang = voice.lang;
-      } else {
-        utter.lang = 'ar-OM';
-      }
-      utter.volume = eff.volume;
-      utter.rate = rate;
-      utter.pitch = mood === 'warning' ? 0.96 : 1.02;
-
-      let settled = false;
-      const moveNext = () => {
-        if (settled || activePlaybackToken !== token) return;
-        settled = true;
-        if (activeSpeechTimer) {
-          clearTimeout(activeSpeechTimer);
-          activeSpeechTimer = null;
-        }
-        speakChunkAt(chunkIdx + 1);
       };
-
-      utter.onstart = () => {
-        if (activePlaybackToken === token) {
-          notifyGlobalSpeaking(true);
-          onSpeakingChange?.(true);
-        }
-      };
-      utter.onend = moveNext;
-      utter.onerror = moveNext;
-
+      el.onended = finish;
+      el.onerror = finish;
       notifyGlobalSpeaking(true);
       onSpeakingChange?.(true);
-      window.speechSynthesis.speak(utter);
-
-      const maxChunkMs = Math.min(9500, Math.max(2400, chunks[chunkIdx].length * 95));
-      activeSpeechTimer = setTimeout(moveNext, maxChunkMs);
-    };
-
-    speakChunkAt(0);
-  } catch {
-    if (activePlaybackToken === token) {
-      onSpeakingChange?.(false);
-      activeSpeakerSetter = null;
-      notifyGlobalSpeaking(false);
-      onEnd?.();
+      await el.play();
+      return;
     }
+  } catch {
+    // Keep the character voice consistent. Do not switch to a device-generated voice.
+  }
+
+  if (activePlaybackToken === token) {
+    onSpeakingChange?.(false);
+    activeSpeakerSetter = null;
+    notifyGlobalSpeaking(false);
+    onEnd?.();
   }
 }
