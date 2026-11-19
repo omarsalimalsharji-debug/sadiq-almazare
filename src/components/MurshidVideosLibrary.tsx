@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Clapperboard, PlayCircle, VideoOff, RefreshCw, Clock3 } from 'lucide-react';
 import { INITIAL_CARTOON_EPISODES } from '../data/cartoonEpisodesData.ts';
+import { CartoonVideosView } from './CartoonVideosView.tsx';
 
 interface MediaEpisode {
   id: string;
@@ -18,6 +19,7 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
   const [selectedId, setSelectedId] = useState<string>(initialEpisodeId || INITIAL_CARTOON_EPISODES[0]?.id || '');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [failedVideoIds, setFailedVideoIds] = useState<string[]>([]);
 
   const selectedEpisode = useMemo(
     () => INITIAL_CARTOON_EPISODES.find((episode) => episode.id === selectedId) || INITIAL_CARTOON_EPISODES[0],
@@ -37,22 +39,18 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
         item && typeof item.id === 'string' &&
         (typeof item.video480pUrl === 'string' || typeof item.video1080pUrl === 'string')
       );
-      const verified = await Promise.all(candidates.map(async (item: MediaEpisode) => {
-        const url = item.video480pUrl || item.video1080pUrl;
-        if (!url) return null;
-        try {
-          const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-          const contentType = head.headers.get('content-type') || '';
-          return head.ok && contentType.includes('video/mp4') ? item : null;
-        } catch {
-          return null;
-        }
-      }));
+      // Do not issue cross-origin HEAD requests here: many legitimate video CDNs
+      // reject HEAD/CORS while allowing the browser's actual <video> GET request.
+      const playable = candidates.filter((item: MediaEpisode) => {
+        const raw = item.video480pUrl || item.video1080pUrl || '';
+        if (!raw) return false;
+        if (raw.startsWith('/')) return true;
+        try { return new URL(raw).protocol === 'https:'; } catch { return false; }
+      });
       const next: Record<string, MediaEpisode> = {};
-      for (const item of verified) {
-        if (item) next[item.id] = item;
-      }
+      for (const item of playable) next[item.id] = item;
       setMediaEpisodes(next);
+      setFailedVideoIds([]);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'تعذر تحميل بيانات المقاطع.');
       setMediaEpisodes({});
@@ -69,7 +67,13 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
   }, [initialEpisodeId]);
 
   if (!selectedEpisode) return null;
-  const videoUrl = selectedMedia?.video480pUrl || selectedMedia?.video1080pUrl || '';
+  const videoUrl = failedVideoIds.includes(selectedEpisode.id) ? '' : (selectedMedia?.video480pUrl || selectedMedia?.video1080pUrl || '');
+
+  // The current deployment may not have pre-rendered MP4 assets. In that case,
+  // show the fully playable animated Murshid lesson rather than an empty player.
+  if (!loading && !videoUrl && !Object.keys(mediaEpisodes).some((id) => !failedVideoIds.includes(id))) {
+    return <CartoonVideosView initialEpisodeId={selectedId} publicMode />;
+  }
 
   return (
     <section className="max-w-5xl mx-auto space-y-5 overflow-x-hidden">
@@ -91,8 +95,10 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
               playsInline
               preload="metadata"
               className="w-full aspect-video bg-black object-contain"
+              onError={() => setFailedVideoIds((prev) => prev.includes(selectedEpisode.id) ? prev : [...prev, selectedEpisode.id])}
             >
               <source src={videoUrl} type="video/mp4" />
+              <track kind="captions" />
               متصفحك لا يدعم تشغيل الفيديو.
             </video>
           ) : (
