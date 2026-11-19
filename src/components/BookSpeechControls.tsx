@@ -89,10 +89,9 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
   useEffect(() => {
     const unsubscribe = subscribeMurshidAudioPrefs((prefs) => {
       setVolume(prefs.volume);
-      if (prefs.muted && status !== 'idle') stopSpeech();
+      if (prefs.muted) stopSpeech();
     });
     const unregister = registerExternalMurshidAudioStopper(() => {
-      runIdRef.current += 1;
       setStatus('idle');
       onActiveParagraphChange(null);
     });
@@ -101,7 +100,7 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
       unregister();
       stopAllMurshidAudio();
     };
-  }, [onActiveParagraphChange, stopSpeech, status]);
+  }, [onActiveParagraphChange, stopSpeech]);
 
   const handlePlay = async () => {
     if (status === 'paused') {
