@@ -3161,7 +3161,7 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
     if (nowMs < cartoonTtsCooldownUntil) {
       return res.json({
         success: false,
-        fallback: 'browser_tts',
+        fallback: 'ai_voice_unavailable',
         quotaExceeded: true,
         retryAfterSec: Math.ceil((cartoonTtsCooldownUntil - nowMs) / 1000),
       });
@@ -3207,7 +3207,7 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
     if (!base64Audio) {
       return res.json({
         success: false,
-        fallback: 'browser_tts',
+        fallback: 'ai_voice_unavailable',
         quotaExceeded: false,
       });
     }
@@ -3268,7 +3268,7 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
       }
       return res.json({
         success: false,
-        fallback: 'browser_tts',
+        fallback: 'ai_voice_unavailable',
         quotaExceeded: true,
         retryAfterSec: 600,
       });
@@ -3276,7 +3276,7 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
     console.warn('Cartoon TTS temporary fallback:', msg.slice(0, 180));
     return res.json({
       success: false,
-      fallback: 'browser_tts',
+      fallback: 'ai_voice_unavailable',
       quotaExceeded: false,
     });
   }
