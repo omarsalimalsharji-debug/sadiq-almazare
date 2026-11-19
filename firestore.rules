@@ -213,21 +213,10 @@ service cloud.firestore {
         );
       }
 
-      // Plant diagnosis history log per user
+      // Diagnosis history is intentionally disabled: the app provides session-only results.
+      // Legacy records can be removed only through the authenticated server-side admin purge.
       match /diagnoses/{diagnosisId} {
-        allow get: if isValidId(userId) && isValidId(diagnosisId)
-          && (isOwner(userId) || isAdmin())
-          && exists(/databases/$(database)/documents/users/$(userId));
-        allow list: if isValidId(userId) && isSignedIn()
-          && (isOwner(userId) || isAdmin());
-        allow create: if isVerified() && isValidId(userId) && isValidId(diagnosisId)
-          && isOwner(userId)
-          && exists(/databases/$(database)/documents/users/$(userId))
-          && isValidPlantDiagnosis(incoming())
-          && incoming().userId == request.auth.uid
-          && incoming().createdAt == request.time;
-        allow delete: if isVerified() && isValidId(userId) && isValidId(diagnosisId)
-          && (isOwner(userId) || isAdmin());
+        allow read, write: if false;
       }
     }
 

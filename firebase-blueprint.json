@@ -156,10 +156,6 @@
       "schema": { "$ref": "#/entities/UserPrivate" },
       "description": "Private user PII strictly isolated to owner and admin"
     },
-    "/users/{userId}/diagnoses/{diagnosisId}": {
-      "schema": { "$ref": "#/entities/PlantDiagnosis" },
-      "description": "User plant pathology and pest diagnosis log"
-    },
     "/friendships/{friendshipId}": {
       "schema": { "$ref": "#/entities/Friendship" },
       "description": "Friend connections and competition invitations"

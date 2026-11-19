@@ -311,42 +311,10 @@ export default function App() {
     [seasonalConfig, seasonalTick]
   );
 
-  // Anonymous Visitor Tracking + Active Heartbeat
+  // Farmer visit tracking is intentionally disabled; the app keeps no device/page visit history.
   useEffect(() => {
-    let anonId = localStorage.getItem('farmer_anon_device_id');
-    if (!anonId) {
-      anonId =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      localStorage.setItem('farmer_anon_device_id', anonId);
-    }
-
-    const detectDevice = () => {
-      const ua = navigator.userAgent.toLowerCase();
-      if (/ipad|tablet|playbook|silk|(android(?!.*mobi))/i.test(ua)) return 'جهاز لوحي';
-      if (/mobile|iphone|ipod|android|blackberry|iemobile|opera mini/i.test(ua) || window.innerWidth < 640) {
-        return 'هاتف';
-      }
-      return 'كمبيوتر';
-    };
-
-    const sendVisitPing = () => {
-      fetch('/api/visitors/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          anonId,
-          deviceType: detectDevice(),
-          currentPage: activePage,
-        }),
-      }).catch(() => {});
-    };
-
-    sendVisitPing();
-    const hb = setInterval(sendVisitPing, 60000);
-    return () => clearInterval(hb);
-  }, [activePage]);
+    try { localStorage.removeItem('farmer_anon_device_id'); } catch { /* ignore unavailable storage */ }
+  }, []);
 
   // Verify Staff Token (Admin / Moderator) on mount
   useEffect(() => {

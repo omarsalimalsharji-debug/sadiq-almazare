@@ -881,25 +881,7 @@
       ]
     }
   ],
-  "notifications": [
-    {
-      "id": "notif-1",
-      "title": "تنبيه مناخي: نشاط رياح هابطة وفرص غبار",
-      "message": "توقع نشاط رياح مثيرة للغبار على محافظات البريمي والظاهرة والوسطى، يرجى إحكام أغطية البيوت المحمية وتأجيل رش المبيدات.",
-      "type": "weather",
-      "targetGovernorate": "الظاهرة والبريمي",
-      "timestamp": 1794545508358,
-      "read": false
-    },
-    {
-      "id": "notif-2",
-      "title": "إرشاد النخيل: مواعيد التكميم الميداني",
-      "message": "توصية إدارة الإرشاد الزراعي بمتابعة تكميم عذوق نخيل الخلاص والفرض لحمايتها من العناكب وطيور القيظ.",
-      "type": "crop_advice",
-      "timestamp": 1794509508358,
-      "read": false
-    }
-  ],
+  "notifications": [],
   "auditLogs": [
     {
       "id": "aud-1",
@@ -926,31 +908,8 @@
   "moderationLogs": [],
   "supportTickets": [],
   "calendarReminders": [],
-  "visitors": {
-    "v_e76150ef976d2df9": {
-      "anonId": "v_e76150ef976d2df9",
-      "deviceType": "هاتف",
-      "browserLabel": "Android · Chrome",
-      "firstVisitAt": 1794570398345,
-      "lastSeenAt": 1794818448338,
-      "visitCount": 5,
-      "lastPage": "virtual_farm"
-    }
-  },
-  "dailyVisitIds": {
-    "2026-11-13": [
-      "v_e76150ef976d2df9"
-    ],
-    "2026-11-14": [
-      "v_e76150ef976d2df9"
-    ],
-    "2026-11-15": [
-      "v_e76150ef976d2df9"
-    ],
-    "2026-11-16": [
-      "v_e76150ef976d2df9"
-    ]
-  },
+  "visitors": {},
+  "dailyVisitIds": {},
   "seasonalConfig": {
     "referenceCalendar": "oman-official",
     "hijriOffsetDays": 0,

@@ -42,14 +42,14 @@ interface AdminViewProps {
 
 type AdminTab =
   | 'overview'
-  | 'visitors'
   | 'moderation'
   | 'support'
   | 'security'
   | 'seasonal'
   | 'broadcast'
   | 'questions'
-  | 'audit';
+  | 'audit'
+  | 'privacy';
 
 export const AdminView: React.FC<AdminViewProps> = ({
   user,
@@ -80,25 +80,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [moderationLogs, setModerationLogs] = useState<any[]>([]);
   const [supportTickets, setSupportTickets] = useState<any[]>([]);
   const [statusMsg, setStatusMsg] = useState<{ ok: boolean; text: string } | null>(null);
-
-  // Visitor Analytics state
-  const [visitorAnalytics, setVisitorAnalytics] = useState<{
-    todayCount: number;
-    weekCount: number;
-    totalCount: number;
-    activeNowCount: number;
-    last7Days: Array<{ dateKey: string; labelAr: string; count: number }>;
-    recentVisitors: Array<{
-      anonLabel: string;
-      deviceType: string;
-      browserLabel: string;
-      firstVisitAt: number;
-      lastSeenAt: number;
-      visitCount: number;
-      lastPage: string;
-      isActiveNow: boolean;
-    }>;
-  } | null>(null);
+  const [purgeHistoryLoading, setPurgeHistoryLoading] = useState<boolean>(false);
 
   // Moderators & Banned Words state
   const [moderators, setModerators] = useState<Array<{
@@ -220,16 +202,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
 
       if (role === 'admin') {
-        const [visRes, modsRes, bwRes] = await Promise.all([
-          fetch('/api/admin/visitors', { headers: { 'x-admin-token': adminToken } }),
+        const [modsRes, bwRes] = await Promise.all([
           fetch('/api/admin/moderators', { headers: { 'x-admin-token': adminToken } }),
           fetch('/api/admin/banned-words', { headers: { 'x-admin-token': adminToken } }),
         ]);
-
-        if (visRes.ok) {
-          const visData = await visRes.json();
-          if (visData.success) setVisitorAnalytics(visData.analytics);
-        }
         if (modsRes.ok) {
           const modsData = await modsRes.json();
           if (modsData.success) setModerators(modsData.moderators || []);
@@ -526,6 +502,25 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
+  const handlePurgeDiagnosisHistory = async () => {
+    if (!window.confirm('سيتم حذف جميع سجلات التشخيص القديمة من قاعدة البيانات نهائياً. لن تُحذف الملفات الشخصية أو النقاط أو الكتب. هل تريد المتابعة؟')) return;
+    setPurgeHistoryLoading(true);
+    setStatusMsg(null);
+    try {
+      const res = await fetch('/api/admin/diagnosis-history', {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'تعذر مسح السجلات.');
+      setStatusMsg({ ok: true, text: `اكتمل مسح سجلات التشخيص القديمة: ${Number(data.deletedCount || 0)} سجل.` });
+    } catch (error: any) {
+      setStatusMsg({ ok: false, text: error?.message || 'تعذر إكمال مسح السجلات القديمة.' });
+    } finally {
+      setPurgeHistoryLoading(false);
+    }
+  };
+
   const handleRunSeasonalTests = () => {
     const scenarios = generateSeasonalTestScenarios(
       seasonForm.referenceCalendar,
@@ -556,10 +551,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   );
 
   const isModeratorOnly = staffRole === 'moderator';
-  const max7DayCount = Math.max(
-    1,
-    ...(visitorAnalytics?.last7Days || []).map((d) => d.count)
-  );
+
 
   const handleUpdateTicketStatus = async (ticketId: string, status: 'open' | 'in_progress' | 'resolved') => {
     try {
@@ -582,13 +574,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const allTabs: Array<{ id: AdminTab; label: string; adminOnly?: boolean }> = [
     { id: 'overview', label: 'نظرة عامة', adminOnly: true },
-    { id: 'visitors', label: 'معرفة الزوار', adminOnly: true },
     { id: 'moderation', label: 'المشرفون والكلمات الممنوعة' },
     { id: 'support', label: `بلاغات ومقترحات المزارعين (${supportTickets.filter((t) => t.status !== 'resolved').length})` },
     { id: 'security', label: 'تغيير كلمة السر', adminOnly: true },
     { id: 'seasonal', label: 'المناسبات والتقويم', adminOnly: true },
     { id: 'broadcast', label: 'بث التنبيهات', adminOnly: true },
     { id: 'questions', label: 'بنك الأسئلة', adminOnly: true },
+    { id: 'privacy', label: 'الخصوصية والبيانات', adminOnly: true },
     { id: 'audit', label: 'سجل التدقيق' },
   ];
 
@@ -778,152 +770,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
       )}
 
       {/* Tab 2: Visitor Analytics */}
-      {activeTab === 'visitors' && !isModeratorOnly && !mustChangePassword && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
-              <div className="flex items-center justify-between text-stone-400 text-xs">
-                <span>زوار اليوم</span>
-                <Eye className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div className="text-2xl font-black text-stone-900 dark:text-white font-mono mt-1">
-                {visitorAnalytics?.todayCount ?? 0}
-              </div>
-              <span className="text-[10px] text-stone-400">بتوقيت مسقط</span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
-              <div className="flex items-center justify-between text-stone-400 text-xs">
-                <span>زوار الأسبوع</span>
-                <Users className="w-4 h-4 text-cyan-500" />
-              </div>
-              <div className="text-2xl font-black text-stone-900 dark:text-white font-mono mt-1">
-                {visitorAnalytics?.weekCount ?? 0}
-              </div>
-              <span className="text-[10px] text-stone-400">آخر 7 أيام</span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#132247] border border-stone-200 dark:border-sky-300/15 shadow-sm">
-              <div className="flex items-center justify-between text-stone-400 text-xs">
-                <span>إجمالي الزوار</span>
-                <Activity className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="text-2xl font-black text-stone-900 dark:text-white font-mono mt-1">
-                {visitorAnalytics?.totalCount ?? 0}
-              </div>
-              <span className="text-[10px] text-stone-400">الأجهزة الفريدة المسجلة</span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 shadow-sm">
-              <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 text-xs font-bold">
-                <span>الزوار النشطون الآن</span>
-                <Activity className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300 font-mono mt-1">
-                {visitorAnalytics?.activeNowCount ?? 0}
-              </div>
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400">نشط خلال آخر 5 دقائق</span>
-            </div>
-          </div>
-
-          {/* 7-Day Simple Bar Chart */}
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-sm text-stone-900 dark:text-white">
-                مخطط الزوار خلال آخر 7 أيام
-              </h3>
-              <button
-                type="button"
-                onClick={fetchAdminData}
-                className="min-h-[38px] px-3 rounded-lg bg-stone-100 dark:bg-stone-800 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-200"
-              >
-                تحديث
-              </button>
-            </div>
-
-            <div className="grid grid-cols-7 gap-2 items-end h-44 pt-4 border-b border-stone-100 dark:border-stone-800 pb-2">
-              {(visitorAnalytics?.last7Days || []).map((day) => {
-                const heightPct = Math.max(8, Math.round((day.count / max7DayCount) * 100));
-                return (
-                  <div key={day.dateKey} className="flex flex-col items-center justify-end h-full gap-1.5">
-                    <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                      {day.count}
-                    </span>
-                    <div className="w-full max-w-[40px] flex-1 flex items-end justify-center">
-                      <div
-                        style={{ height: `${day.count === 0 ? 6 : heightPct}%` }}
-                        className={`w-full rounded-t-xl transition-all duration-500 ${
-                          day.count > 0
-                            ? 'bg-emerald-600 dark:bg-emerald-500'
-                            : 'bg-stone-200 dark:bg-stone-800'
-                        }`}
-                        title={`${day.labelAr}: ${day.count} زائر`}
-                      />
-                    </div>
-                    <span className="text-[10px] text-stone-500 text-center truncate w-full">
-                      {day.labelAr}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Recent Visitors List */}
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 shadow-sm space-y-3">
-            <h3 className="font-bold text-sm text-stone-900 dark:text-white">
-              قائمة بآخر الزوار ({visitorAnalytics?.recentVisitors?.length || 0})
-            </h3>
-            {!visitorAnalytics?.recentVisitors?.length ? (
-              <div className="text-xs text-stone-400 py-6 text-center">
-                لم تُسجّل زيارات بعد.
-              </div>
-            ) : (
-              <div className="divide-y divide-stone-100 dark:divide-stone-800 text-xs">
-                {visitorAnalytics.recentVisitors.map((v, idx) => (
-                  <div
-                    key={`${v.anonLabel}-${idx}`}
-                    className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-emerald-600 shrink-0">
-                        {v.deviceType === 'هاتف' ? (
-                          <Smartphone className="w-4 h-4" />
-                        ) : v.deviceType === 'جهاز لوحي' ? (
-                          <Tablet className="w-4 h-4" />
-                        ) : (
-                          <Monitor className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-bold text-stone-900 dark:text-white flex items-center gap-2">
-                          <span className="font-mono">{v.anonLabel}</span>
-                          <span className="px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-[10px] font-semibold">
-                            {v.deviceType}
-                          </span>
-                          {v.isActiveNow && (
-                            <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
-                              نشط الآن
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-stone-400 mt-0.5">
-                          {v.browserLabel} · الصفحة: {v.lastPage} · الزيارات: {v.visitCount}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-[11px] text-stone-400 font-mono">
-                      آخر دخول: {new Date(v.lastSeenAt).toLocaleString('ar-OM')}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Tab 3: Moderators, Banned Words & Moderation Action Log */}
       {activeTab === 'moderation' && !mustChangePassword && (
         <div className="space-y-6 text-xs">
@@ -1215,6 +1061,31 @@ export const AdminView: React.FC<AdminViewProps> = ({
             تحديث وحفظ كلمة السر المشفرة
           </button>
         </form>
+      )}
+
+      {activeTab === 'privacy' && !isModeratorOnly && !mustChangePassword && (
+        <div className="max-w-3xl space-y-5">
+          <div className="rounded-2xl border border-emerald-300/40 bg-white dark:bg-[#132247] p-5 sm:p-6 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-extrabold">
+              <ShieldCheck className="w-5 h-5" />
+              <h2>سياسة الخصوصية والتشخيص المؤقت</h2>
+            </div>
+            <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
+              نتائج التشخيص وصور النباتات والحشرات لا تُحفظ في حساب المزارع أو على الجهاز كسجل دائم. تبقى النتيجة في الشاشة خلال الجلسة فقط. كما تم إيقاف سجل زيارات الأجهزة والصفحات.
+            </p>
+            <div className="rounded-xl bg-amber-50 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-800 p-4 space-y-2">
+              <h3 className="font-bold text-amber-900 dark:text-amber-200">السجلات القديمة قبل هذا التحديث</h3>
+              <p className="text-xs leading-6 text-amber-800 dark:text-amber-200">
+                إذا كانت هناك تشخيصات محفوظة سابقاً في Firebase، يمكنك حذفها نهائياً من جميع حسابات المزارعين. لا يشمل الحذف الملف الشخصي أو النقاط أو الكتب أو إعدادات المدير.
+              </p>
+              <button type="button" onClick={handlePurgeDiagnosisHistory} disabled={purgeHistoryLoading}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold flex items-center gap-2">
+                <Trash2 className="w-4 h-4" />
+                {purgeHistoryLoading ? 'جارٍ حذف السجلات القديمة...' : 'حذف جميع سجلات التشخيص القديمة'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Tab 5: Dynamic Islamic Seasonal & Oman Hijri Calendar Management */}
