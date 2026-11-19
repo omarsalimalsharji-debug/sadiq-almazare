@@ -60,6 +60,13 @@ interface InsectDetails {
   nature: 'beneficial' | 'harmful' | 'neutral' | 'none';
   sex?: 'male' | 'female' | 'undetermined';
   sexEvidence?: string;
+  lifeStage?: string;
+  lifeStageLabel?: string;
+  lifeStageEvidence?: string;
+  instar?: string;
+  stageConfidence?: number;
+  generation?: string;
+  generationEvidence?: string;
   targetCrops: string[];
   damage: string;
   lifeCycle: string;
@@ -1170,6 +1177,17 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                                     <p className="text-[10px] text-slate-500 dark:text-slate-400">
                                       يُعرض التقدير عند وجود علامات مرئية موثوقة فقط؛ وقد يتعذر تحديد الجنس من صورة واحدة.
                                     </p>
+                                  </div>
+
+                                  <div className="rounded-xl border border-emerald-200/70 dark:border-emerald-400/20 bg-emerald-50/70 dark:bg-emerald-950/20 p-3 space-y-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                                      <div><span className="font-bold text-slate-900 dark:text-white">مرحلة الحشرة: </span>{result.insectDetails.lifeStageLabel || 'غير محددة'}</div>
+                                      <div><span className="font-bold text-slate-900 dark:text-white">عمر الحورية: </span>{result.insectDetails.instar || 'غير محدد'}</div>
+                                      <div><span className="font-bold text-slate-900 dark:text-white">الجيل الموسمي: </span>{result.insectDetails.generation || 'غير محدد'}</div>
+                                    </div>
+                                    {result.insectDetails.lifeStageEvidence && <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">{result.insectDetails.lifeStageEvidence}</p>}
+                                    {result.insectDetails.generationEvidence && <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">{result.insectDetails.generationEvidence}</p>}
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">الجيل الموسمي تقدير مرتبط بتاريخ وموقع الرصد، وليس صفة يمكن إثباتها من صورة منفردة.</p>
                                   </div>
 
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700 dark:text-slate-300">
