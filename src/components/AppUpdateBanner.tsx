@@ -47,8 +47,12 @@ export const AppUpdateBanner: React.FC = () => {
         const response = await fetch(`${MANIFEST_URL}?v=${Date.now()}`, { cache: 'no-store' });
         if (!response.ok) return;
         const data = (await response.json()) as UpdateManifest;
-        if (cancelled || !data.available || !data.version || !data.apkUrl) return;
-        if (!isNewerVersion(data.version, installedVersion)) return;
+        if (cancelled) return;
+        if (!data.available || !data.version || !data.apkUrl || !isNewerVersion(data.version, installedVersion)) {
+          setUpdate(null);
+          window.dispatchEvent(new CustomEvent('sadiq:update-availability', { detail: { available: false } }));
+          return;
+        }
         setUpdate(data);
         window.dispatchEvent(new CustomEvent('sadiq:update-availability', { detail: { available: true, version: data.version } }));
       } catch {
