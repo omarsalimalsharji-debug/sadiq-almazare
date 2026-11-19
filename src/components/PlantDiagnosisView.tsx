@@ -138,9 +138,11 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   const { openShare } = useShare();
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const additionalGalleryInputRef = useRef<HTMLInputElement | null>(null);
   const lastAnalyzedSignatureRef = useRef<string | null>(null);
 
   const [selectedImage, setSelectedImage] = useState<ProcessedPlantImage | null>(null);
+  const [additionalImages, setAdditionalImages] = useState<ProcessedPlantImage[]>([]);
   const [processingPhoto, setProcessingPhoto] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
@@ -245,6 +247,25 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     handleSelectedFile(file);
   };
 
+  const handleAdditionalInputFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).slice(0, Math.max(0, 2 - additionalImages.length));
+    e.target.value = '';
+    if (!files.length) return;
+    setProcessingPhoto(true);
+    setError(null);
+    try {
+      const processed = await Promise.all(files.map((file) => compressAndEnhancePlantImage(file)));
+      setAdditionalImages((previous) => [...previous, ...processed].slice(0, 2));
+      setResult(null);
+      setShowScientificDetails(false);
+      lastAnalyzedSignatureRef.current = null;
+    } catch (err: any) {
+      setError(err?.message || 'تعذر معالجة الصور الإضافية.');
+    } finally {
+      setProcessingPhoto(false);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
@@ -255,6 +276,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   const handleResetPhoto = () => {
     stopAllMurshidAudio(setMurshidSpeaking);
     setSelectedImage(null);
+    setAdditionalImages([]);
     setResult(null);
     setError(null);
 
@@ -273,7 +295,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     }
 
     const effectiveCrop = cropName === 'تحديد تلقائي من الصورة' ? '' : cropName;
-    const signature = `${selectedImage.fingerprint}|${effectiveCrop}|${effectiveGovernorate}|${effectiveWilayat}|${effectiveVillage}|${observations.trim()}`;
+    const signature = `${selectedImage.fingerprint}|${additionalImages.map((image) => image.fingerprint).join(',')}|${effectiveCrop}|${effectiveGovernorate}|${effectiveWilayat}|${effectiveVillage}|${observations.trim()}`;
 
     // Prevent redundant identical submissions if a result is already visible
     if (lastAnalyzedSignatureRef.current === signature && result) {
@@ -289,7 +311,10 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageBase64: selectedImage.dataUrl,
+          images: [
+            { label: 'الصورة الأساسية', base64: selectedImage.dataUrl },
+            ...additionalImages.map((image, index) => ({ label: `زاوية إضافية ${index + 1}`, base64: image.dataUrl })),
+          ],
           cropName: effectiveCrop,
           governorate: effectiveGovernorate,
           wilayat: effectiveWilayat,
@@ -419,6 +444,15 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
         className="hidden"
         aria-label="اختيار صورة من المعرض"
       />
+      <input
+        ref={additionalGalleryInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+        multiple
+        onChange={handleAdditionalInputFileChange}
+        className="hidden"
+        aria-label="إضافة صور تفصيلية من زوايا مختلفة"
+      />
 
       {/* Compact, Clean Header */}
       <div className="flex items-start sm:items-center justify-between gap-3">
@@ -438,12 +472,21 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/80">
             {initialFocus === 'insect'
-              ? 'ارفع صورة واحدة واضحة للحشرة، وسيحلل النظام شكلها وعلاماتها لتحديدها مبدئياً.'
-              : 'ارفع صورة واحدة واضحة للنبات أو الجزء المصاب، وسيحلل النظام الأعراض والعلامات الظاهرة.'}
+              ? 'ارفع صورة واضحة للحشرة، ويمكنك إضافة صورتين مقرّبتين من الأعلى والجانب لتمييز النوع والمرحلة والجنس عند ظهور العلامات.'
+              : 'ارفع صورة واضحة للنبات أو الجزء المصاب، ويمكنك إضافة صور للوجهين العلوي والسفلي أو قاعدة النبات لزيادة دقة المقارنة.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            disabled={!selectedImage || additionalImages.length >= 2 || processingPhoto}
+            onClick={() => additionalGalleryInputRef.current?.click()}
+            className="min-h-[40px] px-3 rounded-xl border border-emerald-300/50 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold disabled:opacity-40"
+            title="أضف حتى صورتين من زوايا مختلفة"
+          >
+            + صور تفصيلية
+          </button>
           <button
             type="button"
             onClick={toggleSound}
@@ -477,6 +520,11 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
         )}
       </AnimatePresence>
 
+        {additionalImages.length > 0 && (
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 px-3 py-2 text-[11px] text-emerald-800 dark:text-emerald-200">
+            تمت إضافة {additionalImages.length} صورة تفصيلية؛ سيحللها النظام مع الصورة الأساسية في طلب واحد.
+          </div>
+        )}
       {/* Main Capture / Preview Hero Card */}
       <div
         onDragOver={(e) => {
