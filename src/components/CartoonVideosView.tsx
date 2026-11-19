@@ -581,7 +581,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
         audioLevelRef.current = 0;
         const estimatedDurationMs = Math.max(
           5000,
-          Math.min(18000, targetScene.narration.trim().split(/\\s+/).length * 480)
+          Math.min(18000, targetScene.narration.trim().split(/\s+/).length * 480)
         );
         fallbackTimerRef.current = setTimeout(() => {
           fallbackTimerRef.current = null;
