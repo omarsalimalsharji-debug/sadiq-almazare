@@ -3208,7 +3208,30 @@ app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, requireStaff, (req, 
   return res.json({ success: true, review: current });
 });
 
-app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
+const PUBLIC_CARTOON_TTS_TEXTS = new Set(
+  INITIAL_CARTOON_EPISODES.flatMap((episode) =>
+    episode.scenes.map((scene) =>
+      prepareArabicTextForTts(scene.vocalizedNarration || scene.narration)
+    )
+  )
+);
+const publicCartoonTtsRateLimit = createRateLimiter(
+  'public-cartoon-tts',
+  8,
+  60 * 1000,
+  'تم تشغيل دروس مُرشد عدة مرات خلال دقيقة؛ يرجى الانتظار قليلاً ثم إعادة المحاولة.'
+);
+function authorizeCartoonLessonTts(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const raw = typeof req.body?.text === 'string' ? req.body.text.trim().slice(0, 800) : '';
+  const normalized = prepareArabicTextForTts(raw);
+  // Only the fixed, reviewed educational narrations are public. Custom TTS remains staff-only.
+  if (PUBLIC_CARTOON_TTS_TEXTS.has(normalized)) {
+    return publicCartoonTtsRateLimit(req, res, next);
+  }
+  return requireStaff(req, res, next);
+}
+
+app.post('/api/cartoon/tts', authorizeCartoonLessonTts, aiRateLimit, async (req, res) => {
   try {
     const { text, mood } = req.body;
     const rawClean = typeof text === 'string' ? text.trim().slice(0, 800) : '';
