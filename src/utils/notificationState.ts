@@ -45,7 +45,7 @@ export function getLocalNotifications(): NotificationRecord[] {
       ? parsed.filter((item) =>
           item &&
           typeof item.id === 'string' &&
-          !/خف عذوق النخيل|تكميم عذوق نخيل الخلاص والفرض|موعد تكميم عذوق النخيل/i.test(String(item.title || '') + ' ' + String(item.message || ''))
+          !/خف.{0,15}عذوق|تكميم.{0,15}عذوق|عذوق.{0,15}تكميم/i.test(String(item.title || '') + ' ' + String(item.message || ''))
         )
       : [];
     if (Array.isArray(parsed) && valid.length !== parsed.length) {
