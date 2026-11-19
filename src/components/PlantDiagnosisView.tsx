@@ -230,6 +230,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       const processed = await compressAndEnhancePlantImage(file);
       playCaptureSound(soundEnabled);
       setSelectedImage(processed);
+      setAdditionalImages([]);
       setResult(null);
       setShowScientificDetails(false);
       lastAnalyzedSignatureRef.current = null;
@@ -1235,7 +1236,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                                     </div>
                                     {result.insectDetails.lifeStageEvidence && <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">{result.insectDetails.lifeStageEvidence}</p>}
                                     {result.insectDetails.generationEvidence && <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">{result.insectDetails.generationEvidence}</p>}
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">الجيل الموسمي تقدير مرتبط بتاريخ وموقع الرصد، وليس صفة يمكن إثباتها من صورة منفردة.</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">ثقة تقدير المرحلة: {Number(result.insectDetails.stageConfidence || 0)}%. الجيل الموسمي تقدير مرتبط بتاريخ وموقع الرصد، وليس صفة يمكن إثباتها من صورة منفردة.</p>
                                   </div>
 
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700 dark:text-slate-300">
