@@ -471,7 +471,7 @@ export async function speakMurshid(
           const firstKey = studioAudioSessionCache.keys().next().value;
           if (firstKey) studioAudioSessionCache.delete(firstKey);
         }
-        studioAudioSessionCache.set(cacheKey, base64Audio);
+        studioAudioSessionCache.set(cacheKey, data.audioBase64);
       } else {
         studioTtsCooldownUntil = Date.now() + (Number(data?.retryAfterSec) || 60) * 1000;
       }
