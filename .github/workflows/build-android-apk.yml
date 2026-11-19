@@ -67,6 +67,25 @@ jobs:
 
       - name: Sync Capacitor
         run: npx cap sync android
+      - name: Generate Android launcher icons from the approved app mark
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y imagemagick
+          for size in 48 72 96 144 192; do
+            case "$size" in
+              48) density=mdpi ;;
+              72) density=hdpi ;;
+              96) density=xhdpi ;;
+              144) density=xxhdpi ;;
+              192) density=xxxhdpi ;;
+            esac
+            mkdir -p "android/app/src/main/res/mipmap-${density}"
+            convert public/icon.svg -background none -resize "${size}x${size}" "android/app/src/main/res/mipmap-${density}/ic_launcher.png"
+            convert public/icon.svg -background none -resize "${size}x${size}" "android/app/src/main/res/mipmap-${density}/ic_launcher_round.png"
+            convert public/icon.svg -background none -resize "${size}x${size}" "android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.png"
+          done
 
       - name: Decode stable release signing key
         if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != '' }}
