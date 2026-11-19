@@ -3140,7 +3140,7 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
             : 'cheerful';
     const cacheKey = crypto
       .createHash('sha256')
-      .update(`v6-murshid-gacrux-oman-voice:${voiceMood}:${cleanText}`)
+      .update(`v7-murshid-algieba-oman-male:${voiceMood}:${cleanText}`)
       .digest('hex');
 
     const ttsDiskCacheDir = path.join(DATA_DIR, 'tts-cache');
@@ -3169,7 +3169,7 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
 
     const styleMap: Record<string, string> = {
       cheerful:
-        'A highly natural, lifelike adult male Arabic voice for an Omani agricultural guide. Warm low-mid register, relaxed Omani/Gulf conversational cadence, authentic human breath and phrasing, varied intonation, gentle smile, natural short pauses, clear but not over-enunciated Arabic. Sound like a real experienced Omani radio presenter speaking directly to one farmer, not an announcer, not a character caricature, never synthetic, metallic, sing-song or robotic. Keep local Omani crop names exactly as written',
+        'A highly natural, lifelike adult male Arabic voice for an Omani agricultural guide. Smooth warm low-mid register, relaxed Omani/Gulf conversational cadence, authentic human breath and phrasing, varied intonation, gentle smile, natural short pauses, clear but not over-enunciated Arabic. Sound like a real experienced Omani radio presenter speaking directly to one farmer, not an announcer, not a character caricature, never synthetic, metallic, sing-song or robotic. Keep local Omani crop names exactly as written',
       curious:
         'A lifelike adult male Omani/Gulf Arabic agricultural educator, thoughtful and curious but calm. Natural conversational intonation and breathing, precise local crop and pest names, measured human pacing, no artificial emphasis',
       warning:
@@ -3197,7 +3197,7 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Gacrux' },
+            prebuiltVoiceConfig: { voiceName: 'Algieba' },
           },
         },
       },
