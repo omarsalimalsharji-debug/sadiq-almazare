@@ -71,7 +71,7 @@ export const MurshidVideosLibrary: React.FC<MurshidVideosLibraryProps> = ({ init
 
   // The current deployment may not have pre-rendered MP4 assets. In that case,
   // show the fully playable animated Murshid lesson rather than an empty player.
-  if (!loading && !videoUrl && !Object.keys(mediaEpisodes).some((id) => !failedVideoIds.includes(id))) {
+  if (!loading && !videoUrl) {
     return <CartoonVideosView initialEpisodeId={selectedId} publicMode />;
   }
 
