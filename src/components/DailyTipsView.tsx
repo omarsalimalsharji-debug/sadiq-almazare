@@ -83,6 +83,13 @@ const DAILY_AGRICULTURAL_TIPS = [
     tip: 'حافظ على رطوبة متوازنة حول الجذور، وتجنب بقاء الماء راكداً حول الشتلات. عدّل كمية الري حسب قوام التربة والطقس ومرحلة النمو، ويفضل فحص رطوبة التربة قبل الري.',
     source: 'إرشاد إدارة مياه الري',
   },
+  {
+    id: 12,
+    title: 'متابعة المحاصيل الشتوية في ديسمبر',
+    category: 'المحاصيل الموسمية',
+    tip: 'تابع نمو شتلات البصل والثوم والخضروات الورقية، وعوّض الشتلات المتضررة مبكراً. خفّض الري عند انخفاض الحرارة مع تجنب جفاف منطقة الجذور، وراقب المن والذبابة البيضاء.',
+    source: 'التقويم الزراعي العُماني — إرشاد موسمي',
+  },
 ];
 
 const TIP_CATEGORIES = [
@@ -119,7 +126,8 @@ export const DailyTipsView: React.FC<DailyTipsViewProps> = ({ initialTipId }) =>
     }
     const now = new Date();
     const omanMonth = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Muscat', month: 'numeric' }).format(now));
-    if (omanMonth === 11 || omanMonth === 12) return DAILY_AGRICULTURAL_TIPS.find((tip) => tip.id === 2)!;
+    if (omanMonth === 11) return DAILY_AGRICULTURAL_TIPS.find((tip) => tip.id === 2)!;
+    if (omanMonth === 12) return DAILY_AGRICULTURAL_TIPS.find((tip) => tip.id === 12)!;
     const startOfYear = new Date(now.getFullYear(), 0, 0);
     const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000);
     return DAILY_AGRICULTURAL_TIPS[dayOfYear % DAILY_AGRICULTURAL_TIPS.length];
