@@ -67,6 +67,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [heroImgFailed, setHeroImgFailed] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [murshidMuted, setMurshidMuted] = useState<boolean>(() => getMurshidAudioPrefs().muted);
+  const [voiceError, setVoiceError] = useState<boolean>(false);
 
   useEffect(() => {
     const unsub = subscribeMurshidAudioPrefs((prefs) => {
@@ -121,16 +122,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
       stopAllMurshidAudio(setIsSpeaking);
       return;
     }
-    const phrase = pickFreshPhrase(
-      'home-welcome',
-      firstName
-        ? MURSHID_PHRASES.homeWelcome(firstName, wilayatDisplay)
-        : ['حياك الله في صديق المزارع! أنا مُرشد، جاهز لمساعدتك في شؤون مزرعتك.']
-    );
-    speakMurshid(phrase, {
+    setVoiceError(false);
+    // Use the approved studio voice first; browser speech remains the fallback.
+    speakMurshid('حياك الله في صديق المزارع! أنا مُرشد، جاهز لمساعدتك في شؤون مزرعتك.', {
       muted: murshidMuted,
       mood: 'cheerful',
+      preferStudioAudio: true,
       onSpeakingChange: setIsSpeaking,
+      onError: () => setVoiceError(true),
     });
   };
 
@@ -273,6 +272,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 </>
               )}
             </button>
+            {voiceError && (
+              <span className="mt-1 max-w-[150px] text-center text-[10px] font-semibold text-rose-600 dark:text-rose-300" role="status">
+                {lang === 'ar' ? 'تعذر تشغيل الصوت. تحقق من صوت الجهاز ثم أعد المحاولة.' : 'Audio could not start. Check device volume and retry.'}
+              </span>
+            )}
           </div>
         </div>
 

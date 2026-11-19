@@ -3208,13 +3208,15 @@ app.post('/api/cartoon/reviews/:episodeId', writeRateLimit, requireStaff, (req, 
   return res.json({ success: true, review: current });
 });
 
-const PUBLIC_CARTOON_TTS_TEXTS = new Set(
-  INITIAL_CARTOON_EPISODES.flatMap((episode) =>
+const PUBLIC_CARTOON_TTS_TEXTS = new Set([
+  ...INITIAL_CARTOON_EPISODES.flatMap((episode) =>
     episode.scenes.map((scene) =>
       prepareArabicTextForTts(scene.vocalizedNarration || scene.narration)
     )
-  )
-);
+  ),
+  // A fixed, reviewed greeting used by the home-screen Murshid voice button.
+  prepareArabicTextForTts('حياك الله في صديق المزارع! أنا مُرشد، جاهز لمساعدتك في شؤون مزرعتك.'),
+]);
 const publicCartoonTtsRateLimit = createRateLimiter(
   'public-cartoon-tts',
   8,

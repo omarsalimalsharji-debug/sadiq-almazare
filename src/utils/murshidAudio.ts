@@ -534,9 +534,10 @@ export async function speakMurshid(
       const utter = new SpeechSynthesisUtterance(chunks[chunkIdx]);
       if (voice) {
         utter.voice = voice;
-        utter.lang = voice.lang;
+        utter.lang = voice.lang || 'ar';
       } else {
-        utter.lang = 'ar-OM';
+        // ar-SA has broader desktop-browser voice availability than ar-OM.
+        utter.lang = 'ar-SA';
       }
       utter.volume = eff.volume;
       utter.rate = rate;
@@ -560,10 +561,29 @@ export async function speakMurshid(
         }
       };
       utter.onend = moveNext;
-      utter.onerror = moveNext;
+      utter.onerror = (event) => {
+        if (settled || activePlaybackToken !== token) return;
+        settled = true;
+        if (activeSpeechTimer) {
+          clearTimeout(activeSpeechTimer);
+          activeSpeechTimer = null;
+        }
+        activeSpeakerSetter = null;
+        onSpeakingChange?.(false);
+        notifyGlobalSpeaking(false);
+        // Do not silently report success when the browser has no usable speech voice.
+        if (event.error !== 'canceled' && event.error !== 'interrupted') {
+          onError?.();
+        }
+      };
 
       notifyGlobalSpeaking(true);
       onSpeakingChange?.(true);
+      try {
+        window.speechSynthesis.resume();
+      } catch {
+        // Some browsers do not expose resume until a voice is initialized.
+      }
       window.speechSynthesis.speak(utter);
 
       const maxChunkMs = Math.min(9500, Math.max(2400, chunks[chunkIdx].length * 95));
