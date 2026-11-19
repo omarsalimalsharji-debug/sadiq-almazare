@@ -1841,6 +1841,53 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       ? 'لا تستخدم أي مبيد كيميائي؛ هذه الحشرة نافعة وتساعد في حماية المحصول طبيعياً.'
       : 'لم تُعرض توصية بمبيد أو جرعة؛ إذ يجب التحقق أولاً من تسجيل المنتج واعتماده في سلطنة عُمان وملاءمته للمحصول والآفة. راجع المهندس الزراعي أو دائرة التنمية الزراعية، واتبع ملصق المنتج المعتمد عند وصفه.';
 
+  const diagnosticIdentity = `${String(parsed.scientificName || '')} ${String(parsed.problemName || '')} ${String(parsed.problemNameEn || '')}`.toLowerCase();
+  const isDubasSpecies = /ommatissus|دوباس/.test(diagnosticIdentity);
+  const isRedPalmWeevilSpecies = /rhynchophorus\\s*ferrugineus|سوسة النخيل الحمراء/.test(diagnosticIdentity);
+  const parsedInsectStage = ['egg', 'nymph', 'larva', 'pupa', 'adult', 'undetermined'].includes(parsed.insectLifeStage)
+    ? parsed.insectLifeStage
+    : 'undetermined';
+  const parsedSexEvidence = String(parsed.insectSexEvidence || '').trim();
+  let normalizedInsectSex: 'male' | 'female' | 'undetermined' =
+    ['male', 'female'].includes(parsed.insectSex) ? parsed.insectSex : 'undetermined';
+
+  // Species-specific visual guardrails: sex is not inferred from size or colour alone.
+  if (isDubasSpecies) {
+    const adultStage = parsedInsectStage === 'adult';
+    const femaleEvidence = /بقع.{0,20}(البطن|بطن)|البطن.{0,20}بقع|spot.{0,20}abdomen|abdomen.{0,20}spot/i.test(parsedSexEvidence);
+    const maleEvidence = /بطن.{0,20}(مدبب|مستطيل)|أجنحة.{0,30}(أطول|أكبر)|abdomen.{0,20}taper|wings.{0,20}longer/i.test(parsedSexEvidence);
+    if (!adultStage || (normalizedInsectSex === 'female' && !femaleEvidence) || (normalizedInsectSex === 'male' && !maleEvidence)) {
+      normalizedInsectSex = 'undetermined';
+    }
+  } else if (isRedPalmWeevilSpecies) {
+    const adultStage = parsedInsectStage === 'adult';
+    const maleEvidence = /(خصلة|شعيرات|شعر).{0,30}(الخرطوم|المنقار)|(الخرطوم|المنقار).{0,30}(خصلة|شعيرات|شعر)|rostrum.{0,30}(setae|hairs)|setae.{0,30}rostrum/i.test(parsedSexEvidence);
+    const femaleEvidence = /(الخرطوم|المنقار).{0,30}(أطول|أنحف|أنحف|أملس|أقل شعراً|عارٍ)|(أطول|أنحف|أملس|عارٍ).{0,30}(الخرطوم|المنقار)|bare.{0,20}rostrum|longer.{0,20}rostrum/i.test(parsedSexEvidence);
+    if (!adultStage || (normalizedInsectSex === 'male' && !maleEvidence) || (normalizedInsectSex === 'female' && !femaleEvidence)) {
+      normalizedInsectSex = 'undetermined';
+    }
+  }
+
+  const parsedInstar = String(parsed.insectInstar || '').trim();
+  const validDubasInstar = /(?:العمر|الطور)\\s*(?:الأول|الاول|الثاني|الثالث|الرابع|الخامس)|(?:1st|2nd|3rd|4th|5th)\\s*instar/i.test(parsedInstar);
+  const normalizedInsectInstar = isDubasSpecies && parsedInsectStage === 'nymph' &&
+    Number(parsed.insectStageConfidence || 0) >= 60 && validDubasInstar
+      ? parsedInstar
+      : isDubasSpecies && parsedInsectStage === 'nymph'
+        ? 'غير محدد — يلزم تصوير الحورية من أعلى بوضوح'
+        : 'غير منطبق';
+
+  const omanMonthForGeneration = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Muscat', month: 'numeric' }).format(new Date()));
+  const calendarGeneration = omanMonthForGeneration >= 2 && omanMonthForGeneration <= 4
+    ? 'الجيل الربيعي'
+    : omanMonthForGeneration >= 8 && omanMonthForGeneration <= 11
+      ? 'الجيل الخريفي'
+      : 'غير محدد';
+  const normalizedDubasGeneration = isDubasSpecies ? calendarGeneration : 'غير محدد';
+  const normalizedDubasGenerationEvidence = isDubasSpecies
+    ? `تقدير موسمي وفق دورة دوباس النخيل المعروفة في عُمان، وليس تحديداً من الصورة وحدها. التاريخ المحلي: ${omanDateLabel}. ${dubasSeasonContext} يلزم تأكيد النشاط وكثافة الأطوار بالفحص الحقلي في الولاية.`
+    : '';
+
   const normalizedDiagnosis = {
     isAgricultureRelated: isAgri,
     detectedSubject: needsClearerPhoto ? 'unclear' : detectedSubject,
@@ -1903,15 +1950,23 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       detectedSubject === 'insect' && !needsClearerPhoto
         ? {
             nature: insectNature,
-            sex: ['male', 'female', 'undetermined'].includes(parsed.insectSex) ? parsed.insectSex : 'undetermined',
-            sexEvidence: (parsed.insectSexEvidence || '').trim() || 'لا تظهر في الصورة علامة تشريحية كافية لتحديد الجنس بثقة.',
-            lifeStage: ['egg', 'nymph', 'larva', 'pupa', 'adult', 'undetermined'].includes(parsed.insectLifeStage) ? parsed.insectLifeStage : 'undetermined',
+            sex: normalizedInsectSex,
+            sexEvidence: normalizedInsectSex === 'undetermined' && ['male', 'female'].includes(parsed.insectSex)
+              ? 'لم تظهر العلامة التشريحية الفارقة المطلوبة بوضوح، أو أن الحشرة ليست في طور بالغ؛ لذلك لم نعتمد تحديد الجنس.'
+              : parsedSexEvidence || 'لا تظهر في الصورة علامة تشريحية كافية لتحديد الجنس بثقة.',
+            lifeStage: parsedInsectStage,
             lifeStageLabel: (parsed.insectLifeStageLabel || '').trim() || 'غير محدد من الصورة',
             lifeStageEvidence: (parsed.insectLifeStageEvidence || '').trim() || 'لا تظهر تفاصيل كافية لتحديد مرحلة الحياة بثقة.',
-            instar: (parsed.insectInstar || '').trim() || 'غير محدد',
-            stageConfidence: Math.max(0, Math.min(100, Number(parsed.insectStageConfidence) || 0)),
-            generation: ['الجيل الربيعي', 'الجيل الخريفي'].includes(parsed.insectGeneration) ? parsed.insectGeneration : 'غير محدد',
-            generationEvidence: (parsed.insectGenerationEvidence || '').trim() || 'لا يمكن إثبات الجيل من الصورة وحدها؛ يلزم رصد ميداني وتاريخ وموقع العينة.',
+            instar: normalizedInsectInstar,
+            stageConfidence: normalizedInsectInstar.startsWith('غير محدد')
+              ? 0
+              : Math.max(0, Math.min(100, Number(parsed.insectStageConfidence) || 0)),
+            generation: isDubasSpecies
+              ? normalizedDubasGeneration
+              : ['الجيل الربيعي', 'الجيل الخريفي'].includes(parsed.insectGeneration) ? parsed.insectGeneration : 'غير محدد',
+            generationEvidence: isDubasSpecies
+              ? normalizedDubasGenerationEvidence
+              : (parsed.insectGenerationEvidence || '').trim() || 'لا يمكن إثبات الجيل من الصورة وحدها؛ يلزم رصد ميداني وتاريخ وموقع العينة.',
             targetCrops: insectTargetCropsArr,
             damage: (parsed.insectDamage || '').trim(),
             lifeCycle:
