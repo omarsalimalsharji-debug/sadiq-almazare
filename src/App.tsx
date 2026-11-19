@@ -12,6 +12,7 @@ import { LocationProvider, UnifiedLocationState } from './context/LocationContex
 
 // Core Shell Components
 import { Header } from './components/Header.tsx';
+import { AppUpdateBanner } from './components/AppUpdateBanner.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { NotificationDrawer } from './components/NotificationDrawer.tsx';
 import { LoginModal } from './components/LoginModal.tsx';
@@ -464,6 +465,8 @@ export default function App() {
         lang={lang}
         onToggleLang={toggleLanguage}
       />
+
+      <AppUpdateBanner />
 
       {/* Comprehensive Sliding Sidebar */}
       <Sidebar
