@@ -31,6 +31,7 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
   const [rate, setRate] = useState(1);
   const [status, setStatus] = useState<'idle' | 'playing' | 'paused'>('idle');
   const [volume, setVolume] = useState(() => getMurshidAudioPrefs().volume);
+  const [audioError, setAudioError] = useState(false);
   const runIdRef = useRef(0);
   const currentIndexRef = useRef(0);
   const rateRef = useRef(rate);
@@ -55,6 +56,7 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
 
     stopAllMurshidAudio();
     const runId = ++runIdRef.current;
+    setAudioError(false);
     const playParagraph = (index: number) => {
       if (runIdRef.current !== runId) return;
       if (index >= paragraphsRef.current.length) {
@@ -75,6 +77,12 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
         onEnd: () => {
           if (runIdRef.current !== runId) return;
           playParagraph(index + 1);
+        },
+        onError: () => {
+          if (runIdRef.current !== runId) return;
+          setAudioError(true);
+          setStatus('idle');
+          onActiveParagraphChange(index);
         },
       });
     };
@@ -172,6 +180,7 @@ export const BookSpeechControls: React.FC<BookSpeechControlsProps> = ({
         </label>
       </div>
       <p className="text-[10px] leading-5 text-emerald-800/80 dark:text-emerald-200/80">يستخدم القارئ الصوت العربي الذكي الموحد لمرشد. عند تعذر توليد الصوت، يبقى النص متاحاً دون التحول إلى صوت الجهاز الآلي.</p>
+      {audioError && <p role="status" className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">تعذر إنشاء الصوت الذكي حالياً. تحقق من الاتصال وحاول تشغيل الفقرة مرة أخرى.</p>}
     </div>
   );
 };
