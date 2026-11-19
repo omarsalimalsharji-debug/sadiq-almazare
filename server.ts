@@ -42,6 +42,7 @@ dotenv.config();
 // Firebase Admin is required to verify farmer identity for private calendar data.
 // Configure FIREBASE_SERVICE_ACCOUNT_JSON in the server environment (never commit this secret).
 let firebaseAdminAuth: ReturnType<typeof getAdminAuth> | null = null;
+const FIRESTORE_DATABASE_ID = 'ai-studio-5b60aa9f-658d-49f6-bc51-1d2f57117aaa';
 let firebaseAdminDb: ReturnType<typeof getAdminFirestore> | null = null;
 try {
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -49,7 +50,7 @@ try {
     const serviceAccount = JSON.parse(serviceAccountJson);
     const adminApp = initializeAdminApp({ credential: cert(serviceAccount) }, 'sadiq-almazare-admin');
     firebaseAdminAuth = getAdminAuth(adminApp);
-    firebaseAdminDb = getAdminFirestore(adminApp);
+    firebaseAdminDb = getAdminFirestore(adminApp, FIRESTORE_DATABASE_ID);
   }
 } catch (error) {
   console.error('Firebase Admin initialization failed; private farmer APIs will remain locked.');
