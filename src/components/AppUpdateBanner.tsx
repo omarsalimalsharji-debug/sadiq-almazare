@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Download, X, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 
 type UpdateManifest = {
