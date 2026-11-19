@@ -26,16 +26,15 @@ if keystore:
 """
     if "signingConfigs {" not in text:
         text = text.replace("    buildTypes {", signing + "\n    buildTypes {", 1)
-    release_pattern = r"(release\s*\{)"
-    if "signingConfig signingConfigs.release" not in text:
-        text, count = re.subn(
-            release_pattern,
-            lambda match: match.group(1) + "\n            signingConfig signingConfigs.release",
-            text,
-            count=1,
-        )
-        if count == 0:
-            raise SystemExit("Could not find the release buildType in generated Gradle file")
+    build_types_pos = text.find("buildTypes {")
+    if build_types_pos < 0:
+        raise SystemExit("Could not find buildTypes block in generated Gradle file")
+    release_pos = text.find("release {", build_types_pos)
+    if release_pos < 0:
+        raise SystemExit("Could not find release buildType in generated Gradle file")
+    if "signingConfig signingConfigs.release" not in text[build_types_pos:]:
+        insert_at = release_pos + len("release {")
+        text = text[:insert_at] + "\n            signingConfig signingConfigs.release" + text[insert_at:]
 
 gradle.write_text(text, encoding="utf-8")
 print("Configured Android version 1.0.5; signed release=" + str(bool(keystore)))
