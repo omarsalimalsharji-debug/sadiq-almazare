@@ -3069,7 +3069,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
             : 'cheerful';
     const cacheKey = crypto
       .createHash('sha256')
-      .update(`v5-murshid-oman-natural-tts:${voiceMood}:${cleanText}`)
+      .update(`v6-murshid-gacrux-oman-voice:${voiceMood}:${cleanText}`)
       .digest('hex');
 
     const ttsDiskCacheDir = path.join(DATA_DIR, 'tts-cache');
@@ -3126,7 +3126,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Puck' },
+            prebuiltVoiceConfig: { voiceName: 'Gacrux' },
           },
         },
       },
