@@ -100,9 +100,11 @@ interface VoiceReportEntry {
 
 interface CartoonVideosViewProps {
   initialEpisodeId?: string | null;
+  /** Public lesson-only mode hides internal voice QA and editorial review tools. */
+  publicMode?: boolean;
 }
 
-export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpisodeId }) => {
+export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpisodeId, publicMode = false }) => {
   const { openShare } = useShare();
   const [activeStudioTab, setActiveStudioTab] = useState<StudioTab>('videos');
 
@@ -570,11 +572,28 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
       setIsLoadingAudio(false);
 
       if (!base64Wav || !audioRef.current) {
+        // Keep the lesson moving visually with subtitles; never replace the
+        // requested natural AI voice with a robotic device voice.
         setTtsFailed(true);
-        setAudioStatusNote('تعذر إنشاء صوت مرشد الذكي حالياً. يمكنك متابعة المشهد بالترجمة النصية أو إعادة المحاولة لاحقاً.');
-        setIsPlaying(false);
+        setAudioStatusNote('الصوت الذكي غير متاح مؤقتاً؛ يستمر الدرس بالرسوم والترجمة حتى لا يتوقف العرض.');
+        setIsPlaying(true);
         setExternalSpeechFinished();
         audioLevelRef.current = 0;
+        const estimatedDurationMs = Math.max(
+          5000,
+          Math.min(18000, targetScene.narration.trim().split(/\s+/).length * 480)
+        );
+        fallbackTimerRef.current = setTimeout(() => {
+          fallbackTimerRef.current = null;
+          if (playSessionRef.current !== session) return;
+          if (idx + 1 < episode.scenes.length) {
+            playSceneAt(episode, idx + 1);
+          } else {
+            setIsPlaying(false);
+            setExternalSpeechFinished();
+            audioLevelRef.current = 0;
+          }
+        }, estimatedDurationMs);
         return;
       }
 
@@ -836,6 +855,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
             <span>الدروس المتصلة</span>
           </button>
 
+          {!publicMode && (
           <button
             type="button"
             onClick={() => setActiveStudioTab('voices')}
@@ -848,7 +868,9 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>مختبر الأصوات والرخص</span>
           </button>
+          )}
 
+          {!publicMode && (
           <button
             type="button"
             onClick={() => setActiveStudioTab('qa')}
@@ -861,6 +883,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
             <ClipboardCheck className="w-3.5 h-3.5" />
             <span>فحص الجودة (3 مراجعين)</span>
           </button>
+          )}
         </div>
       </div>
 
@@ -1251,6 +1274,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
 
           {/* Right Column: Episode List + Custom AI Generator (4 cols) */}
           <div className="lg:col-span-4 space-y-5">
+            {!publicMode && (
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 space-y-3 shadow-sm">
               <h2 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
@@ -1307,6 +1331,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
                 )}
               </form>
             </div>
+            )}
 
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 space-y-3 shadow-sm">
               <h2 className="text-sm font-bold text-stone-900 dark:text-white">
