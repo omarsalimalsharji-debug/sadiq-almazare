@@ -120,7 +120,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const [reminders, setReminders] = useState<CalendarReminderItem[]>(() => {
     try {
-      const raw = localStorage.getItem(remindersCacheKey);
+      const raw = sessionStorage.getItem(remindersCacheKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed;
@@ -173,7 +173,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const persistCache = useCallback((list: CalendarReminderItem[]) => {
     try {
-      localStorage.setItem(remindersCacheKey, JSON.stringify(list));
+      sessionStorage.setItem(remindersCacheKey, JSON.stringify(list));
     } catch {
       // ignore storage quota errors
     }
@@ -182,7 +182,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const fetchReminders = useCallback(() => {
     setLoadingReminders(false);
     try {
-      const raw = localStorage.getItem(remindersCacheKey);
+      const raw = sessionStorage.getItem(remindersCacheKey);
       const parsed = raw ? JSON.parse(raw) : [];
       setReminders(Array.isArray(parsed) ? parsed : []);
     } catch {

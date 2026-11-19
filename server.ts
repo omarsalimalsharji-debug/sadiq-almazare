@@ -459,10 +459,23 @@ function saveStorage() {
 const hadVisitorHistory = Object.keys(storage.visitors || {}).length > 0 || Object.keys(storage.dailyVisitIds || {}).length > 0;
 storage.visitors = {};
 storage.dailyVisitIds = {};
+
+function isExpiredPalmSeasonTask(item: any, now = new Date()): boolean {
+  const month = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Muscat', month: 'numeric' }).format(now));
+  if (![11, 12, 1].includes(month)) return false;
+  const text = `${String(item?.title || '')} ${String(item?.message || '')}`;
+  const palmTask = /نخيل|نخلة|عذق|عذوق|تمور|التمر/i.test(text);
+  const bunchWork = /عذق|عذوق|العذق|العذوق/i.test(text);
+  const pestOrDiseaseAlert = /دوباس|سوسة|حلم|آفة|حشرة|مرض|مكافحة|إصابة|تفشي/i.test(text);
+  const completedSeasonWork = /خف(?:ّ|ف)?|تخفيف|تدلية|تكميم|تغطية|الطناء|جني|حصاد|جمع|قطف|نضج|تلقيح|تنبيت|حبابوك|جمري|خلال|رطب/i.test(text);
+  return palmTask && (completedSeasonWork || (bunchWork && !pestOrDiseaseAlert));
+}
+
 const previousNotificationCount = storage.notifications.length;
 storage.notifications = storage.notifications.filter((item: any) =>
   !['notif-1', 'notif-2'].includes(String(item?.id || '')) &&
-  !/تكميم.{0,15}عذوق|خف.{0,15}عذوق|عذوق.{0,15}تكميم|نشاط رياح هابطة وفرص غبار/i.test(String(item?.title || '') + ' ' + String(item?.message || ''))
+  !/تكميم.{0,15}عذوق|خف.{0,15}عذوق|عذوق.{0,15}تكميم|نشاط رياح هابطة وفرص غبار/i.test(String(item?.title || '') + ' ' + String(item?.message || '')) &&
+  !isExpiredPalmSeasonTask(item)
 );
 if (hadVisitorHistory || storage.notifications.length !== previousNotificationCount) saveStorage();
 
@@ -1830,6 +1843,53 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       ? 'لا تستخدم أي مبيد كيميائي؛ هذه الحشرة نافعة وتساعد في حماية المحصول طبيعياً.'
       : 'لم تُعرض توصية بمبيد أو جرعة؛ إذ يجب التحقق أولاً من تسجيل المنتج واعتماده في سلطنة عُمان وملاءمته للمحصول والآفة. راجع المهندس الزراعي أو دائرة التنمية الزراعية، واتبع ملصق المنتج المعتمد عند وصفه.';
 
+  const diagnosticIdentity = `${String(parsed.scientificName || '')} ${String(parsed.problemName || '')} ${String(parsed.problemNameEn || '')}`.toLowerCase();
+  const isDubasSpecies = /ommatissus|دوباس/.test(diagnosticIdentity);
+  const isRedPalmWeevilSpecies = /rhynchophorus\s*ferrugineus|سوسة النخيل الحمراء/.test(diagnosticIdentity);
+  const parsedInsectStage = ['egg', 'nymph', 'larva', 'pupa', 'adult', 'undetermined'].includes(parsed.insectLifeStage)
+    ? parsed.insectLifeStage
+    : 'undetermined';
+  const parsedSexEvidence = String(parsed.insectSexEvidence || '').trim();
+  let normalizedInsectSex: 'male' | 'female' | 'undetermined' =
+    ['male', 'female'].includes(parsed.insectSex) ? parsed.insectSex : 'undetermined';
+
+  // Species-specific visual guardrails: sex is not inferred from size or colour alone.
+  if (isDubasSpecies) {
+    const adultStage = parsedInsectStage === 'adult';
+    const femaleEvidence = /بقع.{0,20}(البطن|بطن)|البطن.{0,20}بقع|spot.{0,20}abdomen|abdomen.{0,20}spot/i.test(parsedSexEvidence);
+    const maleEvidence = /بطن.{0,20}(مدبب|مستطيل)|أجنحة.{0,30}(أطول|أكبر)|abdomen.{0,20}taper|wings.{0,20}longer/i.test(parsedSexEvidence);
+    if (!adultStage || (normalizedInsectSex === 'female' && !femaleEvidence) || (normalizedInsectSex === 'male' && !maleEvidence)) {
+      normalizedInsectSex = 'undetermined';
+    }
+  } else if (isRedPalmWeevilSpecies) {
+    const adultStage = parsedInsectStage === 'adult';
+    const maleEvidence = /(خصلة|شعيرات|شعر).{0,30}(الخرطوم|المنقار)|(الخرطوم|المنقار).{0,30}(خصلة|شعيرات|شعر)|rostrum.{0,30}(setae|hairs)|setae.{0,30}rostrum/i.test(parsedSexEvidence);
+    const femaleEvidence = /(الخرطوم|المنقار).{0,30}(أطول|أنحف|أنحف|أملس|أقل شعراً|عارٍ)|(أطول|أنحف|أملس|عارٍ).{0,30}(الخرطوم|المنقار)|bare.{0,20}rostrum|longer.{0,20}rostrum/i.test(parsedSexEvidence);
+    if (!adultStage || (normalizedInsectSex === 'male' && !maleEvidence) || (normalizedInsectSex === 'female' && !femaleEvidence)) {
+      normalizedInsectSex = 'undetermined';
+    }
+  }
+
+  const parsedInstar = String(parsed.insectInstar || '').trim();
+  const validDubasInstar = /(?:العمر|الطور)\s*(?:الأول|الاول|الثاني|الثالث|الرابع|الخامس)|(?:1st|2nd|3rd|4th|5th)\s*instar/i.test(parsedInstar);
+  const normalizedInsectInstar = isDubasSpecies && parsedInsectStage === 'nymph' &&
+    Number(parsed.insectStageConfidence || 0) >= 60 && validDubasInstar
+      ? parsedInstar
+      : isDubasSpecies && parsedInsectStage === 'nymph'
+        ? 'غير محدد — يلزم تصوير الحورية من أعلى بوضوح'
+        : 'غير منطبق';
+
+  const omanMonthForGeneration = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Muscat', month: 'numeric' }).format(new Date()));
+  const calendarGeneration = omanMonthForGeneration >= 2 && omanMonthForGeneration <= 4
+    ? 'الجيل الربيعي'
+    : omanMonthForGeneration >= 8 && omanMonthForGeneration <= 11
+      ? 'الجيل الخريفي'
+      : 'غير محدد';
+  const normalizedDubasGeneration = isDubasSpecies ? calendarGeneration : 'غير محدد';
+  const normalizedDubasGenerationEvidence = isDubasSpecies
+    ? `تقدير موسمي وفق دورة دوباس النخيل المعروفة في عُمان، وليس تحديداً من الصورة وحدها. التاريخ المحلي: ${omanDateLabel}. ${dubasSeasonContext} يلزم تأكيد النشاط وكثافة الأطوار بالفحص الحقلي في الولاية.`
+    : '';
+
   const normalizedDiagnosis = {
     isAgricultureRelated: isAgri,
     detectedSubject: needsClearerPhoto ? 'unclear' : detectedSubject,
@@ -1892,15 +1952,23 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       detectedSubject === 'insect' && !needsClearerPhoto
         ? {
             nature: insectNature,
-            sex: ['male', 'female', 'undetermined'].includes(parsed.insectSex) ? parsed.insectSex : 'undetermined',
-            sexEvidence: (parsed.insectSexEvidence || '').trim() || 'لا تظهر في الصورة علامة تشريحية كافية لتحديد الجنس بثقة.',
-            lifeStage: ['egg', 'nymph', 'larva', 'pupa', 'adult', 'undetermined'].includes(parsed.insectLifeStage) ? parsed.insectLifeStage : 'undetermined',
+            sex: normalizedInsectSex,
+            sexEvidence: normalizedInsectSex === 'undetermined' && ['male', 'female'].includes(parsed.insectSex)
+              ? 'لم تظهر العلامة التشريحية الفارقة المطلوبة بوضوح، أو أن الحشرة ليست في طور بالغ؛ لذلك لم نعتمد تحديد الجنس.'
+              : parsedSexEvidence || 'لا تظهر في الصورة علامة تشريحية كافية لتحديد الجنس بثقة.',
+            lifeStage: parsedInsectStage,
             lifeStageLabel: (parsed.insectLifeStageLabel || '').trim() || 'غير محدد من الصورة',
             lifeStageEvidence: (parsed.insectLifeStageEvidence || '').trim() || 'لا تظهر تفاصيل كافية لتحديد مرحلة الحياة بثقة.',
-            instar: (parsed.insectInstar || '').trim() || 'غير محدد',
-            stageConfidence: Math.max(0, Math.min(100, Number(parsed.insectStageConfidence) || 0)),
-            generation: ['الجيل الربيعي', 'الجيل الخريفي'].includes(parsed.insectGeneration) ? parsed.insectGeneration : 'غير محدد',
-            generationEvidence: (parsed.insectGenerationEvidence || '').trim() || 'لا يمكن إثبات الجيل من الصورة وحدها؛ يلزم رصد ميداني وتاريخ وموقع العينة.',
+            instar: normalizedInsectInstar,
+            stageConfidence: normalizedInsectInstar.startsWith('غير محدد')
+              ? 0
+              : Math.max(0, Math.min(100, Number(parsed.insectStageConfidence) || 0)),
+            generation: isDubasSpecies
+              ? normalizedDubasGeneration
+              : ['الجيل الربيعي', 'الجيل الخريفي'].includes(parsed.insectGeneration) ? parsed.insectGeneration : 'غير محدد',
+            generationEvidence: isDubasSpecies
+              ? normalizedDubasGenerationEvidence
+              : (parsed.insectGenerationEvidence || '').trim() || 'لا يمكن إثبات الجيل من الصورة وحدها؛ يلزم رصد ميداني وتاريخ وموقع العينة.',
             targetCrops: insectTargetCropsArr,
             damage: (parsed.insectDamage || '').trim(),
             lifeCycle:
@@ -2662,10 +2730,10 @@ app.delete('/api/admin/diagnosis-history', requireAdmin, async (_req, res) => {
 
 // --- 9. Notifications APIs ---
 app.get('/api/notifications', (req, res) => {
-  const governorate = String(req.query.governorate || '').replace(/^محافظة\\s*/, '').trim();
+  const governorate = String(req.query.governorate || '').replace(/^محافظة\s*/, '').trim();
   const visible = storage.notifications.filter((n: any) => {
-    if (n.targetUserId) return false;
-    const target = String(n.targetGovernorate || '').replace(/^محافظة\\s*/, '').trim();
+    if (n.targetUserId || isExpiredPalmSeasonTask(n)) return false;
+    const target = String(n.targetGovernorate || '').replace(/^محافظة\s*/, '').trim();
     const nationwide = !target || /كافة المحافظات|كافة محافظات|جميع المحافظات|جميع محافظات|سلطنة عُمان/i.test(target);
     return (!n.expiresAt || Number(n.expiresAt) > Date.now()) &&
       (nationwide || !governorate || target.includes(governorate) || governorate.includes(target));
@@ -2674,7 +2742,10 @@ app.get('/api/notifications', (req, res) => {
   const seasonalNotices: Record<number, { title: string; message: string }> = {
     10: { title: 'أكتوبر: بدء موسم الزراعات الشتوية', message: 'ابدأ تجهيز أحواض الزراعة والمشاتل، واعتنِ بشتلات الطماطم والخيار والقرعيات والورقيات وفق نطاقك المناخي. راقب الذبابة البيضاء والمن داخل المشاتل.' },
     11: { title: 'نوفمبر: ذروة زراعة المحاصيل الشتوية', message: 'هذا وقت مناسب لزراعة وشتل البصل والثوم والبطاطس والجزر والبنجر والخس والسبانخ والفجل، مع متابعة الطماطم والخيار العُماني في المواقع الملائمة. تابع رطوبة التربة والذبابة البيضاء والمن والتربس، وعدّل المواعيد حسب الارتفاع والولاية.' },
-    12: { title: 'ديسمبر: متابعة المحاصيل الشتوية', message: 'تابع تثبيت شتلات البصل والخضروات الشتوية، وانتظم في الري دون إغراق مع برودة الجو، وراقب المن والذبابة البيضاء. أضف التسميد وفق تحليل التربة واحتياج المحصول.' },
+    12: { title: 'ديسمبر: تثبيت الشتلات وخدمة المحاصيل', message: 'تابع نجاح شتلات البصل والثوم والخضروات الشتوية، واستكمل الزراعة المتأخرة حيث تسمح درجات الحرارة. انتظم في الري دون إغراق، وراقب المن والذبابة البيضاء والتربس، واجعل التسميد وفق تحليل التربة ومرحلة المحصول.' },
+    1: { title: 'يناير: متابعة النمو الشتوي', message: 'تابع نمو البصل والثوم والبطاطس والخضروات الورقية، وأزل الحشائش مبكراً. راقب البياض الزغبي والتربس والمن، وخفّض الري عند انخفاض الحرارة مع تجنب تعطيش النباتات.' },
+    2: { title: 'فبراير: خدمة المحاصيل وبداية الحصاد المبكر', message: 'واصل خدمة محاصيل الشتاء، وابدأ متابعة نضج المحاصيل المبكرة بحسب الصنف والمنطقة. افحص الطماطم والخيار والبصل والثوم دورياً، ولا تستخدم أي مبيد إلا إذا كان مسجلاً للمحصول والآفة في سلطنة عُمان.' },
+    3: { title: 'مارس: متابعة التحجيم والحصاد', message: 'تابع تحجيم أبصال البصل والثوم والمحاصيل الشتوية المبكرة، واضبط الري تدريجياً حسب قرب الحصاد. راقب ارتفاع الحرارة والآفات الماصة، وابدأ التخطيط للعروة التالية وفق نطاقك المناخي.' },
   };
   const seasonal = seasonalNotices[month];
   if (seasonal) visible.push({

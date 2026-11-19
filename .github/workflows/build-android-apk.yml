@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - codex/global-seasonal-diagnosis-privacy-2026-11-19
+      - codex/global-diagnosis-seasonal-admin-2026-11-19
       - codex/premium-mobile-apk-updater-livebase-2026-11-19
       - codex/free-render-preview
       - main
@@ -45,6 +46,9 @@ jobs:
         with:
           packages: platform-tools platforms;android-35 build-tools;35.0.0
 
+      - name: Verify release manifest is inactive until a signed APK exists
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); const manifest=JSON.parse(fs.readFileSync('public/app-update.json','utf8')); if (pkg.version !== manifest.version) throw new Error('package.json and app-update.json versions do not match'); if (manifest.available !== false) throw new Error('Do not advertise an APK before a signed release is published');"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
@@ -99,7 +103,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sadiq-almazare-android-v1.0.4
+          name: sadiq-almazare-android-v1.0.5
           path: sadiq-almazare.apk
           if-no-files-found: error
           retention-days: 30
@@ -108,8 +112,8 @@ jobs:
         if: ${{ env.SIGNED_RELEASE == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-v1.0.4
-          name: صديق المزارع - الإصدار 1.0.4
+          tag_name: android-v1.0.5
+          name: صديق المزارع - الإصدار 1.0.5
           body: |
             تحديث صديق المزارع.
             يتطلب تثبيت التحديث موافقة المستخدم من Android.
@@ -131,13 +135,14 @@ jobs:
             const current = await github.rest.repos.getContent({ owner, repo, path, ref: branch });
             const content = {
               available: true,
-              version: '1.0.4',
-              apkUrl: 'https://github.com/' + owner + '/' + repo + '/releases/download/android-v1.0.4/sadiq-almazare.apk',
+              version: '1.0.5',
+              apkUrl: 'https://github.com/' + owner + '/' + repo + '/releases/download/android-v1.0.5/sadiq-almazare.apk',
               mandatory: false,
               releaseNotes: [
-                'تحسين ملاءمة الواجهات للهواتف والأجهزة الصغيرة',
-                'توحيد صوت مرشد العربي المولّد بالذكاء الاصطناعي',
-                'تحسينات في الأداء والاستقرار'
+                'تحديث الإرشادات والتنبيهات بحسب الموسم الزراعي في عُمان',
+                'تحسين التشخيص البصري للآفات مع ضوابط لتحديد جنس الحشرة وطورها والجيل الموسمي',
+                'ملاحظات وتنبيهات مؤقتة دون حفظ سجل تشخيص أو نشاط للمزارع',
+                'تسهيل الوصول الآمن إلى لوحة مدير البرنامج'
               ]
             };
             await github.rest.repos.createOrUpdateFileContents({

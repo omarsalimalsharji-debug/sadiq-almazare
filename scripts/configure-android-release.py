@@ -7,8 +7,8 @@ if not gradle.exists():
     raise SystemExit("android/app/build.gradle was not generated")
 
 text = gradle.read_text(encoding="utf-8")
-text, code_count = re.subn(r"versionCode\s*(?:=\s*)?\d+", "versionCode 4", text, count=1)
-text, name_count = re.subn(r"""versionName\s*(?:=\s*)?['"][^'"]+['"]""", 'versionName "1.0.4"', text, count=1)
+text, code_count = re.subn(r"versionCode\s*(?:=\s*)?\d+", "versionCode 5", text, count=1)
+text, name_count = re.subn(r"""versionName\s*(?:=\s*)?['"][^'"]+['"]""", 'versionName "1.0.5"', text, count=1)
 if code_count != 1 or name_count != 1:
     raise SystemExit("Could not set the Android versionCode and versionName in generated Gradle file")
 
@@ -38,4 +38,4 @@ if keystore:
             raise SystemExit("Could not find the release buildType in generated Gradle file")
 
 gradle.write_text(text, encoding="utf-8")
-print("Configured Android version 1.0.4; signed release=" + str(bool(keystore)))
+print("Configured Android version 1.0.5; signed release=" + str(bool(keystore)))
