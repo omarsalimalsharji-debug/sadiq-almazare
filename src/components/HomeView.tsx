@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sprout,
-  Download,
   MessageCircle,
   BookOpen,
   Gamepad2,
@@ -301,15 +300,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </button>
         )}
       </section>
-
-      <a
-        href="https://github.com/omarsalimalsharji-debug/sadiq-almazare/releases/download/android-latest/sadiq-almazare.apk"
-        className="w-full min-h-[48px] rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition-colors"
-        aria-label={lang === 'ar' ? 'تحميل تطبيق صديق المزارع للأندرويد APK' : 'Download Farmer Friend Android APK'}
-      >
-        <Download className="w-5 h-5" />
-        <span>{lang === 'ar' ? 'تحميل تطبيق الأندرويد (APK)' : 'Download Android app (APK)'}</span>
-      </a>
 
       {/* 2. Four Main Category Cards ONLY — 2x2 Responsive Grid */}
       <section
