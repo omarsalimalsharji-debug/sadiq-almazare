@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { initializeApp as initializeAdminApp, cert } from 'firebase-admin/app';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
+import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import { GoogleGenAI, Type } from '@google/genai';
 import { 
   INITIAL_BOOKS, 
@@ -41,12 +42,14 @@ dotenv.config();
 // Firebase Admin is required to verify farmer identity for private calendar data.
 // Configure FIREBASE_SERVICE_ACCOUNT_JSON in the server environment (never commit this secret).
 let firebaseAdminAuth: ReturnType<typeof getAdminAuth> | null = null;
+let firebaseAdminDb: ReturnType<typeof getAdminFirestore> | null = null;
 try {
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (serviceAccountJson) {
     const serviceAccount = JSON.parse(serviceAccountJson);
     const adminApp = initializeAdminApp({ credential: cert(serviceAccount) }, 'sadiq-almazare-admin');
     firebaseAdminAuth = getAdminAuth(adminApp);
+    firebaseAdminDb = getAdminFirestore(adminApp);
   }
 } catch (error) {
   console.error('Firebase Admin initialization failed; private farmer APIs will remain locked.');
@@ -2620,6 +2623,28 @@ app.delete('/api/community/posts/:postId/comments/:commentId', requireStaff, (re
   saveStorage();
 
   return res.json({ success: true, deletedCommentId: removed.id });
+});
+
+// Permanently remove legacy farmer diagnosis records on explicit manager request.
+app.delete('/api/admin/diagnosis-history', requireAdmin, async (_req, res) => {
+  if (!firebaseAdminDb) {
+    return res.status(503).json({ success: false, error: 'خدمة قاعدة البيانات الإدارية غير مهيأة؛ لم يتم حذف أي بيانات.' });
+  }
+  try {
+    let deleted = 0;
+    while (true) {
+      const snapshot = await firebaseAdminDb.collectionGroup('diagnoses').limit(400).get();
+      if (snapshot.empty) break;
+      const batch = firebaseAdminDb.batch();
+      snapshot.docs.forEach((document) => batch.delete(document.ref));
+      await batch.commit();
+      deleted += snapshot.size;
+    }
+    return res.json({ success: true, deletedCount: deleted });
+  } catch (error: any) {
+    console.error('Diagnosis history purge failed:', String(error?.message || error));
+    return res.status(500).json({ success: false, error: 'تعذر إكمال مسح السجلات القديمة. لم يتم اعتماد نجاح العملية.' });
+  }
 });
 
 // --- 9. Notifications APIs ---
