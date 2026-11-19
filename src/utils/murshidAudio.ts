@@ -417,6 +417,7 @@ export async function speakMurshid(
     preferStudioAudio = true,
     onSpeakingChange,
     onEnd,
+    onError,
   } = options || {};
 
   void preferStudioAudio; // Kept for backwards-compatible callers; AI voice is now mandatory.
