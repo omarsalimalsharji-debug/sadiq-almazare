@@ -150,6 +150,11 @@ jobs:
           PY
       - name: Build signed release APK
         working-directory: android
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEYSTORE_PATH: ${{ runner.temp }}/sadiq-almazare-release.jks
         run: ./gradlew --no-daemon assembleRelease
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
