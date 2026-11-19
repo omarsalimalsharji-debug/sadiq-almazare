@@ -465,8 +465,10 @@ function isExpiredPalmSeasonTask(item: any, now = new Date()): boolean {
   if (![11, 12, 1].includes(month)) return false;
   const text = `${String(item?.title || '')} ${String(item?.message || '')}`;
   const palmTask = /نخيل|نخلة|عذق|عذوق|تمور|التمر/i.test(text);
-  const completedSeasonWork = /خف(?:ّ|ف)?|تخفيف|تدلية|تكميم|تغطية|الطناء|جني|حصاد|جمع|قطف|نضج/i.test(text);
-  return palmTask && completedSeasonWork;
+  const bunchWork = /عذق|عذوق|العذق|العذوق/i.test(text);
+  const pestOrDiseaseAlert = /دوباس|سوسة|حلم|آفة|حشرة|مرض|مكافحة|إصابة|تفشي/i.test(text);
+  const completedSeasonWork = /خف(?:ّ|ف)?|تخفيف|تدلية|تكميم|تغطية|الطناء|جني|حصاد|جمع|قطف|نضج|تلقيح|تنبيت|حبابوك|جمري|خلال|رطب/i.test(text);
+  return palmTask && (completedSeasonWork || (bunchWork && !pestOrDiseaseAlert));
 }
 
 const previousNotificationCount = storage.notifications.length;
