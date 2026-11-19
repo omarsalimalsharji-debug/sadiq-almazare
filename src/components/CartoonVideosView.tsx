@@ -1257,6 +1257,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
 
           {/* Right Column: Episode List + Custom AI Generator (4 cols) */}
           <div className="lg:col-span-4 space-y-5">
+            {!publicMode && (
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 space-y-3 shadow-sm">
               <h2 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
@@ -1313,6 +1314,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
                 )}
               </form>
             </div>
+            )}
 
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 space-y-3 shadow-sm">
               <h2 className="text-sm font-bold text-stone-900 dark:text-white">
