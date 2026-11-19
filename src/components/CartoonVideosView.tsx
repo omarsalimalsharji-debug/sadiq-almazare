@@ -37,11 +37,8 @@ import {
 } from '../data/murshidDialogue.ts';
 import { MurshidCharacterSvg } from './MurshidCharacterSvg.tsx';
 import {
-  chunkArabicSpeech,
   getMurshidAudioPrefs,
-  initArabicVoices,
   notifyExternalSpeechStarted,
-  pickBestMurshidVoice,
   registerExternalMurshidAudioStopper,
   setExternalSpeechFinished,
   setMurshidMuted,
@@ -270,7 +267,6 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
   }, [fetchReviewsAndManifest]);
 
   useEffect(() => {
-    initArabicVoices();
     const unsubPrefs = subscribeMurshidAudioPrefs((prefs) => {
       setIsMuted(prefs.muted);
       setVolume(prefs.volume);
@@ -514,7 +510,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
               : mood === 'proud' || mood === 'celebrate'
                 ? 'proud'
                 : 'cheerful';
-      const key = `v4-murshid-puck-tts:${apiMood}:${vocalized}`;
+      const key = `v6-murshid-gacrux-oman-voice:${apiMood}:${vocalized}`;
       const cached = ttsCacheRef.current.get(key);
       if (cached) return cached;
 
@@ -546,68 +542,6 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
     []
   );
 
-  const speakBrowserFallbackChunks = useCallback(
-    (
-      rawText: string,
-      mood: string,
-      session: number,
-      onComplete: () => void
-    ) => {
-      const effectiveVol = isMuted ? 0 : Math.max(0, Math.min(1, volume / 100));
-      if (effectiveVol <= 0.01 || typeof window === 'undefined' || !('speechSynthesis' in window)) {
-        fallbackTimerRef.current = setTimeout(onComplete, 3500);
-        return false;
-      }
-      const vocalized = prepareArabicTextForTts(rawText) || rawText;
-      const chunks = chunkArabicSpeech(vocalized, 135);
-      const bestArabicVoice = pickBestMurshidVoice();
-      const unifiedPitch =
-        mood === 'warning' || mood === 'surprised' || mood === 'gentle_sad'
-          ? 0.95
-          : 0.98;
-      const unifiedRate = Math.max(0.82, Math.min(1.2, playbackSpeed * 0.94));
-
-      const speakIdx = (chunkIdx: number) => {
-        if (playSessionRef.current !== session) return;
-        if (chunkIdx >= chunks.length) {
-          onComplete();
-          return;
-        }
-        const utter = new SpeechSynthesisUtterance(chunks[chunkIdx]);
-        if (bestArabicVoice) {
-          utter.voice = bestArabicVoice;
-          utter.lang = bestArabicVoice.lang;
-        } else {
-          utter.lang = 'ar-OM';
-        }
-        utter.pitch = unifiedPitch;
-        utter.rate = unifiedRate;
-        utter.volume = effectiveVol;
-
-        let settled = false;
-        const advanceChunk = () => {
-          if (settled || playSessionRef.current !== session) return;
-          settled = true;
-          if (fallbackTimerRef.current) {
-            clearTimeout(fallbackTimerRef.current);
-            fallbackTimerRef.current = null;
-          }
-          speakIdx(chunkIdx + 1);
-        };
-
-        utter.onend = advanceChunk;
-        utter.onerror = advanceChunk;
-        window.speechSynthesis.speak(utter);
-
-        const maxMs = Math.min(9500, Math.max(2400, chunks[chunkIdx].length * 95));
-        fallbackTimerRef.current = setTimeout(advanceChunk, maxMs);
-      };
-
-      speakIdx(0);
-      return true;
-    },
-    [isMuted, playbackSpeed, volume]
-  );
 
   const playSceneAt = useCallback(
     async (episode: CartoonEpisode, idx: number) => {
@@ -626,6 +560,23 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
       setIsLoadingAudio(true);
       setAudioStatusNote(null);
       setTtsFailed(false);
+      ensureAudioAnalyser();
+
+      const base64Wav = await fetchSceneTts(
+        targetScene.vocalizedNarration || targetScene.narration,
+        targetScene.murshidMood
+      );
+      if (playSessionRef.current !== session) return;
+      setIsLoadingAudio(false);
+
+      if (!base64Wav || !audioRef.current) {
+        setTtsFailed(true);
+        setAudioStatusNote('تعذر إنشاء صوت مرشد الذكي حالياً. يمكنك متابعة المشهد بالترجمة النصية أو إعادة المحاولة لاحقاً.');
+        setIsPlaying(false);
+        setExternalSpeechFinished();
+        audioLevelRef.current = 0;
+        return;
+      }
 
       const advanceNext = () => {
         if (playSessionRef.current !== session) return;
@@ -638,72 +589,26 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
         }
       };
 
-      // On phones, begin speech inside the original tap handler. Waiting for the
-      // server TTS request first can consume Android/iOS transient user activation.
-      const isMobilePlayback =
-        typeof navigator !== 'undefined' &&
-        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-
-      if (isMobilePlayback) {
-        setIsLoadingAudio(false);
-        setAudioStatusNote('يبدأ صوت مُرشد مباشرة على الهاتف لتفادي حظر تشغيل الصوت.');
-        speakBrowserFallbackChunks(
-          targetScene.vocalizedNarration || targetScene.narration,
-          targetScene.murshidMood,
-          session,
-          advanceNext
-        );
-        return;
-      }
-
-      ensureAudioAnalyser();
-
-      const base64Wav = await fetchSceneTts(
-        targetScene.vocalizedNarration || targetScene.narration,
-        targetScene.murshidMood
-      );
-
-      if (playSessionRef.current !== session) return;
-      setIsLoadingAudio(false);
-
-      if (base64Wav && audioRef.current) {
-        const audioEl = audioRef.current;
-        audioEl.src = `data:audio/wav;base64,${base64Wav}`;
-        audioEl.playbackRate = playbackSpeed;
-        audioEl.muted = isMuted || volume === 0;
-        audioEl.volume = Math.max(0, Math.min(1, volume / 100));
-        audioEl.onended = advanceNext;
-        audioEl.onerror = advanceNext;
-        try {
-          await audioEl.play();
-          return;
-        } catch {
-          // Fall through
-        }
-      }
-
-      if (!base64Wav) {
-        setTtsFailed(true);
-      }
-
-      if (!isMuted && volume > 0 && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setAudioStatusNote('تم تشغيل صوت مُرشد عبر النطق العربي الموحّد');
-        speakBrowserFallbackChunks(
-          targetScene.vocalizedNarration || targetScene.narration,
-          targetScene.murshidMood,
-          session,
-          advanceNext
-        );
-      } else {
-        setAudioStatusNote(
-          isMuted || volume === 0
-            ? 'الصوت مكتوم — تُعرض الترجمة النصية للمشهد تلقائياً.'
-            : 'تُعرض الترجمة النصية للمشهد تلقائياً.'
-        );
-        fallbackTimerRef.current = setTimeout(advanceNext, 4200);
+      const audioEl = audioRef.current;
+      audioEl.src = `data:audio/wav;base64,${base64Wav}`;
+      audioEl.playbackRate = playbackSpeed;
+      audioEl.muted = isMuted || volume === 0;
+      audioEl.volume = Math.max(0, Math.min(1, volume / 100));
+      audioEl.onended = advanceNext;
+      audioEl.onerror = () => {
+        setAudioStatusNote('تعذر تشغيل المقطع الصوتي. أعد المحاولة بعد لحظات.');
+        setIsPlaying(false);
+        setExternalSpeechFinished();
+      };
+      try {
+        await audioEl.play();
+      } catch {
+        setAudioStatusNote('تعذر تشغيل المقطع الصوتي. أعد المحاولة بعد لحظات.');
+        setIsPlaying(false);
+        setExternalSpeechFinished();
       }
     },
-    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, speakBrowserFallbackChunks, volume]
+    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, volume]
   );
 
   useEffect(() => {
@@ -765,31 +670,29 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
         audioLevelRef.current = 0;
       };
 
-      if (base64Wav && audioRef.current) {
-        const audioEl = audioRef.current;
-        audioEl.src = `data:audio/wav;base64,${base64Wav}`;
-        audioEl.playbackRate = playbackSpeed;
-        audioEl.muted = isMuted || volume === 0;
-        audioEl.volume = Math.max(0, Math.min(1, volume / 100));
-        audioEl.onended = finish;
-        audioEl.onerror = finish;
-        try {
-          await audioEl.play();
-          return;
-        } catch {
-          // fall through
-        }
-      }
-
-      if (!isMuted && volume > 0 && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setAudioStatusNote('تم تشغيل صوت مُرشد عبر النطق العربي الموحّد');
-        speakBrowserFallbackChunks(sampleText, mood, session, finish);
+      if (!base64Wav || !audioRef.current) {
+        setTtsFailed(true);
+        setAudioStatusNote('تعذر إنشاء صوت مرشد الذكي حالياً. لا يتم استخدام صوت الجهاز بديلاً عنه.');
+        setIsPlaying(false);
+        setExternalSpeechFinished();
         return;
       }
 
-      fallbackTimerRef.current = setTimeout(finish, 3200);
+      const audioEl = audioRef.current;
+      audioEl.src = `data:audio/wav;base64,${base64Wav}`;
+      audioEl.playbackRate = playbackSpeed;
+      audioEl.muted = isMuted || volume === 0;
+      audioEl.volume = Math.max(0, Math.min(1, volume / 100));
+      audioEl.onended = finish;
+      audioEl.onerror = finish;
+      try {
+        await audioEl.play();
+      } catch {
+        setAudioStatusNote('تعذر تشغيل المقطع الصوتي. أعد المحاولة بعد لحظات.');
+        finish();
+      }
     },
-    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, speakBrowserFallbackChunks, volume]
+    [ensureAudioAnalyser, fetchSceneTts, isMuted, playbackSpeed, volume]
   );
 
   const handleGenerateCustomEpisode = async (e: React.FormEvent) => {
