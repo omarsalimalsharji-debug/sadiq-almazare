@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   X,
+  Download,
   Home,
   Scan,
   Bug,
@@ -292,6 +293,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Drawer Footer */}
         <div className="p-4 border-t border-slate-200 dark:border-sky-300/15 bg-slate-50/70 dark:bg-[#132247]/70 space-y-3 text-center">
+          <a
+            href="https://github.com/omarsalimalsharji-debug/sadiq-almazare/releases/latest/download/app-release.apk"
+            className="min-h-[46px] w-full px-4 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold inline-flex items-center justify-center gap-2 shadow-sm transition-colors"
+            aria-label={lang === 'ar' ? 'تحميل تطبيق صديق المزارع للأندرويد APK' : 'Download Farmer Friend Android APK'}
+          >
+            <Download className="w-4 h-4 shrink-0" />
+            <span>{lang === 'ar' ? 'تحميل تطبيق الأندرويد (APK)' : 'Download Android app (APK)'}</span>
+          </a>
           <PWAInstallButton />
           <div className="space-y-1">
             <div className="text-[11px] text-slate-700 dark:text-slate-200 font-semibold">
