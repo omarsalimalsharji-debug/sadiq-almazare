@@ -841,7 +841,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
           {!publicMode && (
           <button
             type="button"
-            onClick={() => setActiveStudioTab('voices')
+            onClick={() => setActiveStudioTab('voices')}
             className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap ${
               activeStudioTab === 'voices'
                 ? 'bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
@@ -856,7 +856,7 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
           {!publicMode && (
           <button
             type="button"
-            onClick={() => setActiveStudioTab('qa')
+            onClick={() => setActiveStudioTab('qa')}
             className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap ${
               activeStudioTab === 'qa'
                 ? 'bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
