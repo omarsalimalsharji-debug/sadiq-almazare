@@ -3,6 +3,7 @@ name: Build Android APK
 on:
   push:
     branches:
+      - codex/global-seasonal-diagnosis-privacy-2026-11-19
       - codex/premium-mobile-apk-updater-livebase-2026-11-19
       - codex/free-render-preview
       - main
