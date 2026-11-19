@@ -11,7 +11,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+        includeAssets: ['icon.svg'],
         manifest: {
           id: '/',
           name: 'صديق المزارع - المنصة الزراعية العمانية الذكية',
@@ -27,7 +27,7 @@ export default defineConfig(() => {
           scope: '/',
           icons: [
             {
-              src: '/icon.svg?v=4',
+              src: '/icon.svg?v=5',
               sizes: 'any',
               type: 'image/svg+xml',
               purpose: 'any maskable',

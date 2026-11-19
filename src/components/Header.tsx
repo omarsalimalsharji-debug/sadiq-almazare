@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   MoonStar,
   Settings,
-  Sprout,
 } from 'lucide-react';
 import { ActivePage, ThemeMode, UserProfile } from '../types/index.ts';
 import { HijriDateInfo } from '../utils/islamicCalendar.ts';
@@ -94,9 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => onNavigate('home')}
             className="flex items-center gap-2 text-start focus:outline-none group shrink-0"
           >
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shadow-sm group-hover:brightness-110 transition">
-              <Sprout className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
+            <img src="/icon.svg?v=5" alt="" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl shadow-sm object-cover group-hover:brightness-110 transition" />
             <span className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
               {t.appShortName}
             </span>

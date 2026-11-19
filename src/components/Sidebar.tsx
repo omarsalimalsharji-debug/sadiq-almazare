@@ -1,31 +1,10 @@
 import React, { useState } from 'react';
 import {
-  X,
-  Download,
-  Home,
-  Scan,
-  Bug,
-  BookOpen,
-  Calendar,
-  Bell,
-  CloudSun,
-  Users,
-  Gamepad2,
-  Trophy,
-  Award,
-  Library,
-  BookMarked,
-  Radio,
-  Lightbulb,
-  UserCircle,
-  Settings,
-  HelpCircle,
-  LogOut,
-  ShieldCheck,
-  Search,
-  Clapperboard,
-  Phone,
-  Globe
+  X, Download, Home, ScanEye, Bug, BookOpenText, CalendarDays, BellRing,
+  CloudSun, MessagesSquare, Gamepad2, Dices, Medal, LibraryBig,
+  BookMarked, RadioTower, Lightbulb, UserRound, SlidersHorizontal,
+  LifeBuoy, LogOut, ShieldCheck, Search, Clapperboard, Tractor, ClipboardList,
+  Phone, Globe, Sprout, Wheat, BookOpenCheck
 } from 'lucide-react';
 import { ActivePage, UserProfile } from '../types/index.ts';
 import { PWAInstallButton } from './PWAInstallButton.tsx';
@@ -74,39 +53,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const menuGroups: MenuGroup[] = [
     {
       id: 'hubs',
-      titleAr: 'الأقسام الرئيسية الأربعة',
-      titleEn: '4 Main Categories',
+      titleAr: 'الأقسام الرئيسية',
+      titleEn: 'Main Sections',
       items: [
         { id: 'home', labelAr: 'الصفحة الرئيسية', labelEn: 'Home Screen', icon: Home },
-        { id: 'hub_crops', labelAr: 'العناية بالمحاصيل والتشخيص', labelEn: 'Crops Care & Diagnosis', icon: Scan },
-        { id: 'hub_advisor', labelAr: 'مرشدك الزراعي والمجتمع', labelEn: 'Agri Guide & Community', icon: Users },
-        { id: 'hub_knowledge', labelAr: 'المعلومات والمكتبة الزراعية', labelEn: 'Knowledge & Library', icon: Library },
-        { id: 'hub_games', labelAr: 'الألعاب والتسلية التعليمية', labelEn: 'Games & Achievements', icon: Gamepad2 },
+        { id: 'hub_crops', labelAr: 'المحاصيل والتشخيص الزراعي', labelEn: 'Crops & Plant Diagnosis', icon: Wheat },
+        { id: 'hub_advisor', labelAr: 'مرشدك الزراعي', labelEn: 'Your Agricultural Guide', icon: Sprout },
+        { id: 'hub_knowledge', labelAr: 'المعرفة والمكتبة الزراعية', labelEn: 'Knowledge & Agri Library', icon: BookOpenCheck },
+        { id: 'hub_games', labelAr: 'الألعاب والمسابقات الزراعية', labelEn: 'Agri Games & Challenges', icon: Dices },
       ],
     },
     {
       id: 'core_agri',
-      titleAr: 'الخدمات الزراعية المباشرة',
-      titleEn: 'Direct Agricultural Tools',
+      titleAr: 'الخدمات والأدوات الزراعية',
+      titleEn: 'Agricultural Tools & Services',
       items: [
-        { id: 'plant_diagnosis', labelAr: 'التشخيص الذكي لأمراض النباتات', labelEn: 'Smart Plant Diagnosis', icon: Scan, badgeAr: 'ذكي', badgeEn: 'AI' },
-        { id: 'pest_diagnosis', labelAr: 'تشخيص الحشرات والآفات الزراعية', labelEn: 'Insect & Pest Diagnosis', icon: Bug },
-        { id: 'weather', labelAr: 'الطقس والتوقعات المباشرة', labelEn: 'Oman Live Weather', icon: CloudSun },
-        { id: 'alerts', labelAr: 'التنبيهات والإرشادات المناخية', labelEn: 'Weather & Crop Alerts', icon: Bell },
-        { id: 'calendar', labelAr: 'التقويم الزراعي العماني', labelEn: 'Omani Crop Calendar', icon: Calendar },
-        { id: 'library', labelAr: 'المكتبة الزراعية الإلكترونية', labelEn: 'Digital Agricultural Library', icon: Library, badgeAr: '12', badgeEn: '12' },
-        { id: 'encyclopedia', labelAr: 'الموسوعة الزراعية الشاملة', labelEn: 'Agricultural Encyclopedia', icon: BookOpen },
-        { id: 'daily_tips', labelAr: 'النصائح اليومية والموسمية', labelEn: 'Daily & Seasonal Tips', icon: Lightbulb },
+        { id: 'plant_diagnosis', labelAr: 'تشخيص أمراض النباتات بالصور', labelEn: 'Photo Plant Disease Diagnosis', icon: ScanEye, badgeAr: 'ذكي', badgeEn: 'AI' },
+        { id: 'pest_diagnosis', labelAr: 'التعرّف على الحشرات والآفات', labelEn: 'Insect & Pest Identification', icon: Bug },
+        { id: 'weather', labelAr: 'الطقس الزراعي في عُمان', labelEn: 'Oman Agricultural Weather', icon: CloudSun },
+        { id: 'alerts', labelAr: 'التنبيهات الزراعية والمناخية', labelEn: 'Agricultural & Weather Alerts', icon: BellRing },
+        { id: 'calendar', labelAr: 'مواعيد الزراعة والحصاد', labelEn: 'Planting & Harvest Calendar', icon: CalendarDays },
+        { id: 'library', labelAr: 'مكتبة الأدلة والكتب الزراعية', labelEn: 'Digital Agri Guides & Books', icon: LibraryBig, badgeAr: '12', badgeEn: '12' },
+        { id: 'encyclopedia', labelAr: 'الموسوعة الزراعية', labelEn: 'Agricultural Encyclopedia', icon: BookOpenText },
+        { id: 'daily_tips', labelAr: 'الإرشادات اليومية والموسمية', labelEn: 'Daily & Seasonal Advice', icon: Lightbulb },
       ],
     },
     {
       id: 'community_media',
-      titleAr: 'المجتمع والإرشاد والبث',
-      titleEn: 'Community & Live Media',
+      titleAr: 'المنتدى والإرشاد والإعلام',
+      titleEn: 'Forum, Guidance & Media',
       items: [
-        { id: 'community', labelAr: 'المنتدى الزراعي', labelEn: 'Agricultural Forum', icon: Users },
+        { id: 'community', labelAr: 'المنتدى الزراعي', labelEn: 'Agricultural Forum', icon: MessagesSquare },
         { id: 'quran', labelAr: 'القرآن الكريم (الشيخ هزاع البلوشي)', labelEn: 'Holy Quran (Hazza Al-Balushi)', icon: BookMarked },
-        { id: 'radio', labelAr: 'الإذاعات العمانية والبث المباشر', labelEn: 'Oman Live Radio', icon: Radio },
+        { id: 'radio', labelAr: 'الإذاعات العُمانية المباشرة', labelEn: 'Oman Live Radio', icon: RadioTower },
       ],
     },
     {
@@ -114,21 +93,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       titleAr: 'التوعية والألعاب التعليمية',
       titleEn: 'Awareness & Interactive Games',
       items: [
-        { id: 'cartoon_videos', labelAr: 'فيديوهات مُرشد الزراعية', labelEn: 'Murshid Agricultural Videos', icon: Clapperboard },
-        { id: 'murshid_adventures', labelAr: 'مغامرات مرشد الزراعية', labelEn: "Murshid's Agricultural Adventures", icon: Gamepad2, badgeAr: 'لعبة', badgeEn: 'Play' },
-        { id: 'games', labelAr: 'الألعاب الزراعية التفاعلية', labelEn: 'Interactive Agri Games', icon: Gamepad2, badgeAr: '6', badgeEn: '6' },
-        { id: 'cultural_quiz', labelAr: 'المسابقة الثقافية العمانية', labelEn: 'Omani Cultural Quiz', icon: Trophy },
-        { id: 'leaderboard', labelAr: 'لوحة المتصدرين والنقاط', labelEn: 'Leaderboards & Points', icon: Award },
+        { id: 'cartoon_videos', labelAr: 'مرشد: الفيديوهات التعليمية', labelEn: 'Murshid Educational Videos', icon: Clapperboard },
+        { id: 'murshid_adventures', labelAr: 'مغامرات مُرشد التفاعلية', labelEn: "Murshid's Interactive Adventures", icon: Tractor, badgeAr: 'لعبة', badgeEn: 'Play' },
+        { id: 'games', labelAr: 'التحديات والألعاب الزراعية', labelEn: 'Agricultural Games & Challenges', icon: Gamepad2, badgeAr: '6', badgeEn: '6' },
+        { id: 'cultural_quiz', labelAr: 'المسابقة الثقافية العُمانية', labelEn: 'Omani Cultural Quiz', icon: ClipboardList },
+        { id: 'leaderboard', labelAr: 'إنجازات المزارعين والمتصدرون', labelEn: 'Farmer Achievements & Leaderboard', icon: Medal },
       ],
     },
     {
       id: 'account_settings',
-      titleAr: 'الحساب والإعدادات',
-      titleEn: 'Account & Settings',
+      titleAr: 'الحساب والدعم',
+      titleEn: 'Account & Support',
       items: [
-        { id: 'profile', labelAr: 'الملف الشخصي', labelEn: 'Farmer Profile', icon: UserCircle },
-        { id: 'settings', labelAr: 'الإعدادات والمظهر والصوت', labelEn: 'Settings, Theme & Audio', icon: Settings },
-        { id: 'help_support', labelAr: 'المساعدة والدعم وتوثيق المنصة', labelEn: 'Help & Support', icon: HelpCircle },
+        { id: 'profile', labelAr: 'حساب المزارع', labelEn: 'Farmer Account', icon: UserRound },
+        { id: 'settings', labelAr: 'إعدادات التطبيق والصوت', labelEn: 'App, Display & Audio Settings', icon: SlidersHorizontal },
+        { id: 'help_support', labelAr: 'المساعدة والدعم', labelEn: 'Help & Support', icon: LifeBuoy },
         {
           id: 'login',
           labelAr: user.isAdmin || user.isModerator ? 'تسجيل خروج المدير' : 'دخول مدير البرنامج',
@@ -167,8 +146,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Drawer Header */}
         <div className="p-4 border-b border-slate-200 dark:border-sky-300/15 flex items-center justify-between bg-slate-50/80 dark:bg-[#132247]/90">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-bold text-xl shadow-sm shrink-0">
-              🌾
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-emerald-800 shadow-sm shrink-0">
+              <img src="/icon.svg?v=5" alt="" className="w-full h-full object-contain rounded-xl" />
             </div>
             <div className="min-w-0">
               <div className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight truncate">

@@ -123,7 +123,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sadiq-almazare-android-v1.0.5
+          name: sadiq-almazare-android-v1.0.6
           path: sadiq-almazare.apk
           if-no-files-found: error
           retention-days: 30
@@ -132,10 +132,10 @@ jobs:
         if: ${{ env.SIGNED_RELEASE == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-v1.0.5
-          name: صديق المزارع - الإصدار 1.0.5
+          tag_name: android-v1.0.6
+          name: صديق المزارع - الإصدار 1.0.6
           body: |
-            تحديث صديق المزارع.
+            تحديث صديق المزارع 1.0.6: توحيد الأيقونة الزراعية، تحسين أسماء الأقسام والرموز، وتحديث تجربة الهاتف.
             يتطلب تثبيت التحديث موافقة المستخدم من Android.
           files: sadiq-almazare.apk
           overwrite_files: true
@@ -155,8 +155,8 @@ jobs:
             const current = await github.rest.repos.getContent({ owner, repo, path, ref: branch });
             const content = {
               available: true,
-              version: '1.0.5',
-              apkUrl: 'https://github.com/' + owner + '/' + repo + '/releases/download/android-v1.0.5/sadiq-almazare.apk',
+              version: '1.0.6',
+              apkUrl: 'https://github.com/' + owner + '/' + repo + '/releases/download/android-v1.0.6/sadiq-almazare.apk',
               mandatory: false,
               releaseNotes: [
                 'تحديث الإرشادات والتنبيهات بحسب الموسم الزراعي في عُمان',

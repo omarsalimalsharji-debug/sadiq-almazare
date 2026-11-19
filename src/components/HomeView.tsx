@@ -200,12 +200,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           {/* Brand Title + Tagline + Quick Location Weather Link */}
           <div className="min-w-0 flex-1 space-y-1 sm:space-y-2">
             <div className="flex items-center gap-2">
-              <div
-                className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center shadow-sm shrink-0"
-                aria-hidden="true"
-              >
-                <Sprout className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
+              <img src="/icon.svg?v=5" alt="" className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl shadow-sm object-cover shrink-0" />
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-2xl lg:text-3xl font-black text-emerald-950 dark:text-white leading-tight truncate">
                   {t.appShortName}
