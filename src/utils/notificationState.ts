@@ -41,7 +41,17 @@ export function markNotificationsRead(ids: string[]): void {
 export function getLocalNotifications(): NotificationRecord[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.id === 'string') : [];
+    const valid = Array.isArray(parsed)
+      ? parsed.filter((item) =>
+          item &&
+          typeof item.id === 'string' &&
+          !/خف عذوق النخيل|تكميم عذوق نخيل الخلاص والفرض|موعد تكميم عذوق النخيل/i.test(String(item.title || '') + ' ' + String(item.message || ''))
+        )
+      : [];
+    if (Array.isArray(parsed) && valid.length !== parsed.length) {
+      try { localStorage.setItem(LOCAL_KEY, JSON.stringify(valid.slice(0, MAX_LOCAL_ITEMS))); } catch { /* ignore */ }
+    }
+    return valid;
   } catch {
     return [];
   }
