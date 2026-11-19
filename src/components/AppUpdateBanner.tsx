@@ -36,10 +36,12 @@ export const AppUpdateBanner: React.FC = () => {
       try {
         let installedVersion = APP_VERSION;
         if (Capacitor.isNativePlatform()) {
+          // Older APKs may not have the native App plugin yet; let them bootstrap the updater.
+          installedVersion = '0.0.0';
           try {
-            installedVersion = (await App.getInfo()).version || APP_VERSION;
+            installedVersion = (await App.getInfo()).version || '0.0.0';
           } catch {
-            // Keep the web bundle version as a safe fallback.
+            // Missing native App plugin is expected on older APKs.
           }
         }
         const response = await fetch(`${MANIFEST_URL}?v=${Date.now()}`, { cache: 'no-store' });
