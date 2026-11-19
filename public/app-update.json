@@ -1,0 +1,11 @@
+{
+  "available": false,
+  "version": "1.0.3",
+  "apkUrl": "https://github.com/omarsalimalsharji-debug/sadiq-almazare/releases/download/android-v1.0.3/sadiq-almazare.apk",
+  "mandatory": false,
+  "releaseNotes": [
+    "تحسين ملاءمة الواجهات للهواتف والأجهزة الصغيرة",
+    "توحيد صوت مرشد العربي المولّد بالذكاء الاصطناعي",
+    "تحسينات في الأداء والاستقرار"
+  ]
+}
