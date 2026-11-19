@@ -3104,7 +3104,7 @@ app.post('/api/cartoon/tts', async (req, res) => {
       warning:
         'A mature, lifelike male Omani/Gulf Arabic agricultural mentor. Speak as a caring human professional: composed, clear, steady and reassuring, with natural pauses; firm but never alarming',
       proud:
-        'A warm, lifelike adult male Omani/Gulf Arabic presenter celebrating a farmer's success with genuine human joy, relaxed smile, natural vocal variation and clean studio diction',
+        'A warm, lifelike adult male Omani/Gulf Arabic presenter celebrating a farmer’s success with genuine human joy, relaxed smile, natural vocal variation and clean studio diction',
     };
 
     const response = await ai.models.generateContent({
