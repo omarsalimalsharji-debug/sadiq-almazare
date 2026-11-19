@@ -1698,31 +1698,26 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
   let lastModelError: any = null;
   const diagnosisModels = ['gemini-4-hydrogen', 'gemini-3.8-flash'];
 
+  // Fail over immediately on transient primary-model errors instead of repeating
+  // a potentially slow request. This preserves the detailed primary model while
+  // avoiding an unnecessary second wait before the fallback can start.
   for (let modelIndex = 0; modelIndex < diagnosisModels.length; modelIndex++) {
     const model = diagnosisModels[modelIndex];
-    const attempts = modelIndex === 0 ? 2 : 1;
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      try {
-        response = await generateDiagnosis(model);
-        break;
-      } catch (error: any) {
-        lastModelError = error;
-        const status = Number(error?.status || error?.code || error?.error?.code);
-        const errorText = String(error?.message || error?.error?.message || '');
-        const transientFailure =
-          status === 429 ||
-          [500, 502, 503, 504].includes(status) ||
-          /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|overloaded/i.test(errorText);
+    try {
+      response = await generateDiagnosis(model);
+      break;
+    } catch (error: any) {
+      lastModelError = error;
+      const status = Number(error?.status || error?.code || error?.error?.code);
+      const errorText = String(error?.message || error?.error?.message || '');
+      const transientFailure =
+        status === 429 ||
+        [500, 502, 503, 504].includes(status) ||
+        /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|overloaded/i.test(errorText);
 
-        if (!transientFailure) throw error;
-        console.warn(`[AgriVision] ${model} temporarily unavailable (attempt ${attempt + 1}/${attempts}); ${modelIndex === 0 ? 'retrying or switching to fallback' : 'fallback exhausted'}.`);
-
-        if (attempt + 1 < attempts) {
-          await new Promise((resolve) => setTimeout(resolve, 700));
-        }
-      }
+      if (!transientFailure) throw error;
+      console.warn(`[AgriVision] ${model} temporarily unavailable; ${modelIndex === 0 ? 'switching immediately to fallback' : 'fallback exhausted'}.`);
     }
-    if (response) break;
   }
 
   if (!response) {
@@ -2010,6 +2005,7 @@ async function handleSmartDiagnosisRequest(
   res: express.Response,
   defaultModeHint: 'auto' | 'plant' | 'insect' = 'auto'
 ) {
+  const requestStartedAt = Date.now();
   try {
     const {
       images,
@@ -2082,7 +2078,9 @@ async function handleSmartDiagnosisRequest(
       modeHint: effectiveMode,
     });
 
-    return res.json({ success: true, cached: fromCache, diagnosis });
+    const diagnosisDurationMs = Date.now() - requestStartedAt;
+    console.info(`[AgriVision] diagnosis completed in ${diagnosisDurationMs}ms (cache=${fromCache}, images=${validImages.length}, mode=${effectiveMode}).`);
+    return res.json({ success: true, cached: fromCache, diagnosisDurationMs, diagnosis });
   } catch (error: any) {
     console.error('Smart agricultural diagnosis error:', error);
     const message = String(error?.message || error?.error?.message || '');
