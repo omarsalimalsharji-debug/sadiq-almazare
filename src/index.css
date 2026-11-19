@@ -159,7 +159,8 @@ button {
   }
 
   .min-w-max {
-    max-width: none;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .mobile-safe-bottom {
@@ -258,5 +259,36 @@ button {
     max-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+
+/* Final phone viewport guard: prevent nested cards and wide controls from stretching the app. */
+@media (max-width: 640px) {
+  .agri-app-shell,
+  .agri-main {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .agri-main > *,
+  .agri-main :where(.flex, .grid, .space-y-4, .space-y-5, .space-y-6) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .agri-main :where(input, textarea, select, button) {
+    max-width: 100%;
+  }
+
+  .agri-main :where(pre, .overflow-x-auto) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .agri-main :where(h1, h2, h3, p, span) {
+    overflow-wrap: anywhere;
   }
 }
