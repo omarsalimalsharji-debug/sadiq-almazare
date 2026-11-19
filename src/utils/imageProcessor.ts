@@ -73,37 +73,38 @@ function computeFastFingerprint(input: string): string {
  */
 function enhanceCanvasClarity(ctx: CanvasRenderingContext2D, width: number, height: number): boolean {
   try {
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-    const totalPixels = width * height;
-    if (totalPixels === 0) return false;
+    if (width * height === 0) return false;
+
+    // Estimate exposure on a tiny preview first. Most daylight farm photos need
+    // no pixel-level edits, so avoid reading and rewriting the full 1400px image.
+    const sampleCanvas = document.createElement('canvas');
+    sampleCanvas.width = 64;
+    sampleCanvas.height = 64;
+    const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+    if (!sampleCtx) return false;
+    sampleCtx.drawImage(ctx.canvas, 0, 0, 64, 64);
+    const sample = sampleCtx.getImageData(0, 0, 64, 64).data;
 
     let lumSum = 0;
     let sampleCount = 0;
-    for (let i = 0; i < data.length; i += 32) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      lumSum += 0.299 * r + 0.587 * g + 0.114 * b;
+    for (let i = 0; i < sample.length; i += 4) {
+      lumSum += 0.299 * sample[i] + 0.587 * sample[i + 1] + 0.114 * sample[i + 2];
       sampleCount++;
     }
 
     const avgLum = sampleCount > 0 ? lumSum / sampleCount : 128;
-    const brightnessGain = avgLum < 92 ? Math.min(1.22, 106 / Math.max(avgLum, 45)) : 1.0;
-    const contrastFactor = 1.05;
+    // Preserve natural colors and skip expensive full-resolution work for
+    // normally exposed images. Only gently lift noticeably dark photos.
+    if (avgLum >= 92) return false;
+
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    const brightnessGain = Math.min(1.22, 106 / Math.max(avgLum, 45));
 
     for (let i = 0; i < data.length; i += 4) {
-      let r = data[i] * brightnessGain;
-      let g = data[i + 1] * brightnessGain;
-      let b = data[i + 2] * brightnessGain;
-
-      r = (r - 128) * contrastFactor + 128;
-      g = (g - 128) * contrastFactor + 128;
-      b = (b - 128) * contrastFactor + 128;
-
-      data[i] = r < 0 ? 0 : r > 255 ? 255 : r;
-      data[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
-      data[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+      data[i] = Math.min(255, data[i] * brightnessGain);
+      data[i + 1] = Math.min(255, data[i + 1] * brightnessGain);
+      data[i + 2] = Math.min(255, data[i + 2] * brightnessGain);
     }
 
     ctx.putImageData(imageData, 0, 0);
