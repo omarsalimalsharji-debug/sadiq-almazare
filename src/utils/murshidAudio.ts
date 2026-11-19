@@ -406,6 +406,7 @@ export async function speakMurshid(
     preferStudioAudio?: boolean;
     onSpeakingChange?: (speaking: boolean) => void;
     onEnd?: () => void;
+    onError?: () => void;
   }
 ) {
   const {
@@ -506,6 +507,6 @@ export async function speakMurshid(
     onSpeakingChange?.(false);
     activeSpeakerSetter = null;
     notifyGlobalSpeaking(false);
-    onEnd?.();
+    onError?.();
   }
 }
