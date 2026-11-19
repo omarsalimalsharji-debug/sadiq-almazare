@@ -1,0 +1,154 @@
+name: Android signed APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Choose key preparation once, or build the signed APK"
+        required: true
+        type: choice
+        options:
+          - prepare-key
+          - build-apk
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-key:
+    if: inputs.mode == 'prepare-key'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate signing secrets
+        shell: bash
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$STORE_PASSWORD" || { echo "::error::ANDROID_KEYSTORE_PASSWORD is missing"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "::error::ANDROID_KEY_PASSWORD is missing"; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "::error::ANDROID_KEY_ALIAS is missing"; exit 1; }
+          if [ "$KEY_ALIAS" != "SadiqAlMazare" ]; then
+            echo "::error::ANDROID_KEY_ALIAS must be SadiqAlMazare"; exit 1
+          fi
+      - name: Generate permanent upload keystore
+        shell: bash
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -v \
+            -keystore sadiq-almazare-release.jks \
+            -storetype JKS \
+            -storepass "$STORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Sadiq Al Mazare, OU=Mobile, O=Sadiq Al Mazare, L=Samail, ST=Al Dakhiliyah, C=OM"
+          base64 -w 0 sadiq-almazare-release.jks > ANDROID_KEYSTORE_BASE64.txt
+          chmod 600 sadiq-almazare-release.jks ANDROID_KEYSTORE_BASE64.txt
+      - name: Upload one-time secret handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: sadiq-almazare-signing-secret
+          path: ANDROID_KEYSTORE_BASE64.txt
+          retention-days: 1
+          if-no-files-found: error
+
+  build-apk:
+    if: inputs.mode == 'build-apk'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Validate and decode signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" || { echo "::error::ANDROID_KEYSTORE_BASE64 is missing"; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo "::error::ANDROID_KEYSTORE_PASSWORD is missing"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "::error::ANDROID_KEY_PASSWORD is missing"; exit 1; }
+          test "$KEY_ALIAS" = "SadiqAlMazare" || { echo "::error::ANDROID_KEY_ALIAS must be SadiqAlMazare"; exit 1; }
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/sadiq-almazare-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/sadiq-almazare-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+      - name: Install dependencies and build web app
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+      - name: Create and sync Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+      - name: Configure release signing
+        shell: bash
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEYSTORE_PATH: ${{ runner.temp }}/sadiq-almazare-release.jks
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          path = Path("android/app/build.gradle")
+          text = path.read_text()
+          if "sadiqRelease" in text:
+              raise SystemExit("Release signing already configured; refusing to duplicate it.")
+          marker = "buildTypes {"
+          pos = text.find(marker)
+          if pos < 0:
+              raise SystemExit("Could not locate buildTypes block in generated Android Gradle file.")
+          signing = """
+              signingConfigs {
+                  sadiqRelease {
+                      storeFile file(System.getenv("KEYSTORE_PATH"))
+                      storePassword System.getenv("STORE_PASSWORD")
+                      keyAlias System.getenv("KEY_ALIAS")
+                      keyPassword System.getenv("KEY_PASSWORD")
+                  }
+              }
+
+          """
+          text = text[:pos] + signing + text[pos:]
+          release_pos = text.find("release {", pos + len(signing))
+          if release_pos < 0:
+              raise SystemExit("Could not locate release build type.")
+          insert_at = release_pos + len("release {")
+          text = text[:insert_at] + "\n            signingConfig signingConfigs.sadiqRelease" + text[insert_at:]
+          path.write_text(text)
+          PY
+      - name: Build signed release APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleRelease
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sadiq-almazare-signed-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 14
+          if-no-files-found: error
