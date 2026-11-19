@@ -11,7 +11,7 @@ type UpdateManifest = {
   mandatory?: boolean;
 };
 
-const APP_VERSION = '1.0.2';
+const APP_VERSION = '1.0.3';
 const MANIFEST_URL = '/app-update.json';
 
 function isNewerVersion(candidate: string, current: string) {
