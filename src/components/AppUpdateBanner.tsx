@@ -34,11 +34,19 @@ export const AppUpdateBanner: React.FC = () => {
     let cancelled = false;
     const check = async () => {
       try {
+        let installedVersion = APP_VERSION;
+        if (Capacitor.isNativePlatform()) {
+          try {
+            installedVersion = (await App.getInfo()).version || APP_VERSION;
+          } catch {
+            // Keep the web bundle version as a safe fallback.
+          }
+        }
         const response = await fetch(`${MANIFEST_URL}?v=${Date.now()}`, { cache: 'no-store' });
         if (!response.ok) return;
         const data = (await response.json()) as UpdateManifest;
         if (cancelled || !data.available || !data.version || !data.apkUrl) return;
-        if (!isNewerVersion(data.version, APP_VERSION)) return;
+        if (!isNewerVersion(data.version, installedVersion)) return;
         setUpdate(data);
       } catch {
         // Update checks must never interrupt normal app use.
