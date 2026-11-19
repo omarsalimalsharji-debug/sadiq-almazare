@@ -3,11 +3,14 @@ name: Verify application
 on:
   push:
     branches:
+      - codex/global-seasonal-diagnosis-privacy-2026-11-19
+      - codex/free-render-preview
       - codex/development-from-main-2026-11-18
       - codex/diagnosis-safety-hardening-2026-11-18
   pull_request:
     branches:
       - main
+      - codex/free-render-preview
       - codex/development-from-main-2026-11-18
 
 permissions:
