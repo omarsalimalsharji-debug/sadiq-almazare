@@ -473,7 +473,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/80">
             {initialFocus === 'insect'
-              ? 'ارفع صورة واضحة للحشرة، ويمكنك إضافة صورتين مقرّبتين من الأعلى والجانب لتمييز النوع والمرحلة والجنس عند ظهور العلامات.'
+              ? 'ارفع صورة واضحة للحشرة، وأضف صورتين من الأعلى والجانب. لدوباس النخيل أظهر البطن والأجنحة، ولسوسة النخيل أظهر مقدمة الخرطوم والشعيرات؛ لا يُحدد الجنس إلا إذا ظهرت العلامة التشريحية بوضوح.'
               : 'ارفع صورة واضحة للنبات أو الجزء المصاب، ويمكنك إضافة صور للوجهين العلوي والسفلي أو قاعدة النبات لزيادة دقة المقارنة.'}
           </p>
         </div>
@@ -568,7 +568,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-300/80 leading-relaxed">
                   {initialFocus === 'insect'
-                    ? 'صوّر الحشرة من قرب مع إظهار جسمها وأجنحتها وأرجلها قدر الإمكان، دون اهتزاز.'
+                    ? 'صوّر الحشرة من قرب مع إظهار جسمها وأجنحتها وأرجلها. لسوسة النخيل صوّر الخرطوم من أعلى، ولدوباس النخيل أظهر البطن والأجنحة، مع إضاءة جيدة ودون اهتزاز.'
                     : 'صوّر الورقة أو الجزء المصاب من قرب، مع إظهار الأعراض بوضوح ودون اهتزاز.'}
                 </p>
               </div>
@@ -1231,7 +1231,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                                   <div className="rounded-xl border border-emerald-200/70 dark:border-emerald-400/20 bg-emerald-50/70 dark:bg-emerald-950/20 p-3 space-y-2">
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                                       <div><span className="font-bold text-slate-900 dark:text-white">مرحلة الحشرة: </span>{result.insectDetails.lifeStageLabel || 'غير محددة'}</div>
-                                      <div><span className="font-bold text-slate-900 dark:text-white">عمر الحورية: </span>{result.insectDetails.instar || 'غير محدد'}</div>
+                                      <div><span className="font-bold text-slate-900 dark:text-white">عمر الحورية (لدوباس): </span>{result.insectDetails.instar || 'غير محدد'}</div>
                                       <div><span className="font-bold text-slate-900 dark:text-white">الجيل الموسمي: </span>{result.insectDetails.generation || 'غير محدد'}</div>
                                     </div>
                                     {result.insectDetails.lifeStageEvidence && <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">{result.insectDetails.lifeStageEvidence}</p>}
