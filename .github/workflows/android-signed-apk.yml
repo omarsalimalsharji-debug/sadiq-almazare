@@ -114,11 +114,15 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import os, re
+          import os
           path = Path("android/app/build.gradle")
           text = path.read_text()
-          if "signingConfigs" in text and "sadiqRelease" in text:
-              raise SystemExit("Release signing appears to be configured already; refusing to duplicate it.")
+          if "sadiqRelease" in text:
+              raise SystemExit("Release signing already configured; refusing to duplicate it.")
+          marker = "buildTypes {"
+          pos = text.find(marker)
+          if pos < 0:
+              raise SystemExit("Could not locate buildTypes block in generated Android Gradle file.")
           signing = """
               signingConfigs {
                   sadiqRelease {
@@ -128,15 +132,14 @@ jobs:
                       keyPassword System.getenv("KEY_PASSWORD")
                   }
               }
+
           """
-          if not re.search(r"\\bbuildTypes\\s*\\{", text):
-              raise SystemExit("Could not locate buildTypes block in generated Android Gradle file.")
-          text = re.sub(r"(\\bbuildTypes\\s*\\{)", signing + r"\n\\1", text, count=1)
-          release = re.search(r"release\\s*\\{", text)
-          if not release:
+          text = text[:pos] + signing + text[pos:]
+          release_pos = text.find("release {", pos + len(signing))
+          if release_pos < 0:
               raise SystemExit("Could not locate release build type.")
-          insert_at = release.end()
-          text = text[:insert_at] + '\\n            signingConfig signingConfigs.sadiqRelease' + text[insert_at:]
+          insert_at = release_pos + len("release {")
+          text = text[:insert_at] + "\n            signingConfig signingConfigs.sadiqRelease" + text[insert_at:]
           path.write_text(text)
           PY
       - name: Build signed release APK
