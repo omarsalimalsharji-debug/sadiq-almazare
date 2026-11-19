@@ -406,6 +406,7 @@ export async function speakMurshid(
     preferStudioAudio?: boolean;
     onSpeakingChange?: (speaking: boolean) => void;
     onEnd?: () => void;
+    onError?: () => void;
   }
 ) {
   const {
@@ -416,6 +417,7 @@ export async function speakMurshid(
     preferStudioAudio = false,
     onSpeakingChange,
     onEnd,
+    onError,
   } = options || {};
 
   const eff = resolveEffectiveAudio(mutedOpt, volumeOpt);
@@ -508,16 +510,10 @@ export async function speakMurshid(
   if (activePlaybackToken !== token) return;
 
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    notifyGlobalSpeaking(true);
-    onSpeakingChange?.(true);
-    const estMs = Math.min(3400, Math.max(1100, cleanRaw.length * 42));
-    activeSpeechTimer = setTimeout(() => {
-      if (activePlaybackToken !== token) return;
-      onSpeakingChange?.(false);
-      activeSpeakerSetter = null;
-      notifyGlobalSpeaking(false);
-      onEnd?.();
-    }, estMs);
+    onSpeakingChange?.(false);
+    activeSpeakerSetter = null;
+    notifyGlobalSpeaking(false);
+    onError?.();
     return;
   }
 
@@ -580,7 +576,7 @@ export async function speakMurshid(
       onSpeakingChange?.(false);
       activeSpeakerSetter = null;
       notifyGlobalSpeaking(false);
-      onEnd?.();
+      onError?.();
     }
   }
 }
