@@ -11,6 +11,17 @@ export interface NotificationRecord {
 
 const READ_KEY = 'sadiq_notification_read_ids_v1';
 const LOCAL_KEY = 'sadiq_local_notifications_v1';
+
+// Farmer reminders and local notification state are session-only, not a permanent activity log.
+function clearLegacyPersistentState(): void {
+  try {
+    localStorage.removeItem(READ_KEY);
+    localStorage.removeItem(LOCAL_KEY);
+    localStorage.removeItem('oman_calendar_reminders_cache_v1:device');
+  } catch {
+    // Private browsing or restricted storage may block cleanup.
+  }
+}
 const MAX_LOCAL_ITEMS = 100;
 
 // Retire date-palm bunch/harvest tasks when the Omani harvest window has passed.
@@ -26,7 +37,8 @@ function isExpiredPalmSeasonTask(item: Pick<NotificationRecord, 'title' | 'messa
 
 function readIdSet(): Set<string> {
   try {
-    const parsed = JSON.parse(localStorage.getItem(READ_KEY) || '[]');
+    clearLegacyPersistentState();
+    const parsed = JSON.parse(sessionStorage.getItem(READ_KEY) || '[]');
     return new Set(Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string').slice(-500) : []);
   } catch {
     return new Set();
@@ -42,7 +54,7 @@ export function markNotificationsRead(ids: string[]): void {
   const read = readIdSet();
   ids.filter(Boolean).forEach((id) => read.add(id));
   try {
-    localStorage.setItem(READ_KEY, JSON.stringify([...read].slice(-500)));
+    sessionStorage.setItem(READ_KEY, JSON.stringify([...read].slice(-500)));
   } catch {
     // Keep the notification list usable when browser storage is unavailable.
   }
@@ -51,7 +63,8 @@ export function markNotificationsRead(ids: string[]): void {
 
 export function getLocalNotifications(): NotificationRecord[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+    clearLegacyPersistentState();
+    const parsed = JSON.parse(sessionStorage.getItem(LOCAL_KEY) || '[]');
     const valid = Array.isArray(parsed)
       ? parsed.filter((item) =>
           item &&
@@ -61,7 +74,7 @@ export function getLocalNotifications(): NotificationRecord[] {
         )
       : [];
     if (Array.isArray(parsed) && valid.length !== parsed.length) {
-      try { localStorage.setItem(LOCAL_KEY, JSON.stringify(valid.slice(0, MAX_LOCAL_ITEMS))); } catch { /* ignore */ }
+      try { sessionStorage.setItem(LOCAL_KEY, JSON.stringify(valid.slice(0, MAX_LOCAL_ITEMS))); } catch { /* ignore */ }
     }
     return valid;
   } catch {
@@ -74,7 +87,7 @@ export function addLocalNotification(notification: NotificationRecord): void {
   const current = getLocalNotifications().filter((item) => item.id !== notification.id);
   current.unshift(notification);
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(current.slice(0, MAX_LOCAL_ITEMS)));
+    sessionStorage.setItem(LOCAL_KEY, JSON.stringify(current.slice(0, MAX_LOCAL_ITEMS)));
   } catch {
     // Local notifications are best-effort and never block calendar actions.
   }
@@ -105,14 +118,15 @@ export function dispatchDueLocalReminders(now = Date.now()): number {
   const remindersKey = 'oman_calendar_reminders_cache_v1:device';
   let reminders: any[] = [];
   try {
-    const parsed = JSON.parse(localStorage.getItem(remindersKey) || '[]');
+    clearLegacyPersistentState();
+    const parsed = JSON.parse(sessionStorage.getItem(remindersKey) || '[]');
     reminders = Array.isArray(parsed) ? parsed : [];
     const activeReminders = reminders.filter((reminder) =>
       !isExpiredPalmSeasonTask({ title: String(reminder?.title || ''), message: String(reminder?.message || '') })
     );
     if (activeReminders.length !== reminders.length) {
       reminders = activeReminders;
-      localStorage.setItem(remindersKey, JSON.stringify(reminders));
+      sessionStorage.setItem(remindersKey, JSON.stringify(reminders));
     }
   } catch {
     return 0;
@@ -169,7 +183,7 @@ export function dispatchDueLocalReminders(now = Date.now()): number {
 
   if (changed) {
     try {
-      localStorage.setItem(remindersKey, JSON.stringify(next));
+      sessionStorage.setItem(remindersKey, JSON.stringify(next));
     } catch {
       // Notification delivery remains recorded locally even if reminder state cannot be refreshed.
     }
