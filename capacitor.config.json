@@ -1,0 +1,13 @@
+{
+  "appId": "om.sadiq.almazare",
+  "appName": "صديق المزارع",
+  "webDir": "dist",
+  "server": {
+    "url": "https://sadiq-almazare.onrender.com",
+    "cleartext": false,
+    "allowNavigation": ["sadiq-almazare.onrender.com"]
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
