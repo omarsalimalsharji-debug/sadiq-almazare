@@ -18,8 +18,6 @@ import {
   VolumeX,
   SlidersHorizontal,
   PhoneCall,
-  History,
-  Trash2,
   ShieldCheck,
   Sprout,
   Info,
@@ -30,29 +28,10 @@ import {
   Share2,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-} from 'firebase/firestore';
 import {
   OMAN_ADMINISTRATIVE_DATA,
 } from '../data/omanLocationsData.ts';
 import { useLocation } from '../context/LocationContext.tsx';
-import {
-  auth,
-  db,
-  handleFirestoreError,
-  OperationType,
-} from '../firebase.ts';
 import {
   compressAndEnhancePlantImage,
   ProcessedPlantImage,
@@ -119,27 +98,11 @@ export interface SmartDiagnosisResult {
   photoParts?: string[];
 }
 
-interface SavedDiagnosisRecord extends SmartDiagnosisResult {
-  id: string;
-  userId: string;
-  wilayat: string;
-  observations: string;
-  photoParts: string[];
-  insectNature?: 'beneficial' | 'harmful' | 'neutral' | 'none';
-  insectLifeCycle?: string;
-  insectTargetCrops?: string[];
-  insectDamage?: string;
-  pesticideProduct?: string;
-  pesticideDosage?: string;
-  createdAt?: { seconds: number; nanoseconds: number } | null;
-}
-
 interface PlantDiagnosisViewProps {
   initialFocus?: 'auto' | 'insect';
 }
 
 const SOUND_PREF_KEY = 'sadiq_diagnosis_sound_enabled';
-const LOCAL_DIAGNOSIS_HISTORY_KEY = 'sadiq_diagnosis_history_v1';
 
 const MANDATORY_ADVISORY_TEXT =
   'التشخيص عبر الصورة تقديري استرشادي ولا يغني عن الفحص الميداني لدى المهندس الزراعي أو دوائر التنمية الزراعية في الحالات الملتبسة أو الشديدة.';
@@ -213,69 +176,12 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   const [result, setResult] = useState<SmartDiagnosisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showScientificDetails, setShowScientificDetails] = useState<boolean>(false);
-  const [showHistoryDrawer, setShowHistoryDrawer] = useState<boolean>(false);
   const [murshidSpeaking, setMurshidSpeaking] = useState<boolean>(false);
 
-  // Firebase Auth & History state
-  const [fbUser, setFbUser] = useState<FirebaseUser | null>(auth.currentUser);
-  const [historyItems, setHistoryItems] = useState<SavedDiagnosisRecord[]>([]);
-  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
-  const [savingToCloud, setSavingToCloud] = useState<boolean>(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (user) => {
-      setFbUser(user);
-    });
-    return () => {
-      unsubAuth();
-      stopAllMurshidAudio();
-    };
+    try { localStorage.removeItem('sadiq_diagnosis_history_v1'); } catch { /* storage may be disabled */ }
+    return () => stopAllMurshidAudio();
   }, []);
-
-  useEffect(() => {
-    if (!fbUser || !fbUser.uid) {
-      try {
-        const saved = JSON.parse(localStorage.getItem(LOCAL_DIAGNOSIS_HISTORY_KEY) || '[]');
-        setHistoryItems(Array.isArray(saved) ? saved : []);
-      } catch {
-        setHistoryItems([]);
-      }
-      setHistoryLoading(false);
-      return;
-    }
-
-    setHistoryLoading(true);
-    const colPath = `users/${fbUser.uid}/diagnoses`;
-    const q = query(
-      collection(db, 'users', fbUser.uid, 'diagnoses'),
-      orderBy('createdAt', 'desc'),
-      limit(15)
-    );
-
-    const unsubSnap = onSnapshot(
-      q,
-      (snapshot) => {
-        const items: SavedDiagnosisRecord[] = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data() as Omit<SavedDiagnosisRecord, 'id'>;
-          items.push({ id: docSnap.id, ...data });
-        });
-        setHistoryItems(items);
-        setHistoryLoading(false);
-      },
-      (err) => {
-        setHistoryLoading(false);
-        try {
-          handleFirestoreError(err, OperationType.LIST, colPath);
-        } catch {
-          // Handled cleanly
-        }
-      }
-    );
-
-    return () => unsubSnap();
-  }, [fbUser]);
 
   // Cycle multi-stage analysis messages smoothly while analyzing
   useEffect(() => {
@@ -310,7 +216,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     if (!file) return;
     setProcessingPhoto(true);
     setError(null);
-    setSaveMessage(null);
+
     try {
       const processed = await compressAndEnhancePlantImage(file);
       playCaptureSound(soundEnabled);
@@ -344,145 +250,14 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     setSelectedImage(null);
     setResult(null);
     setError(null);
-    setSaveMessage(null);
+
     setShowScientificDetails(false);
     lastAnalyzedSignatureRef.current = null;
-  };
-
-  const persistDiagnosisLocally = (
-    diag: SmartDiagnosisResult,
-    usedWilayat: string,
-    usedObservations: string
-  ) => {
-    const now = Date.now();
-    const record: SavedDiagnosisRecord = {
-      ...diag,
-      id: `diag-local-${now}-${Math.random().toString(36).slice(2, 7)}`,
-      userId: 'local-device',
-      wilayat: usedWilayat,
-      observations: usedObservations,
-      photoParts: diag.photoParts || ['primary'],
-      createdAt: { seconds: Math.floor(now / 1000), nanoseconds: (now % 1000) * 1000000 },
-    };
-    const next = [record, ...historyItems.filter((item) => item.id !== record.id)].slice(0, 15);
-    try {
-      localStorage.setItem(LOCAL_DIAGNOSIS_HISTORY_KEY, JSON.stringify(next));
-      setSaveMessage('تم حفظ التشخيص في سجل هذا الجهاز.');
-    } catch {
-      setSaveMessage('تم عرض التشخيص، لكن مساحة التخزين المحلية ممتلئة.');
-    }
-    setHistoryItems(next);
-  };
-
-  const persistDiagnosisToFirebase = async (
-    user: FirebaseUser,
-    diag: SmartDiagnosisResult,
-    usedWilayat: string,
-    usedObservations: string
-  ) => {
-    if (!user.emailVerified) {
-      setSaveMessage('لا يمكن مزامنة هذا التشخيص سحابياً حالياً؛ سيبقى محفوظاً على هذا الجهاز.');
-      return;
-    }
-
-    setSavingToCloud(true);
-    setSaveMessage(null);
-    const diagId = `diag-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const userPath = `users/${user.uid}`;
-    const diagPath = `users/${user.uid}/diagnoses/${diagId}`;
-
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          uid: user.uid,
-          displayName: (user.displayName || 'مزارع عُماني').slice(0, 80),
-          governorate: usedWilayat.slice(0, 60) || 'محافظة الداخلية',
-          role: 'farmer',
-          level: 1,
-          totalPoints: 0,
-          isBanned: false,
-          updatedAt: serverTimestamp(),
-        });
-      }
-
-      const firestoreSeverity: 'منخفضة' | 'متوسطة' | 'عالية' | 'حرجة' =
-        diag.severity === 'عالية' || diag.severity === 'حرجة'
-          ? diag.severity
-          : diag.severity === 'منخفضة'
-            ? 'منخفضة'
-            : 'متوسطة';
-
-      const payload: Record<string, any> = {
-        userId: user.uid,
-        cropName: (diag.cropName || 'نبات زراعي').slice(0, 80),
-        wilayat: (usedWilayat || 'سلطنة عُمان').slice(0, 100),
-        observations: (usedObservations || '').slice(0, 1000),
-        photoParts: ['primary'],
-        problemName: (diag.problemName || 'حالة زراعية').slice(0, 160),
-        problemType: (['مرض', 'حشرة', 'نقص عناصر', 'سليم'].includes(diag.problemType)
-          ? diag.problemType
-          : 'مرض') as ProblemType,
-        confidenceScore: Math.max(0, Math.min(100, Math.round(diag.confidenceScore || 0))),
-        severity: firestoreSeverity,
-        needsClearerPhoto: Boolean(diag.needsClearerPhoto),
-        visibleSymptoms: (diag.visibleSymptoms || '').slice(0, 1500),
-        causes: (Array.isArray(diag.causes) ? diag.causes : [])
-          .map((c) => String(c).slice(0, 300))
-          .slice(0, 8),
-        organicRemedy: (diag.organicRemedy || '').slice(0, 2000),
-        chemicalRemedy: (diag.chemicalRemedy || '').slice(0, 2000),
-        preventionTips: (Array.isArray(diag.preventionTips) ? diag.preventionTips : [])
-          .map((t) => String(t).slice(0, 300))
-          .slice(0, 8),
-        possibleConditions: (Array.isArray(diag.possibleConditions) ? diag.possibleConditions : [])
-          .map((p) => String(p).slice(0, 300))
-          .slice(0, 4),
-        advisoryNote: (diag.advisoryNote || MANDATORY_ADVISORY_TEXT).slice(0, 500),
-        problemNameEn: (diag.problemNameEn || '').slice(0, 160),
-        scientificName: (diag.scientificName || '').slice(0, 160),
-        diagnosisCategory: (diag.diagnosisCategory || '').slice(0, 60),
-        detectedSubject: diag.detectedSubject || 'plant',
-        insectNature: diag.insectDetails?.nature || 'none',
-        conditionSummary: (diag.conditionSummary || '').slice(0, 1000),
-        whenToContactEngineer: (diag.whenToContactEngineer || '').slice(0, 800),
-        insectLifeCycle: (diag.insectDetails?.lifeCycle || '').slice(0, 800),
-        insectTargetCrops: (diag.insectDetails?.targetCrops || [])
-          .map((c) => String(c).slice(0, 120))
-          .slice(0, 8),
-        insectDamage: (diag.insectDetails?.damage || '').slice(0, 800),
-        pesticideProduct: (
-          diag.pesticideRecommendation?.needed
-            ? [diag.pesticideRecommendation.productAr, diag.pesticideRecommendation.productEn]
-                .filter(Boolean)
-                .join(' — ')
-            : ''
-        ).slice(0, 300),
-        pesticideDosage: (
-          diag.pesticideRecommendation?.needed ? diag.pesticideRecommendation.dosage : ''
-        ).slice(0, 400),
-        createdAt: serverTimestamp(),
-      };
-
-      await setDoc(doc(db, 'users', user.uid, 'diagnoses', diagId), payload);
-      setSaveMessage('تم حفظ التقرير تلقائياً في سجل مزرعتك.');
-    } catch (err) {
-      setSaveMessage('تم عرض التشخيص بنجاح، لكن تعذر مزامنته مع السحابة حالياً.');
-      try {
-        handleFirestoreError(err, OperationType.CREATE, diagPath.includes(user.uid) ? diagPath : userPath);
-      } catch {
-        // Logged cleanly
-      }
-    } finally {
-      setSavingToCloud(false);
-    }
   };
 
   const handleAnalyze = async () => {
     if (loading || processingPhoto) return;
     setError(null);
-    setSaveMessage(null);
 
     if (!selectedImage) {
       setError('يرجى التقاط صورة أو اختيار صورة واحدة واضحة للنبات أو الحشرة أولاً.');
@@ -526,19 +301,12 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       const diag: SmartDiagnosisResult = data.diagnosis;
       lastAnalyzedSignatureRef.current = signature;
       setResult(diag);
-      if (!diag.needsClearerPhoto) {
-        persistDiagnosisLocally(diag, effectiveLocationLabel, observations.trim());
-      }
-
       if (diag.needsClearerPhoto) {
         playSoftNoticeSound(soundEnabled);
       } else {
         playDiagnosisSuccessSound(soundEnabled);
       }
 
-      if (fbUser && fbUser.uid && !diag.needsClearerPhoto) {
-        await persistDiagnosisToFirebase(fbUser, diag, effectiveLocationLabel, observations.trim());
-      }
     } catch (err: any) {
       playSoftNoticeSound(soundEnabled);
       const message = String(
@@ -554,73 +322,6 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDeleteHistoryItem = async (diagId: string) => {
-    if (diagId.startsWith('diag-local-') || !fbUser?.uid) {
-      setHistoryItems((previous) => {
-        const next = previous.filter((item) => item.id !== diagId);
-        try { localStorage.setItem(LOCAL_DIAGNOSIS_HISTORY_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-        return next;
-      });
-      return;
-    }
-    const path = `users/${fbUser.uid}/diagnoses/${diagId}`;
-    try {
-      await deleteDoc(doc(db, 'users', fbUser.uid, 'diagnoses', diagId));
-    } catch (err) {
-      try {
-        handleFirestoreError(err, OperationType.DELETE, path);
-      } catch {
-        setError('تعذر حذف السجل من Firebase.');
-      }
-    }
-  };
-
-  const handleRestoreHistoryItem = (item: SavedDiagnosisRecord) => {
-    const restored: SmartDiagnosisResult = {
-      ...item,
-      detectedSubject:
-        item.detectedSubject || (item.problemType === 'حشرة' ? 'insect' : 'plant'),
-      diagnosisCategory:
-        item.diagnosisCategory ||
-        (item.insectNature === 'beneficial'
-          ? 'حشرة نافعة'
-          : item.problemType === 'حشرة'
-            ? 'حشرة ضارة'
-            : item.problemType === 'نقص عناصر'
-              ? 'نقص عناصر'
-              : item.problemType === 'سليم'
-                ? 'نبات سليم'
-                : 'مرض فطري'),
-      visibleSymptomsList: item.visibleSymptoms
-        ? item.visibleSymptoms.split(' • ').filter(Boolean)
-        : [],
-      treatmentSteps: item.organicRemedy ? [item.organicRemedy] : [],
-      insectDetails:
-        item.problemType === 'حشرة' || item.detectedSubject === 'insect'
-          ? {
-              nature: item.insectNature || 'harmful',
-              targetCrops: item.insectTargetCrops || [],
-              damage: item.insectDamage || '',
-              lifeCycle: item.insectLifeCycle || '',
-              controlMethod: item.organicRemedy || '',
-              prevention: (item.preventionTips || []).join('، '),
-            }
-          : null,
-      pesticideRecommendation: {
-        needed: Boolean(item.pesticideProduct),
-        productAr: item.pesticideProduct || '',
-        productEn: '',
-        dosage: item.pesticideDosage || '',
-        safetyNote: '',
-      },
-    };
-    stopAllMurshidAudio(setMurshidSpeaking);
-    setResult(restored);
-    setShowScientificDetails(false);
-    setShowHistoryDrawer(false);
-    setError(null);
   };
 
   const getCategoryTheme = (diag: SmartDiagnosisResult) => {
@@ -750,19 +451,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
             <span className="hidden sm:inline">{soundEnabled ? 'الصوت مفعّل' : 'صامت'}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowHistoryDrawer((v) => !v)}
-            className="min-h-[40px] px-3 rounded-xl border border-slate-200 dark:border-sky-300/20 bg-white/80 dark:bg-[#132247]/80 text-slate-700 dark:text-slate-200 hover:border-emerald-500/50 transition-colors flex items-center gap-1.5 text-xs font-semibold"
-          >
-            <History className="w-4 h-4 text-emerald-500" />
-            <span>السجل</span>
-            {historyItems.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-[10px] font-bold">
-                {historyItems.length}
-              </span>
-            )}
-          </button>
+
         </div>
       </div>
 
@@ -1597,12 +1286,8 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                         <span>فحص صورة جديدة</span>
                       </button>
 
-                      <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                        {savingToCloud
-                          ? 'جاري حفظ التشخيص في السحابة...'
-                          : saveMessage
-                            ? saveMessage
-                            : 'حُفظ التشخيص على هذا الجهاز دون الحاجة إلى حساب'}
+                      <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                        لا يتم حفظ الصورة أو نتيجة التشخيص؛ تبقى ظاهرة مؤقتاً في هذه الجلسة فقط.
                       </div>
                     </div>
                   </div>
@@ -1613,89 +1298,6 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Collapsible Firebase History Section (Preserves user privacy — zero raw images saved) */}
-      <AnimatePresence>
-        {showHistoryDrawer && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="rounded-3xl border border-slate-200 dark:border-sky-300/15 bg-white/95 dark:bg-[#132247]/95 p-5 shadow-lg space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                <History className="w-4 h-4 text-emerald-500" />
-                <span>سجل التشخيصات السابقة</span>
-              </h3>
-              {fbUser && (
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {historyItems.length} سجل (بدون حفظ الصور حفاظاً على الخصوصية)
-                </span>
-              )}
-            </div>
-
-            {historyLoading ? (
-              <div className="py-6 text-center text-xs text-slate-400">
-                جاري تحميل سجل التشخيصات...
-              </div>
-            ) : historyItems.length === 0 ? (
-              <div className="py-6 text-center text-xs text-slate-400">
-                لا توجد تشخيصات محفوظة على هذا الجهاز بعد. سيظهر كل تشخيص ناجح هنا تلقائياً.
-              </div>
-            ) : (
-              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                {historyItems.map((item) => {
-                  const dateStr = item.createdAt?.seconds
-                    ? new Date(item.createdAt.seconds * 1000).toLocaleDateString('ar-OM', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })
-                    : 'الآن';
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="p-3 rounded-2xl bg-slate-50 dark:bg-[#0b1329]/70 border border-slate-200 dark:border-sky-300/15 flex items-start justify-between gap-3 hover:border-emerald-500/40 transition-colors"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleRestoreHistoryItem(item)}
-                        className="text-right flex-1 space-y-1"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
-                            {item.diagnosisCategory || item.problemType}
-                          </span>
-                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                            {item.cropName}
-                          </span>
-                          <span className="text-[10px] text-slate-400">· {dateStr}</span>
-                        </div>
-                        <div className="text-xs font-extrabold text-slate-900 dark:text-white">
-                          {item.problemName}
-                        </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                          الثقة: {item.confidenceScore}% · الخطورة: {item.severity}
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteHistoryItem(item.id)}
-                        title="حذف من السجل"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
