@@ -5,7 +5,8 @@ import {
   MapPin, 
   Edit3, 
   Check, 
-  Cloud
+  Cloud,
+  Download
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -311,6 +312,29 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </form>
         )}
 
+      </div>
+
+      {/* Official Android app download */}
+      <div className="rounded-2xl border border-emerald-300/70 dark:border-emerald-700/50 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/50 dark:to-[#132247] p-5 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <Download className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">تطبيق صديق المزارع لهاتفك</h3>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-6">حمّل أحدث نسخة أندرويد الموقّعة واستمتع بخدمات صديق المزارع مباشرة من هاتفك.</p>
+              <span className="inline-flex mt-2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">أحدث إصدار متاح</span>
+            </div>
+          </div>
+          <a
+            href="https://github.com/omarsalimalsharji-debug/sadiq-almazare/releases/latest/download/app-release.apk"
+            className="min-h-[46px] px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            تحميل التطبيق
+          </a>
+        </div>
       </div>
 
       {/* Bookmarked Books from E-Library */}
