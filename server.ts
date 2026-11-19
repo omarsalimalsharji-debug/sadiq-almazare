@@ -3140,7 +3140,7 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
             : 'cheerful';
     const cacheKey = crypto
       .createHash('sha256')
-      .update(`v4-murshid-puck-tts:${voiceMood}:${cleanText}`)
+      .update(`v6-murshid-gacrux-oman-voice:${voiceMood}:${cleanText}`)
       .digest('hex');
 
     const ttsDiskCacheDir = path.join(DATA_DIR, 'tts-cache');
@@ -3169,13 +3169,13 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
 
     const styleMap: Record<string, string> = {
       cheerful:
-        'A warm, confident male Arabic agricultural host for an Omani farming app; friendly Gulf rhythm, natural pauses, clear Modern Standard Arabic diction, relaxed smile in the voice, never theatrical or robotic',
+        'A highly natural, lifelike adult male Arabic voice for an Omani agricultural guide. Warm low-mid register, relaxed Omani/Gulf conversational cadence, authentic human breath and phrasing, varied intonation, gentle smile, natural short pauses, clear but not over-enunciated Arabic. Sound like a real experienced Omani radio presenter speaking directly to one farmer, not an announcer, not a character caricature, never synthetic, metallic, sing-song or robotic. Keep local Omani crop names exactly as written',
       curious:
-        'A thoughtful, friendly male Arabic agricultural educator; curious but calm, precise pronunciation of Omani crop and pest names, measured conversational pacing',
+        'A lifelike adult male Omani/Gulf Arabic agricultural educator, thoughtful and curious but calm. Natural conversational intonation and breathing, precise local crop and pest names, measured human pacing, no artificial emphasis',
       warning:
-        'A caring, mature male Arabic agricultural mentor; clear and composed safety warning, firm but never alarming, reassuring close',
+        'A mature, lifelike male Omani/Gulf Arabic agricultural mentor. Speak as a caring human professional: composed, clear, steady and reassuring, with natural pauses; firm but never alarming',
       proud:
-        'A warm male Arabic presenter celebrating a farmer’s success with genuine joy, controlled energy, and clean studio diction',
+        'A warm, lifelike adult male Omani/Gulf Arabic presenter celebrating a farmer’s success with genuine human joy, relaxed smile, natural vocal variation and clean studio diction',
     };
 
     const response = await ai.models.generateContent({
@@ -3197,7 +3197,7 @@ app.post('/api/cartoon/tts', requireStaff, aiRateLimit, async (req, res) => {
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Puck' },
+            prebuiltVoiceConfig: { voiceName: 'Gacrux' },
           },
         },
       },
