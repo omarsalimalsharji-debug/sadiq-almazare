@@ -334,7 +334,7 @@ const defaultStorage: StorageSchema = {
   communityPosts: [
     {
       id: "post-1",
-      authorName: "المهندس عمر الشرجي (مدير التطبيق)",
+      authorName: "الفاضل عمر الشرجي",
       authorRole: "مدير التطبيق",
       authorGovernorate: "سلطنة عُمان",
       cropCategory: "نخيل التمر والري",
@@ -378,7 +378,7 @@ const defaultStorage: StorageSchema = {
     {
       id: "aud-1",
       action: "بدء تشغيل النظام الشامل",
-      performedBy: "عمر الشرجي (المدير العام)",
+      performedBy: "الفاضل عمر الشرجي",
       details: "إطلاق الإصدار الاحترافي 2026 مع البث المباشر وقارئ الكتب وتشخيص الذكاء الاصطناعي",
       timestamp: Date.now()
     }
@@ -978,7 +978,7 @@ app.post('/api/auth/login', (req, res) => {
   storage.auditLogs.unshift({
     id: `aud-${now}`,
     action: 'تسجيل دخول إداري',
-    performedBy: 'عمر الشرجي (المدير العام)',
+    performedBy: 'الفاضل عمر الشرجي',
     details: storage.adminAuth.mustChangePassword
       ? 'دخول أولي بكلمة السر الابتدائية — مطلوب التغيير الفوري'
       : 'جلسة دخول موثقة بصلاحيات كاملة',
@@ -1082,7 +1082,7 @@ app.post('/api/admin/change-pin', requireAdmin, (req: AuthenticatedRequest, res)
   storage.auditLogs.unshift({
     id: `aud-${Date.now()}`,
     action: 'تغيير كلمة سر المدير (تشفير scrypt + salt)',
-    performedBy: req.staffSession?.actorName || 'عمر الشرجي (المدير العام)',
+    performedBy: req.staffSession?.actorName || 'الفاضل عمر الشرجي',
     details: 'تم تحديث كلمة سر المدير وتفعيل التشفير العشوائي وإلغاء كلمة السر الابتدائية نهائياً',
     timestamp: Date.now(),
   });
@@ -2846,7 +2846,7 @@ app.post('/api/admin/broadcast-alert', requireAdmin, (req, res) => {
   storage.auditLogs.unshift({
     id: `aud-${Date.now()}`,
     action: "بث تنبيه زراعي رسمي",
-    performedBy: senderName || "عمر الشرجي (المدير العام)",
+    performedBy: senderName || "الفاضل عمر الشرجي",
     details: `بث تنبيه: ${title} إلى ${alert.targetGovernorate}`,
     timestamp: Date.now()
   });
@@ -3091,7 +3091,7 @@ app.put('/api/admin/seasonal-config', requireAdmin, (req, res) => {
   storage.auditLogs.unshift({
     id: `aud-${Date.now()}`,
     action: "تحديث إعدادات المناسبات والتقويم الهجري",
-    performedBy: "عمر الشرجي (المدير العام)",
+    performedBy: "الفاضل عمر الشرجي",
     details: `التقويم: ${storage.seasonalConfig.referenceCalendar} | إزاحة الهلال: ${storage.seasonalConfig.hijriOffsetDays} يوم`,
     timestamp: Date.now()
   });
