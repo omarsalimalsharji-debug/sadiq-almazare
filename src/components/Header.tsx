@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Menu,
   Sun,
@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   MoonStar,
   Settings,
+  Download,
 } from 'lucide-react';
 import { ActivePage, ThemeMode, UserProfile } from '../types/index.ts';
 import { HijriDateInfo } from '../utils/islamicCalendar.ts';
@@ -48,6 +49,16 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleLang,
 }) => {
   const t = TRANSLATIONS[lang];
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  useEffect(() => {
+    const handleUpdateAvailability = (event: Event) => {
+      const detail = (event as CustomEvent<{ available?: boolean }>).detail;
+      setUpdateAvailable(Boolean(detail?.available));
+    };
+    window.addEventListener('sadiq:update-availability', handleUpdateAvailability);
+    return () => window.removeEventListener('sadiq:update-availability', handleUpdateAvailability);
+  }, []);
 
   const navLinks: Array<{ id: ActivePage; label: string; match?: ActivePage[] }> = [
     { id: 'home', label: t.home },
@@ -194,6 +205,24 @@ export const Header: React.FC<HeaderProps> = ({
               <Sun className="w-4 h-4 text-amber-500" />
             )}
           </button>
+
+          {/* New app update indicator - appears only when a newer signed release is available */}
+          {updateAvailable && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event('sadiq:open-update'))}
+              className="relative min-h-[42px] min-w-[42px] flex items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-700 shadow-sm transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25"
+              title={lang === 'ar' ? 'يوجد تحديث جديد للتطبيق' : 'A new app update is available'}
+              aria-label={lang === 'ar' ? 'يوجد تحديث جديد، اضغط لعرض التحديث' : 'New update available, open update details'}
+            >
+              <Download className="h-4 w-4" />
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-white bg-emerald-600 dark:border-[#132247]" />
+              </span>
+              <span className="sr-only">{lang === 'ar' ? 'تحديث جديد' : 'New update'}</span>
+            </button>
+          )}
 
           {/* Notifications Trigger */}
           <button

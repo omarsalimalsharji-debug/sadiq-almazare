@@ -12,7 +12,7 @@ type UpdateManifest = {
   mandatory?: boolean;
 };
 
-const APP_VERSION = '1.0.4';
+const APP_VERSION = '1.0.8';
 const MANIFEST_URL = '/app-update.json';
 
 function isNewerVersion(candidate: string, current: string) {
@@ -50,6 +50,7 @@ export const AppUpdateBanner: React.FC = () => {
         if (cancelled || !data.available || !data.version || !data.apkUrl) return;
         if (!isNewerVersion(data.version, installedVersion)) return;
         setUpdate(data);
+        window.dispatchEvent(new CustomEvent('sadiq:update-availability', { detail: { available: true, version: data.version } }));
       } catch {
         // Update checks must never interrupt normal app use.
       }
@@ -60,6 +61,17 @@ export const AppUpdateBanner: React.FC = () => {
       cancelled = true;
       window.clearInterval(interval);
     };
+  }, []);
+
+  useEffect(() => {
+    const openUpdateBanner = () => {
+      setDismissed(false);
+      window.requestAnimationFrame(() => {
+        document.getElementById('app-update-banner')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    };
+    window.addEventListener('sadiq:open-update', openUpdateBanner);
+    return () => window.removeEventListener('sadiq:open-update', openUpdateBanner);
   }, []);
 
   const dismiss = () => {
@@ -93,6 +105,7 @@ export const AppUpdateBanner: React.FC = () => {
 
   return (
     <section
+      id="app-update-banner"
       dir="rtl"
       className="mx-auto mt-2 w-[calc(100%-1.25rem)] max-w-5xl overflow-hidden rounded-2xl border border-emerald-300/70 bg-gradient-to-l from-emerald-50 via-white to-sky-50 p-3 text-slate-900 shadow-sm dark:border-emerald-400/25 dark:from-emerald-950/80 dark:via-[#132247] dark:to-slate-900 dark:text-white sm:mt-3 sm:p-4"
       aria-live="polite"
