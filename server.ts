@@ -459,10 +459,21 @@ function saveStorage() {
 const hadVisitorHistory = Object.keys(storage.visitors || {}).length > 0 || Object.keys(storage.dailyVisitIds || {}).length > 0;
 storage.visitors = {};
 storage.dailyVisitIds = {};
+
+function isExpiredPalmSeasonTask(item: any, now = new Date()): boolean {
+  const month = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Muscat', month: 'numeric' }).format(now));
+  if (![11, 12, 1].includes(month)) return false;
+  const text = `${String(item?.title || '')} ${String(item?.message || '')}`;
+  const palmTask = /نخيل|نخلة|عذق|عذوق|تمور|التمر/i.test(text);
+  const completedSeasonWork = /خف(?:ّ|ف)?|تخفيف|تدلية|تكميم|تغطية|الطناء|جني|حصاد|جمع|قطف|نضج/i.test(text);
+  return palmTask && completedSeasonWork;
+}
+
 const previousNotificationCount = storage.notifications.length;
 storage.notifications = storage.notifications.filter((item: any) =>
   !['notif-1', 'notif-2'].includes(String(item?.id || '')) &&
-  !/تكميم.{0,15}عذوق|خف.{0,15}عذوق|عذوق.{0,15}تكميم|نشاط رياح هابطة وفرص غبار/i.test(String(item?.title || '') + ' ' + String(item?.message || ''))
+  !/تكميم.{0,15}عذوق|خف.{0,15}عذوق|عذوق.{0,15}تكميم|نشاط رياح هابطة وفرص غبار/i.test(String(item?.title || '') + ' ' + String(item?.message || '')) &&
+  !isExpiredPalmSeasonTask(item)
 );
 if (hadVisitorHistory || storage.notifications.length !== previousNotificationCount) saveStorage();
 
@@ -2664,7 +2675,7 @@ app.delete('/api/admin/diagnosis-history', requireAdmin, async (_req, res) => {
 app.get('/api/notifications', (req, res) => {
   const governorate = String(req.query.governorate || '').replace(/^محافظة\\s*/, '').trim();
   const visible = storage.notifications.filter((n: any) => {
-    if (n.targetUserId) return false;
+    if (n.targetUserId || isExpiredPalmSeasonTask(n)) return false;
     const target = String(n.targetGovernorate || '').replace(/^محافظة\\s*/, '').trim();
     const nationwide = !target || /كافة المحافظات|كافة محافظات|جميع المحافظات|جميع محافظات|سلطنة عُمان/i.test(target);
     return (!n.expiresAt || Number(n.expiresAt) > Date.now()) &&
@@ -2674,7 +2685,10 @@ app.get('/api/notifications', (req, res) => {
   const seasonalNotices: Record<number, { title: string; message: string }> = {
     10: { title: 'أكتوبر: بدء موسم الزراعات الشتوية', message: 'ابدأ تجهيز أحواض الزراعة والمشاتل، واعتنِ بشتلات الطماطم والخيار والقرعيات والورقيات وفق نطاقك المناخي. راقب الذبابة البيضاء والمن داخل المشاتل.' },
     11: { title: 'نوفمبر: ذروة زراعة المحاصيل الشتوية', message: 'هذا وقت مناسب لزراعة وشتل البصل والثوم والبطاطس والجزر والبنجر والخس والسبانخ والفجل، مع متابعة الطماطم والخيار العُماني في المواقع الملائمة. تابع رطوبة التربة والذبابة البيضاء والمن والتربس، وعدّل المواعيد حسب الارتفاع والولاية.' },
-    12: { title: 'ديسمبر: متابعة المحاصيل الشتوية', message: 'تابع تثبيت شتلات البصل والخضروات الشتوية، وانتظم في الري دون إغراق مع برودة الجو، وراقب المن والذبابة البيضاء. أضف التسميد وفق تحليل التربة واحتياج المحصول.' },
+    12: { title: 'ديسمبر: تثبيت الشتلات وخدمة المحاصيل', message: 'تابع نجاح شتلات البصل والثوم والخضروات الشتوية، واستكمل الزراعة المتأخرة حيث تسمح درجات الحرارة. انتظم في الري دون إغراق، وراقب المن والذبابة البيضاء والتربس، واجعل التسميد وفق تحليل التربة ومرحلة المحصول.' },
+    1: { title: 'يناير: متابعة النمو الشتوي', message: 'تابع نمو البصل والثوم والبطاطس والخضروات الورقية، وأزل الحشائش مبكراً. راقب البياض الزغبي والتربس والمن، وخفّض الري عند انخفاض الحرارة مع تجنب تعطيش النباتات.' },
+    2: { title: 'فبراير: خدمة المحاصيل وبداية الحصاد المبكر', message: 'واصل خدمة محاصيل الشتاء، وابدأ متابعة نضج المحاصيل المبكرة بحسب الصنف والمنطقة. افحص الطماطم والخيار والبصل والثوم دورياً، ولا تستخدم أي مبيد إلا إذا كان مسجلاً للمحصول والآفة في سلطنة عُمان.' },
+    3: { title: 'مارس: متابعة التحجيم والحصاد', message: 'تابع تحجيم أبصال البصل والثوم والمحاصيل الشتوية المبكرة، واضبط الري تدريجياً حسب قرب الحصاد. راقب ارتفاع الحرارة والآفات الماصة، وابدأ التخطيط للعروة التالية وفق نطاقك المناخي.' },
   };
   const seasonal = seasonalNotices[month];
   if (seasonal) visible.push({
