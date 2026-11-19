@@ -378,6 +378,22 @@ export function stopAllMurshidAudio(onSpeakingChange?: (speaking: boolean) => vo
   onSpeakingChange?.(false);
 }
 
+export function pauseMurshidAudio(): boolean {
+  if (!activeHtmlAudio || activeHtmlAudio.paused) return false;
+  activeHtmlAudio.pause();
+  return true;
+}
+
+export async function resumeMurshidAudio(): Promise<boolean> {
+  if (!activeHtmlAudio || !activeHtmlAudio.paused) return false;
+  try {
+    await activeHtmlAudio.play();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const stopMurshidSpeech = stopAllMurshidAudio;
 
 export async function speakMurshid(
