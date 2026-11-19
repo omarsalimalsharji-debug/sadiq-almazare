@@ -418,7 +418,8 @@ export async function speakMurshid(
     onEnd,
   } = options || {};
 
-  void preferStudioAudio; // Kept for backwards-compatible callers; AI voice is now mandatory.\n  const eff = resolveEffectiveAudio(mutedOpt, volumeOpt);
+  void preferStudioAudio; // Kept for backwards-compatible callers; AI voice is now mandatory.
+  const eff = resolveEffectiveAudio(mutedOpt, volumeOpt);
   stopAllMurshidAudio(onSpeakingChange);
 
   const cleanRaw = text.trim();
