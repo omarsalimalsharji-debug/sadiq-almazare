@@ -16,6 +16,19 @@ This directory is an offline/free-first research pipeline for building a crop-sp
    Figshare: https://figshare.com/articles/dataset/A_Dataset_of_Date_Palm_Trees_Thermal_and_RGB_Images_for_Pest_Management_/25974295  
    Reports 832 RGB/thermal images from 179 trees, with labels based partly on farmer feedback. Use as a separate tree-level research task only. Ordinary RGB leaf photos cannot rule out internal trunk infestation.
 
+
+4. **Large-scale lemon leaf disorders — Bangladesh (2026)**  
+   https://data.mendeley.com/datasets/8d9fv6kpt3/3 · DOI `10.17632/8d9fv6kpt3.3` · CC BY 4.0  
+   Reports 17,586 original images across 18 classes, including healthy, diseases, pest-related and deficiency-related damage. Images were captured against a plain background. This is useful for citrus label coverage but will have a major background/domain gap versus Omani orchard photos.
+5. **LemonLENS — Bangladesh (2025)**  
+   https://data.mendeley.com/datasets/ccwh64fr2r/2 · DOI `10.17632/ccwh64fr2r.2` · CC BY 4.0  
+   Reports 4,500 images across nine lemon-leaf classes.
+6. **BDLemonLeaf — Bangladesh (2025)**  
+   https://data.mendeley.com/datasets/643f5bbc2t/6 · DOI `10.17632/643f5bbc2t.6` · CC BY 4.0  
+   Reports 3,431 images including healthy, disease, pest and deficiency labels.
+
+Keep each source as a separate task until the label taxonomy, image provenance and near-duplicate relationships have been audited. These sources do not establish performance in Oman.
+
 ## Data acquisition policy
 
 - Download archives from the original landing pages and retain the original archive unchanged.
