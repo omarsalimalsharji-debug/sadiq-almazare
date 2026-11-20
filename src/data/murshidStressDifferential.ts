@@ -35,6 +35,10 @@ export interface MurshidStressObservation {
   measuredSoilEcDsM?: number;
   measuredBoronMgL?: number;
   measuredChlorideMgL?: number;
+  waterEcAboveCropGuideline?: boolean;
+  soilEcAboveCropGuideline?: boolean;
+  boronAboveCropGuideline?: boolean;
+  chlorideAboveCropGuideline?: boolean;
   soilCalcareousOrHighPh?: boolean;
   soilCurrentlyWet?: boolean;
   soilCurrentlyDry?: boolean;
@@ -89,7 +93,7 @@ const RULES: CauseRule[] = [
     nameAr: 'ارتفاع ملوحة التربة أو مياه الري',
     evidence: [
       { weight: 3, test: (o) => o.irrigationWaterSalty === true, clue: 'ذُكرت ملوحة مياه الري' },
-      { weight: 4, test: (o) => (o.measuredWaterEcDsM ?? 0) > 0 || (o.measuredSoilEcDsM ?? 0) > 0, clue: 'توجد قراءة EC؛ يلزم تفسيرها وفق طريقة القياس ونوع العينة والمحصول' },
+      { weight: 4, test: (o) => o.waterEcAboveCropGuideline === true || o.soilEcAboveCropGuideline === true, clue: 'قراءة EC تجاوزت المرجع الإرشادي المناسب لهذا المحصول وطريقة القياس' },
       { weight: 2, test: (o) => has(o, 'leaf_tip_burn', 'marginal_burn'), clue: 'احتراق أطراف أو حواف الأوراق قد يظهر مع تراكم الأملاح' },
       { weight: 1, test: (o) => o.affectedPlantPercent !== undefined && o.affectedPlantPercent > 30, clue: 'انتشار الأعراض على نسبة كبيرة من النباتات' }
     ],
@@ -100,7 +104,7 @@ const RULES: CauseRule[] = [
     causeId: 'chloride_toxicity',
     nameAr: 'احتمال سمّية الكلوريد',
     evidence: [
-      { weight: 4, test: (o) => (o.measuredChlorideMgL ?? 0) > 0, clue: 'أُدخلت قراءة للكلوريد في ماء الري' },
+      { weight: 4, test: (o) => o.chlorideAboveCropGuideline === true, clue: 'قراءة الكلوريد تجاوزت المرجع الإرشادي المناسب للمحصول' },
       { weight: 2, test: (o) => o.leafAge === 'old' && has(o, 'leaf_tip_burn', 'marginal_burn'), clue: 'احتراق أطراف أو حواف الأوراق الأقدم' },
       { weight: 2, test: (o) => o.irrigationWaterSalty === true, clue: 'مياه الري موصوفة بأنها مالحة' }
     ],
@@ -111,7 +115,7 @@ const RULES: CauseRule[] = [
     causeId: 'boron_toxicity',
     nameAr: 'احتمال سمّية البورون',
     evidence: [
-      { weight: 5, test: (o) => (o.measuredBoronMgL ?? 0) > 0, clue: 'أُدخلت قراءة للبورون في ماء الري' },
+      { weight: 5, test: (o) => o.boronAboveCropGuideline === true, clue: 'قراءة البورون تجاوزت المرجع الإرشادي المناسب للمحصول' },
       { weight: 2, test: (o) => o.leafAge === 'old' && has(o, 'leaf_tip_burn', 'marginal_burn'), clue: 'احتراق أطراف أو حواف الأوراق الأقدم قد يتوافق مع تراكم البورون' }
     ],
     confirmation: ['تحليل البورون في مياه الري', 'تحليل أوراق مع تفسير النتيجة حسب المحصول والعمر الورقي', 'مراجعة الأسمدة ومصادر المياه'],
