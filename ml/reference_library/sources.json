@@ -77,6 +77,73 @@
         "Global"
       ],
       "notes": "Scientific names, synonyms, host range and country-level occurrence records; each occurrence needs its own dated citation."
+    },
+    {
+      "source_id": "saudi-date-palm-leaf-diseases-v2",
+      "title": "Diseases of date palm leaves dataset (Version 2)",
+      "publisher": "Namoun, Alkhodre, Abi Sen, Alsaawy and Almoamari; Mendeley Data",
+      "source_type": "image_dataset",
+      "source_url": "https://data.mendeley.com/datasets/g684ghfxvg/2",
+      "doi": "10.17632/g684ghfxvg.2",
+      "publication_year": 2024,
+      "accessed_on": "2026-11-20",
+      "rights_status": "approved",
+      "rights_evidence": "Mendeley Data Version 2 page explicitly identifies Creative Commons Attribution 4.0 International (CC BY 4.0). Commercial reuse is permitted subject to licence conditions, attribution, indication of changes, and no additional restrictions. Retain the dataset citation and verify any third-party material separately.",
+      "license": "CC BY 4.0",
+      "geographic_scope": [
+        "Madinah region",
+        "Saudi Arabia"
+      ],
+      "dataset_facts": {
+        "raw_images": 608,
+        "processed_or_augmented_images": 3089,
+        "classes": [
+          "healthy",
+          "potassium deficiency",
+          "manganese deficiency",
+          "magnesium deficiency",
+          "black scorch",
+          "leaf spots",
+          "Fusarium wilt",
+          "rachis blight",
+          "Parlatoria blanchardi"
+        ],
+        "capture_subject": "date palm leaves and leaflets; not fruits, trunks or roots"
+      },
+      "notes": "Use original/raw images as primary independent samples. Processed/cropped/augmented derivatives must be linked to their parent specimen and kept in the same data split to prevent leakage. Saudi field images are regional reference evidence, not proof of prevalence or identical presentation in Oman. Labels require agronomic review before model training.",
+      "related_publication_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11456780/"
+    },
+    {
+      "source_id": "iraq-dubas-date-palm-images-v2",
+      "title": "Image dataset of infected date palm leaves by Dubas insects (Version 2)",
+      "publisher": "Mazin and Almayaly; Mendeley Data",
+      "source_type": "image_dataset",
+      "source_url": "https://data.mendeley.com/datasets/2nh364p2bc/2",
+      "doi": "10.17632/2nh364p2bc.2",
+      "publication_year": 2023,
+      "accessed_on": "2026-11-20",
+      "rights_status": "approved",
+      "rights_evidence": "Mendeley Data Version 2 record identifies Creative Commons Attribution 4.0 International (CC BY 4.0). Commercial reuse is permitted subject to licence conditions, attribution, indication of changes, and no additional restrictions. Verify third-party components separately.",
+      "license": "CC BY 4.0",
+      "geographic_scope": [
+        "Karbala",
+        "Iraq"
+      ],
+      "dataset_facts": {
+        "total_images": 3000,
+        "classes": [
+          "healthy",
+          "bugs",
+          "honeydew",
+          "mixed insects and honeydew"
+        ],
+        "camera_sources": [
+          "Canon DSLR",
+          "DJI Mavic drone"
+        ]
+      },
+      "notes": "The dataset supports recognition of visible Dubas-related insects and honeydew patterns, but its four labels are not a complete severity scale or species-level diagnostic key. Preserve camera/source metadata and keep drone and close-up image tasks distinguishable. Iraqi field images are not proof of prevalence in Oman; local validation and expert review are required.",
+      "related_publication_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10362075/"
     }
   ]
 }
