@@ -1574,7 +1574,7 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
 - ملاحظات المزارع: ${observations || 'لا توجد ملاحظات نصية — اعتمد على تحليل الصورة'}
 - ${hintText}
 
-راعِ البيئة المناخية للمنطقة المذكورة عند كتابة omaniFarmingNote والنصائح الوقائية، وحلل الصورة بدقة علمية الآن وأخرج JSON فقط.`,
+راعِ البيئة المناخية للمنطقة المذكورة عند كتابة omaniFarmingNote والنصائح الوقائية. ${images.length === 0 ? 'حلّل الوصف النصي فقط دون افتراض رؤية صورة، واذكر ما لا يمكن تأكيده دون صورة أو فحص.' : 'حلّل الصورة بدقة علمية مع التمييز بين العلامات المرئية والاستنتاجات.'} أخرج JSON فقط.`,
   });
 
   // Groq vision is the primary diagnosis provider; Gemini remains the server-side fallback.
