@@ -1,4 +1,82 @@
 {
   "schema_version": "1.0.0",
-  "sources": []
+  "sources": [
+    {
+      "source_id": "icarda-date-palm-guide",
+      "title": "Date Palm Pests and Diseases: Integrated Management Guide",
+      "publisher": "ICARDA and regional date-palm specialists",
+      "source_type": "technical_guide",
+      "source_url": "https://hdl.handle.net/20.500.11766/8914",
+      "publication_year": 2018,
+      "accessed_on": "2026-11-20",
+      "rights_status": "reference_only",
+      "rights_evidence": "The guide is identified as CC BY-SA 4.0. Source text may be cited and adapted with attribution and share-alike compliance; individual photographs/figures and any training use still require item-level verification before copying or ingestion.",
+      "geographic_scope": [
+        "Middle East",
+        "North Africa",
+        "GCC"
+      ],
+      "notes": "Core regional date-palm reference; does not establish disease prevalence in Oman."
+    },
+    {
+      "source_id": "niphm-citrus-ipm",
+      "title": "AESA Based IPM Package — Citrus",
+      "publisher": "National Institute of Plant Health Management, India",
+      "source_type": "technical_guide",
+      "source_url": "https://niphm.gov.in/IPMPackages/Citrus.pdf",
+      "accessed_on": "2026-11-20",
+      "rights_status": "reference_only",
+      "rights_evidence": "Publicly accessible technical guide; no blanket image-reuse or commercial model-training permission established. Cite factual summaries and verify reuse terms for every figure.",
+      "geographic_scope": [
+        "India"
+      ],
+      "notes": "Citrus pest and disease IPM reference; transfer recommendations only after local validation."
+    },
+    {
+      "source_id": "uc-ipm-citrus",
+      "title": "Integrated Pest Management for Citrus",
+      "publisher": "University of California Statewide IPM Program",
+      "source_type": "extension_manual",
+      "source_url": "https://ipm.ucanr.edu/IPMPROJECT/ADS/manual_citrus.html",
+      "accessed_on": "2026-11-20",
+      "rights_status": "reference_only",
+      "rights_evidence": "Copyrighted extension publication. Use bibliographic citations and independently written factual summaries; do not copy figures or text into training material without permission.",
+      "geographic_scope": [
+        "California",
+        "United States"
+      ],
+      "notes": "Useful differential diagnosis and IPM context; not an Oman pesticide recommendation."
+    },
+    {
+      "source_id": "uf-ifas-citrus-id",
+      "title": "A Guide to Citrus Disease Identification (CH159)",
+      "publisher": "University of Florida IFAS Extension",
+      "source_type": "extension_guide",
+      "source_url": "https://ask.ifas.ufl.edu/publication/CH159",
+      "accessed_on": "2026-11-20",
+      "rights_status": "reference_only",
+      "rights_evidence": "Extension publication with image credits and reuse terms requiring item-level review. Public availability is not treated as permission for image redistribution or commercial training.",
+      "geographic_scope": [
+        "Florida",
+        "United States"
+      ],
+      "notes": "Photographic reference for symptom comparison; verify each image's credit and licence."
+    },
+    {
+      "source_id": "eppo-global-database",
+      "title": "EPPO Global Database",
+      "publisher": "European and Mediterranean Plant Protection Organization",
+      "source_type": "scientific_database",
+      "source_url": "https://gd.eppo.int/",
+      "accessed_on": "2026-11-20",
+      "rights_status": "reference_only",
+      "rights_evidence": "Database content and individual media assets may have separate terms. Record citations and verify asset-specific permissions before reuse or training.",
+      "geographic_scope": [
+        "Europe",
+        "Mediterranean",
+        "Global"
+      ],
+      "notes": "Scientific names, synonyms, host range and country-level occurrence records; each occurrence needs its own dated citation."
+    }
+  ]
 }
