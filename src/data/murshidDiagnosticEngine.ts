@@ -41,6 +41,7 @@ export interface MurshidFieldCaseResult {
 
 function cropSearchTerm(crop: MurshidStressObservation['crop']): string {
   if (crop === 'citrus') return 'citrus';
+  if (crop === 'date_palm') return 'date-palm';
   if (crop === 'nursery_seedling') return 'seedling';
   return '';
 }
@@ -65,8 +66,10 @@ export function assessMurshidFieldCase(input: MurshidFieldCaseInput): MurshidFie
       }))
     : [];
 
-  const coreKnowledgeReferences = input.stress.crop === 'citrus'
-    ? getMurshidCoreReferencesByCrop('citrus')
+  const coreCrop = input.stress.crop === 'citrus' ? 'citrus'
+    : input.stress.crop === 'date_palm' ? 'date-palm' : undefined;
+  const coreKnowledgeReferences = coreCrop
+    ? getMurshidCoreReferencesByCrop(coreCrop)
     : [];
 
   return {
