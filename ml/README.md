@@ -38,6 +38,17 @@ Keep each source as a separate task until the label taxonomy, image provenance a
 - Do not copy images into the application repository or publish them. Dataset archives remain local to the training workspace.
 - Obtain Omani field photos with farm-owner consent and an agronomist-confirmed label. Do not scrape random image search results or assume image copyright permits AI training.
 
+## Download public research archives
+
+The downloader uses the official Mendeley Data public-dataset ZIP endpoint and verifies the SHA-256 hash when the source provides one. It does not commit images to Git.
+
+```bash
+python ml/download_mendeley_dataset.py --dataset-id g684ghfxvg --version 2 --output /tmp/date-palm-madinah-v2.zip
+python ml/download_mendeley_dataset.py --dataset-id 2nh364p2bc --version 2 --output /tmp/dubas-karbala-v2.zip
+```
+
+If the public API requires authorization, download the same archive using **Download All** on the original Mendeley page. No token is required by the app and no credentials should be added to Render. Keep source archives outside the application repository and extract only the original/raw folders for training.
+
 ## Train
 
 Python 3.11+ recommended. Install `pip install -r ml/requirements.txt`.
