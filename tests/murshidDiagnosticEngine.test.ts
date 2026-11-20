@@ -33,3 +33,12 @@ test('unified engine does not invent pest references for an unknown crop', () =>
   assert.deepEqual(result.knowledgeReferences, []);
   assert.deepEqual(result.nutrientCandidates, []);
 });
+
+
+test('unified engine returns regional date-palm references for date-palm cases', () => {
+  const result = assessMurshidFieldCase({
+    stress: { crop: 'date_palm', patterns: ['visible_insects'] }
+  });
+  assert.equal(result.coreKnowledgeReferences.length, 6);
+  assert.ok(result.coreKnowledgeReferences.some((record) => record.id === 'dp-black-scorch'));
+});
