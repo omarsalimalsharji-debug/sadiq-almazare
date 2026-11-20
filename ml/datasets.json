@@ -195,6 +195,62 @@
         "Annotation boxes and folder hierarchy require review before classification training"
       ],
       "citation": "Das et al. (2025), Mendeley Data V6, DOI 10.17632/643f5bbc2t.6"
+    },
+    {
+      "id": "plantdoc-2019",
+      "name": "PlantDoc field plant-disease image dataset",
+      "url": "https://github.com/pratikkayal/PlantDoc-Dataset",
+      "geography": "Multi-country web-sourced images; original capture geography varies/unknown",
+      "license": "CC-BY-4.0 stated by repository; underlying scraped-image rights require item-level review",
+      "licenseStatus": "review-required-before-training-or-redistribution",
+      "task": "multi-crop-field-disease-classification-and-detection",
+      "reportedImages": 2598,
+      "primaryUse": "research-domain-transfer-only-until-image-rights-reviewed",
+      "limitations": [
+        "Images were annotated from internet-scraped sources; repository licence may not clear every underlying photograph",
+        "Mixed crops and heterogeneous capture conditions",
+        "Do not treat source geography or crop labels as locally validated",
+        "Review provenance and duplicate relationships before training"
+      ],
+      "citation": "Singh et al. (2020), PlantDoc: A Dataset for Visual Plant Disease Detection, DOI 10.1145/3371158.3371196"
+    },
+    {
+      "id": "plantvillage-2016",
+      "name": "PlantVillage plant disease image dataset",
+      "url": "https://github.com/spMohanty/PlantVillage-Dataset",
+      "alternateUrl": "https://huggingface.co/datasets/mohanty/PlantVillage",
+      "geography": "United States / controlled or laboratory-like image conditions",
+      "license": "CC-BY-SA-3.0 stated on dataset card; source repository licensing is not fully consistent",
+      "licenseStatus": "review-required-before-commercial-training-or-distribution",
+      "task": "multi-crop-leaf-disease-classification",
+      "reportedImages": 54306,
+      "primaryUse": "benchmark-and-domain-gap-study-only-until-license-cleared",
+      "limitations": [
+        "Detached leaves and controlled backgrounds differ from real farm photography",
+        "High risk of learning background and capture artifacts",
+        "Verify exact archive snapshot and licence before use",
+        "Not suitable as sole training or validation evidence"
+      ],
+      "citation": "Mohanty, Hughes and Salathé (2016), Using Deep Learning for Image-Based Plant Disease Detection, DOI 10.3389/fpls.2016.01419"
+    },
+    {
+      "id": "ip102-2019",
+      "name": "IP102 insect pest recognition dataset",
+      "url": "https://github.com/xpwu95/IP102",
+      "geography": "Multi-region internet-sourced insect images",
+      "license": "Academic-use-only / non-commercial terms reported; exact terms must be checked at source",
+      "licenseStatus": "blocked-for-commercial-app-training-until-permission",
+      "task": "insect-pest-classification-and-detection",
+      "reportedImages": 75000,
+      "reportedClasses": 102,
+      "primaryUse": "academic-benchmark-only-unless-commercial-rights-obtained",
+      "limitations": [
+        "Do not use in a commercial product training pipeline without written rights clearance",
+        "Class imbalance and image-source variation",
+        "Not crop-specific diagnosis by itself",
+        "Check taxonomic names and class mapping"
+      ],
+      "citation": "Wu et al. (2019), IP102: A Large-Scale Benchmark Dataset for Insect Pest Recognition"
     }
   ]
 }
