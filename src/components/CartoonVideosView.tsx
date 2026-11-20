@@ -60,6 +60,7 @@ import {
   prepareArabicTextForTts,
 } from '../utils/arabicPronunciation.ts';
 import { environmentalSfx, AmbientSfxPreset } from '../utils/environmentalSfx.ts';
+import { getMurshidStudioAudio } from '../utils/murshidVoiceCache.ts';
 import { CartoonStageCanvas } from './CartoonStageCanvas.tsx';
 
 const CATEGORIES = [
@@ -516,30 +517,13 @@ export const CartoonVideosView: React.FC<CartoonVideosViewProps> = ({ initialEpi
       const key = `v7-murshid-algieba-oman-male:${apiMood}:${vocalized}`;
       const cached = ttsCacheRef.current.get(key);
       if (cached) return cached;
-
-      if (Date.now() < ttsCooldownUntilRef.current) {
-        return null;
+      if (Date.now() < ttsCooldownUntilRef.current) return null;
+      const audio = await getMurshidStudioAudio(vocalized, apiMood);
+      if (audio) {
+        ttsCacheRef.current.set(key, audio);
+        return audio;
       }
-
-      try {
-        const res = await fetch('/api/cartoon/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: vocalized, mood: apiMood }),
-        });
-        const data = await res.json();
-        if (res.ok && data.success && data.audioBase64) {
-          ttsCacheRef.current.set(key, data.audioBase64);
-          return data.audioBase64;
-        }
-        if (data?.fallback === 'browser_tts' || data?.quotaExceeded || res.status === 429) {
-          const retryMs = (Number(data?.retryAfterSec) || 600) * 1000;
-          ttsCooldownUntilRef.current = Date.now() + retryMs;
-          return null;
-        }
-      } catch {
-        // Handled by caller
-      }
+      ttsCooldownUntilRef.current = Date.now() + 15_000;
       return null;
     },
     []
