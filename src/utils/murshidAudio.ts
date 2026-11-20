@@ -8,6 +8,7 @@
 
 import { prepareArabicTextForTts } from './arabicPronunciation.ts';
 import { pickBestArabicVoice } from './arabicSpeech.ts';
+import { getMurshidStudioAudio } from './murshidVoiceCache.ts';
 
 export interface MurshidAudioPrefs {
   muted: boolean;
@@ -414,7 +415,7 @@ export async function speakMurshid(
     volume: volumeOpt,
     rate = 0.90,
     mood = 'cheerful',
-    preferStudioAudio = false,
+    preferStudioAudio = true,
     onSpeakingChange,
     onEnd,
     onError,
@@ -454,38 +455,17 @@ export async function speakMurshid(
     // ignore
   }
 
-  // Optional server studio TTS clip (cached per session, graceful cooldown fallback)
-  if (preferStudioAudio && Date.now() >= studioTtsCooldownUntil) {
+  // Use the single Algieba Omani male studio voice everywhere. The generated clip
+  // is persisted in IndexedDB so it remains available after reloads on this device.
+  if (preferStudioAudio) {
     try {
-      const cacheKey = `${mood}:${vocalized}`;
-      let base64Audio = studioAudioSessionCache.get(cacheKey);
-      if (!base64Audio) {
-        const res = await fetch('/api/cartoon/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: vocalized, mood }),
-        });
-        const data = await res.json();
-        if (activePlaybackToken !== token) return;
-        if (res.ok && data?.success && typeof data?.audioBase64 === 'string' && data.audioBase64.length > 0) {
-          const studioClip: string = data.audioBase64;
-          base64Audio = studioClip;
-          if (studioAudioSessionCache.size >= 30) {
-            const firstKey = studioAudioSessionCache.keys().next().value;
-            if (firstKey) studioAudioSessionCache.delete(firstKey);
-          }
-          studioAudioSessionCache.set(cacheKey, studioClip);
-        } else if (data?.fallback === 'browser_tts' || data?.quotaExceeded || res.status === 429) {
-          studioTtsCooldownUntil = Date.now() + (Number(data?.retryAfterSec) || 600) * 1000;
-        }
-      }
-
-      if (base64Audio && typeof Audio !== 'undefined' && activePlaybackToken === token) {
+      const base64Audio = await getMurshidStudioAudio(vocalized, mood);
+      if (activePlaybackToken !== token) return;
+      if (base64Audio && typeof Audio !== 'undefined') {
         const el = new Audio(`data:audio/wav;base64,${base64Audio}`);
         el.volume = eff.volume;
         el.playbackRate = Math.max(0.85, Math.min(1.25, rate / 0.94));
         activeHtmlAudio = el;
-
         const finishStudio = () => {
           if (activePlaybackToken !== token) return;
           activeHtmlAudio = null;
@@ -494,16 +474,22 @@ export async function speakMurshid(
           notifyGlobalSpeaking(false);
           onEnd?.();
         };
-
         el.onended = finishStudio;
-        el.onerror = finishStudio;
+        el.onerror = () => {
+          if (activePlaybackToken !== token) return;
+          activeHtmlAudio = null;
+          onSpeakingChange?.(false);
+          activeSpeakerSetter = null;
+          notifyGlobalSpeaking(false);
+          onError?.();
+        };
         notifyGlobalSpeaking(true);
         onSpeakingChange?.(true);
         await el.play();
         return;
       }
     } catch {
-      // Fall back smoothly to unified Web Speech API
+      // If the studio voice is temporarily unavailable, use the device fallback below.
     }
   }
 
