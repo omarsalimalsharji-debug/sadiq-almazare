@@ -1467,10 +1467,6 @@ async function runUnifiedAgriVisionDiagnosis(params: {
     return { diagnosis: cached.diagnosis, fromCache: true };
   }
 
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error('خدمة التحليل الذكي غير مهيأة حالياً على الخادم.');
-  }
-
   const omanNow = new Date();
   const omanMonthNumber = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Muscat', month: 'numeric' }).format(omanNow));
   const omanDateLabel = new Intl.DateTimeFormat('ar-OM', { timeZone: 'Asia/Muscat', dateStyle: 'long' }).format(omanNow);
@@ -1626,8 +1622,19 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
 
     if (!groqResponse.ok) {
       const errorBody = await groqResponse.text().catch(() => '');
-      const error: any = new Error(`Groq vision request failed with status ${groqResponse.status}: ${errorBody.slice(0, 500)}`);
+      let providerCode = 'unknown';
+      let providerType = 'unknown';
+      try {
+        const parsedError = JSON.parse(errorBody);
+        providerCode = String(parsedError?.error?.code || parsedError?.error?.type || 'unknown').slice(0, 80);
+        providerType = String(parsedError?.error?.type || 'unknown').slice(0, 80);
+      } catch {
+        // Keep diagnostics safe when a provider returns non-JSON error content.
+      }
+      const error: any = new Error(`Groq vision request failed (HTTP ${groqResponse.status}; code=${providerCode}; type=${providerType}).`);
       error.status = groqResponse.status;
+      error.providerCode = providerCode;
+      error.providerType = providerType;
       throw error;
     }
 
@@ -1739,7 +1746,7 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       responseText = await generateWithGroq();
       console.info('[AgriVision] diagnosis provider: Groq Qwen vision.');
     } catch (groqError: any) {
-      console.warn(`[AgriVision] Groq vision unavailable (status=${groqError?.status || 'unknown'}); switching to Gemini fallback.`);
+      console.warn(`[AgriVision] Groq vision unavailable (status=${groqError?.status || 'unknown'}, code=${groqError?.providerCode || 'unknown'}, type=${groqError?.providerType || 'unknown'}); switching to Gemini fallback.`);
       if (!geminiApiKey) throw groqError;
       responseText = await generateWithGemini();
     }
