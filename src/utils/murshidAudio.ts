@@ -31,9 +31,6 @@ const externalStoppers = new Set<() => void>();
 const prefsListeners = new Set<(prefs: MurshidAudioPrefs) => void>();
 const speakingListeners = new Set<(speaking: boolean) => void>();
 
-const studioAudioSessionCache = new Map<string, string>();
-let studioTtsCooldownUntil = 0;
-
 function notifyGlobalSpeaking(speaking: boolean) {
   if (globalSpeaking === speaking) return;
   globalSpeaking = speaking;
@@ -485,8 +482,17 @@ export async function speakMurshid(
         };
         notifyGlobalSpeaking(true);
         onSpeakingChange?.(true);
-        await el.play();
-        return;
+        try {
+          await el.play();
+          return;
+        } catch {
+          if (activePlaybackToken === token && activeHtmlAudio === el) {
+            activeHtmlAudio = null;
+            activeSpeakerSetter = null;
+            notifyGlobalSpeaking(false);
+            onSpeakingChange?.(false);
+          }
+        }
       }
     } catch {
       // If the studio voice is temporarily unavailable, use the device fallback below.
