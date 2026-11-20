@@ -31,3 +31,23 @@
 - Omani date palm research (2023): https://pmc.ncbi.nlm.nih.gov/articles/PMC10053011/
 - Oman fruit crop stresses review: https://jams.squ.edu.om/home/vol27/iss1/8/
 - Oman crop pest and disease report: https://assets.ippc.int/static/media/files/publication/ar/2016/10/Oman.pdf
+
+
+## إضافة تشخيص نقص العناصر (v0.1)
+أضيف ملف `src/data/murshidNutrientDiagnostic.ts` كفرز تفريقي تفسيري أولي للحمضيات. يشمل N وP وK وCa وMg وS وFe وZn وMn وB وCu، مع قرائن مرتبطة بعمر الورقة وشكل الاصفرار وحجم الورقة واحتراق الحواف والنمو والجذور والثمار.
+
+- يعرض حتى خمسة احتمالات مرتبة، مع القرائن المؤيدة والعوامل البديلة والفحوصات التأكيدية.
+- درجات الترجيح (منخفض/محتمل/أرجح) هي اتفاق قواعد مع ملاحظات المستخدم، وليست احتمالات إحصائية أو دقة نموذج.
+- شدة الحالة الحالية تقدير أولي مبني على نسبة الجزء المتأثر التي يدخلها المستخدم؛ لا تُساوى بشدة نقص العنصر مخبرياً.
+- الملوحة والتغدق وتلف الجذور والآفات وتغير التسميد تُعرض كعوامل مربكة أو أسباب بديلة.
+- لا يصدر الملف جرعات تسميد. يجب تأكيد النقص بتحليل الأوراق والتربة ومياه الري قبل التوصية العلاجية، خصوصاً البورون.
+
+## مراجع التغذية النباتية
+- UF/IFAS — Macronutrient deficiencies in citrus: https://ask.ifas.ufl.edu/publication/ss420
+- UF/IFAS — Calcium, magnesium and sulfur deficiencies: https://ask.ifas.ufl.edu/publication/SS421
+- UF/IFAS — Iron, zinc and manganese deficiencies: https://ask.ifas.ufl.edu/publication/ss423
+- UF/IFAS — Guide to citrus nutritional deficiency and toxicity: https://ask.ifas.ufl.edu/publication/ch142
+- ACIAR — Nursery Manual for Citrus and Mango: https://www.aciar.gov.au/sites/default/files/legacy/mn_193_citrus_and_mango.pdf
+- FAO — Development of new land for irrigated agriculture in Oman (historical regional soil observations): https://www.fao.org/4/l5736e/l5736e.pdf
+
+ملاحظة: المرجع العُماني التاريخي يفيد في توجيه الأولويات البحثية، لكنه لا يغني عن تحاليل حديثة من مناطق الإنتاج الحالية.
