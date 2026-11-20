@@ -187,7 +187,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
           <div>
             <div className="text-[11px] text-stone-300 font-medium">الترتيب</div>
             <div className="text-lg sm:text-xl font-black text-white font-mono">
-              #{myFbRank > 0 ? myFbRank : user.rank || 1}
+              {myFbRank > 0 ? `#${myFbRank}` : user.rank > 0 ? `#${user.rank}` : '—'}
             </div>
           </div>
         </div>

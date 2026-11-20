@@ -189,7 +189,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#0e1936]">
             <span className="text-[11px] text-slate-500 dark:text-slate-300 block font-medium">الترتيب في عُمان</span>
-            <span className="text-2xl font-black text-amber-500 font-mono tabular-nums">#{user.rank || 1}</span>
+            <span className="text-2xl font-black text-amber-500 font-mono tabular-nums">{user.rank > 0 ? `#${user.rank}` : '—'}</span>
           </div>
         </div>
 
