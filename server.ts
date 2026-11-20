@@ -617,6 +617,36 @@ function requireAdmin(req: AuthenticatedRequest, res: express.Response, next: ex
   next();
 }
 
+
+// One-time administrative backup export. Sensitive authentication material and live
+// sessions are deliberately excluded; application records are exported read-only.
+app.get('/api/admin/backup/export', requireAdmin, (_req, res) => {
+  try {
+    const backupData = JSON.parse(JSON.stringify(storage));
+    delete backupData.adminAuth;
+    delete backupData.staffSessions;
+
+    const payload = {
+      format: 'sadiq-almazare-backup',
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      note: 'Authentication hashes, salts, and active sessions are excluded.',
+      data: backupData,
+    };
+
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="sadiq-almazare-backup-${dateStamp}.json"`);
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    return res.status(200).send(JSON.stringify(payload, null, 2));
+  } catch (error) {
+    console.error('Admin backup export failed.');
+    return res.status(500).json({ success: false, error: 'تعذر إنشاء النسخة الاحتياطية حالياً.' });
+  }
+});
+
 // --- 1. Unified Oman Reverse Geocoding & Live Weather API (Open-Meteo + OSM Nominatim) ---
 const reverseGeoCache = new Map<string, { resolved: any; source: string; expiry: number }>();
 
