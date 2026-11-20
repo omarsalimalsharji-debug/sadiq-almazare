@@ -1,10 +1,11 @@
 /**
  * مُرشد — unified local agronomy engine entry point.
  *
- * Composes the Oman knowledge catalogue, stress differential rules and
- * nutrient screening. It does not perform image inference or claim certainty.
+ * Composes the legacy Oman catalogue, regional crop-health references,
+ * stress differential rules and nutrient screening. It does not perform image inference.
  */
 import { getMurshidKnowledgeByCrop } from './murshidOmanPestKnowledge.ts';
+import { getMurshidCoreReferencesByCrop, type MurshidCropHealthRecord } from './murshidCoreCropHealthReference.ts';
 import {
   rankMurshidCitrusNutritionCandidates,
   type MurshidNutritionObservation,
@@ -22,8 +23,9 @@ export interface MurshidFieldCaseInput {
 }
 
 export interface MurshidFieldCaseResult {
-  engineVersion: '0.2.0';
+  engineVersion: '0.3.0';
   region: 'Oman';
+  regionScope: 'regional-and-global';
   stressAssessment: MurshidStressAssessment;
   nutrientCandidates: MurshidNutrientCandidate[];
   knowledgeReferences: Array<{
@@ -33,6 +35,7 @@ export interface MurshidFieldCaseResult {
     evidenceStatus: string;
     lookalikes: string[];
   }>;
+  coreKnowledgeReferences: MurshidCropHealthRecord[];
   decisionNote: string;
 }
 
@@ -62,12 +65,18 @@ export function assessMurshidFieldCase(input: MurshidFieldCaseInput): MurshidFie
       }))
     : [];
 
+  const coreKnowledgeReferences = input.stress.crop === 'citrus'
+    ? getMurshidCoreReferencesByCrop('citrus')
+    : [];
+
   return {
-    engineVersion: '0.2.0',
+    engineVersion: '0.3.0',
     region: 'Oman',
+    regionScope: 'regional-and-global',
     stressAssessment,
     nutrientCandidates,
     knowledgeReferences,
+    coreKnowledgeReferences,
     decisionNote: 'هذه نتيجة فرز زراعي تفسيري مبني على الملاحظات المدخلة؛ ليست تشخيصاً بصرياً أو مخبرياً، ولا تُستخدم وحدها لاختيار مبيد أو جرعة سماد.'
   };
 }
