@@ -88,22 +88,35 @@ def merge_duplicate_groups(records, max_distance=4):
         ra, rb = find(a), find(b)
         if ra != rb:
             parent[rb] = ra
+    # First group known source siblings (e.g. several views/crops from one frond).
+    source_groups = {}
+    for i, r in enumerate(records):
+        source_groups.setdefault(r["group"], []).append(i)
+    for indices in source_groups.values():
+        for i in indices[1:]:
+            union(indices[0], i)
+
     seen_sha = {}
     for i, r in enumerate(records):
         if r["sha"] in seen_sha:
             union(i, seen_sha[r["sha"]])
         else:
             seen_sha[r["sha"]] = i
-    # Perceptual hash buckets limit comparisons while finding close duplicates.
+
+    # Four perceptual-hash bands catch close duplicates even if one prefix differs.
     buckets = {}
     for i, r in enumerate(records):
-        key = r["phash"][:4]
-        for j in buckets.get(key, []):
-            if hamming(r["phash"], records[j]["phash"]) <= max_distance:
-                union(i, j)
-        buckets.setdefault(key, []).append(i)
+        value = r["phash"]
+        for band in range(4):
+            key = (band, value[band * 4:(band + 1) * 4])
+            for j in buckets.get(key, []):
+                if hamming(value, records[j]["phash"]) <= max_distance:
+                    union(i, j)
+            buckets.setdefault(key, []).append(i)
+
+    # Duplicate images from different classes/sources still share one split group.
     for i, r in enumerate(records):
-        r["group"] = f"{r['group']}::dup-{find(i)}"
+        r["group"] = f"duplicate-cluster-{find(i)}"
 
 
 def grouped_split(records):
