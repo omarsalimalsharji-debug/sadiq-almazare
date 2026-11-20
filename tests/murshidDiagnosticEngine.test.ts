@@ -18,7 +18,9 @@ test('unified engine returns Oman context, stress ranking and nutrient candidate
     }
   });
   assert.equal(result.region, 'Oman');
-  assert.equal(result.engineVersion, '0.2.0');
+  assert.equal(result.engineVersion, '0.3.0');
+  assert.equal(result.regionScope, 'regional-and-global');
+  assert.ok(result.coreKnowledgeReferences.some((record) => record.id === 'citrus-canker'));
   assert.ok(result.stressAssessment.candidates.some((candidate) => candidate.causeId === 'high_ph_lockout'));
   assert.ok(result.nutrientCandidates.length > 0);
   assert.ok(result.knowledgeReferences.some((record) => record.id === 'lime-witches-broom'));
