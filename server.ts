@@ -1599,6 +1599,21 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       return null;
     }).filter(Boolean);
 
+    // Qwen Vision accepts up to 3 images and a 20 MB image payload.
+    // Skip Groq for oversized batches and let Gemini handle the original images.
+    const groqImageParts = groqContent.filter((part: any) => part?.type === 'image_url');
+    const groqImageBytes = groqImageParts.reduce((total: number, part: any) => {
+      const dataUrl = String(part?.image_url?.url || '');
+      const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+      return total + Buffer.byteLength(base64, 'base64');
+    }, 0);
+    if (groqImageParts.length > 3 || groqImageBytes > 14 * 1024 * 1024) {
+      const error: any = new Error('Groq image payload exceeds the safe request limit; using Gemini fallback.');
+      error.status = 413;
+      error.providerCode = 'image_payload_too_large';
+      throw error;
+    }
+
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -1614,10 +1629,11 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
         response_format: { type: 'json_object' },
         reasoning_effort: 'none',
         temperature: 0.2,
-        max_completion_tokens: 8192,
+        // Keep the response budget bounded while retaining the full diagnosis schema.
+        max_completion_tokens: 6144,
         stream: false,
       }),
-      signal: AbortSignal.timeout(65000),
+      signal: AbortSignal.timeout(45000),
     });
 
     if (!groqResponse.ok) {
@@ -1657,6 +1673,10 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       config: {
         systemInstruction,
         responseMimeType: 'application/json',
+        // Bound each Gemini attempt; do not let automatic continuation spend extra quota.
+        abortSignal: AbortSignal.timeout(45000),
+        automaticContinuation: false,
+        maxOutputTokens: 6144,
         responseSchema: {
           type: Type.OBJECT,
           properties: {
