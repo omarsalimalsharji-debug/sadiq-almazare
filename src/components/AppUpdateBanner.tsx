@@ -3,6 +3,7 @@ import { Download, X, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
+import appPackage from '../../package.json';
 
 type UpdateManifest = {
   available?: boolean;
@@ -12,7 +13,7 @@ type UpdateManifest = {
   mandatory?: boolean;
 };
 
-const APP_VERSION = '1.0.8';
+const APP_VERSION = appPackage.version;
 const MANIFEST_URL = '/app-update.json';
 
 function isNewerVersion(candidate: string, current: string) {
@@ -59,11 +60,30 @@ export const AppUpdateBanner: React.FC = () => {
         // Update checks must never interrupt normal app use.
       }
     };
+    const checkWhenActive = () => {
+      if (document.visibilityState !== 'hidden') void check();
+    };
     void check();
     const interval = window.setInterval(check, 6 * 60 * 60 * 1000);
+    window.addEventListener('focus', checkWhenActive);
+    document.addEventListener('visibilitychange', checkWhenActive);
+
+    let appStateListener: { remove: () => Promise<void> } | null = null;
+    void App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) void check();
+    }).then((listener) => {
+      if (cancelled) void listener.remove();
+      else appStateListener = listener;
+    }).catch(() => {
+      // Native lifecycle events are unavailable in ordinary browser sessions.
+    });
+
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      window.removeEventListener('focus', checkWhenActive);
+      document.removeEventListener('visibilitychange', checkWhenActive);
+      if (appStateListener) void appStateListener.remove();
     };
   }, []);
 
