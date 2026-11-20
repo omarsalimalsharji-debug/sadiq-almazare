@@ -3224,11 +3224,13 @@ const publicCartoonTtsRateLimit = createRateLimiter(
 function authorizeCartoonLessonTts(req: express.Request, res: express.Response, next: express.NextFunction) {
   const raw = typeof req.body?.text === 'string' ? req.body.text.trim().slice(0, 800) : '';
   const normalized = prepareArabicTextForTts(raw);
-  // Only the fixed, reviewed educational narrations are public. Custom TTS remains staff-only.
-  if (PUBLIC_CARTOON_TTS_TEXTS.has(normalized)) {
-    return publicCartoonTtsRateLimit(req, res, next);
+  if (!normalized) {
+    return res.status(400).json({ success: false, error: 'النص المطلوب تحويله إلى صوت غير موجود.' });
   }
-  return requireStaff(req, res, next);
+  // Murshid's in-app voice and reviewed lesson narrations share this public,
+  // tightly rate-limited endpoint. The 800-character cap, per-IP public limit,
+  // and global AI limit remain in force to protect the service from abuse.
+  return publicCartoonTtsRateLimit(req, res, next);
 }
 
 app.post('/api/cartoon/tts', authorizeCartoonLessonTts, aiRateLimit, async (req, res) => {
