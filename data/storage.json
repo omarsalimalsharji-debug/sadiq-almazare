@@ -892,11 +892,11 @@
     }
   ],
   "adminAuth": {
-    "salt": "40ff2fc6b9c21dd12be781cada8d5d8d",
-    "hash": "04ab1befeb39bbea7d37ffe18aab3db12d5e2eb17e2113630ba4c4340585111f06e2686907d6c8ca98856105a68be781df13f760107101feeb204fd0710169db",
+    "salt": "bootstrap-pending",
+    "hash": "bootstrap-pending",
     "mustChangePassword": true,
     "bootstrapConsumed": false,
-    "updatedAt": 1794570362525
+    "updatedAt": 0
   },
   "staffSessions": {},
   "moderators": [],
