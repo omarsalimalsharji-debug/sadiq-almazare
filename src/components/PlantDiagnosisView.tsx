@@ -184,6 +184,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
   const [stageIndex, setStageIndex] = useState<number>(0);
   const [result, setResult] = useState<SmartDiagnosisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [diagnosisDurationMs, setDiagnosisDurationMs] = useState<number | null>(null);
   const [showScientificDetails, setShowScientificDetails] = useState<boolean>(false);
   const [murshidSpeaking, setMurshidSpeaking] = useState<boolean>(false);
 
@@ -296,7 +297,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     }
 
     const effectiveCrop = cropName === 'تحديد تلقائي من الصورة' ? '' : cropName;
-    const signature = `${selectedImage.fingerprint}|${additionalImages.map((image) => image.fingerprint).join(',')}|${effectiveCrop}|${effectiveGovernorate}|${effectiveWilayat}|${effectiveVillage}|${observations.trim()}`;
+    const signature = `${selectedImage.fingerprint}|${additionalImages.map((image) => image.fingerprint).join(',')}|${effectiveCrop}|${effectiveGovernorate}|${effectiveWilayat}|${effectiveVillage}|${effectiveAgroZone}|${initialFocus}|${observations.trim()}`;
 
     // Prevent redundant identical submissions if a result is already visible
     if (lastAnalyzedSignatureRef.current === signature && result) {
@@ -305,10 +306,15 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
 
     setLoading(true);
     setResult(null);
+    setDiagnosisDurationMs(null);
     setShowScientificDetails(false);
+
+    const requestController = new AbortController();
+    const requestTimeout = window.setTimeout(() => requestController.abort(), 90000);
 
     try {
       const response = await fetch('/api/diagnose/smart', {
+        signal: requestController.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -348,6 +354,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
       }
 
       const diag: SmartDiagnosisResult = data.diagnosis;
+      setDiagnosisDurationMs(Number.isFinite(Number(data.diagnosisDurationMs)) ? Math.max(0, Number(data.diagnosisDurationMs)) : null);
       lastAnalyzedSignatureRef.current = signature;
       setResult(diag);
       if (diag.needsClearerPhoto) {
@@ -358,10 +365,12 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
 
     } catch (err: any) {
       playSoftNoticeSound(soundEnabled);
-      const message = String(
-        err?.message ||
-        'حدث خطأ في الاتصال بمحرك التشخيص الذكي. تأكد من استقرار الإنترنت وحاول ثانية.'
-      );
+      const message = err?.name === 'AbortError'
+        ? 'استغرق الاتصال بخدمة التشخيص وقتاً أطول من المتوقع. الصورة ما زالت محددة؛ يمكنك إعادة المحاولة دون رفعها من جديد.'
+        : String(
+            err?.message ||
+            'حدث خطأ في الاتصال بمحرك التشخيص الذكي. تأكد من استقرار الإنترنت وحاول ثانية.'
+          );
       const temporaryServiceIssue = /503|مشغولة|مؤقتاً|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(message);
       setError(
         temporaryServiceIssue
@@ -369,6 +378,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
           : message
       );
     } finally {
+      window.clearTimeout(requestTimeout);
       setLoading(false);
     }
   };
