@@ -2378,8 +2378,14 @@ app.get('/api/scores/leaderboard', (_req, res) => {
   const aggregateScores = (filterFn: (s: any) => boolean) => {
     const map = new Map<string, { userId: string; userName: string; governorate: string; totalScore: number; participations: number }>();
 
+    // Keep seeded demonstration and verification records out of public competition rankings.
+    const demoUserIds = new Set(['usr-oman-1', 'usr-oman-2', 'usr-oman-3', 'test-farmer-verify']);
     for (const sub of storage.scoreSubmissions) {
-      if (filterFn(sub)) {
+      const isDemoRecord =
+        demoUserIds.has(String(sub.userId || '')) ||
+        /^seed-\\d+$/.test(String(sub.clientNonce || '')) ||
+        String(sub.clientNonce || '').startsWith('verify-nonce-');
+      if (!isDemoRecord && filterFn(sub)) {
         const existing = map.get(sub.userId) || {
           userId: sub.userId,
           userName: sub.userName,
@@ -2407,7 +2413,7 @@ app.get('/api/scores/leaderboard', (_req, res) => {
     weekly: aggregateScores(s => now - s.timestamp <= weekMs),
     monthly: aggregateScores(s => now - s.timestamp <= monthMs),
     allTime: aggregateScores(() => true),
-    totalSubmissions: storage.scoreSubmissions.length
+    totalSubmissions: storage.scoreSubmissions.filter((sub: any) => !(['usr-oman-1', 'usr-oman-2', 'usr-oman-3', 'test-farmer-verify'].includes(String(sub.userId || '')) || /^seed-\\d+$/.test(String(sub.clientNonce || '')) || String(sub.clientNonce || '').startsWith('verify-nonce-'))).length
   });
 });
 
