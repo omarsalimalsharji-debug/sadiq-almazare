@@ -1,11 +1,12 @@
 {
   "available": true,
-  "version": "1.0.9",
-  "apkUrl": "https://github.com/omarsalimalsharji-debug/sadiq-almazare/releases/download/android-v1.0.9/sadiq-almazare.apk",
+  "version": "",
+  "apkUrl": "https://github.com/omarsalimalsharji-debug/sadiq-almazare/releases/download/android-v/sadiq-almazare.apk",
   "mandatory": false,
   "releaseNotes": [
-    "تحسين سرعة تشخيص النباتات وتجهيز الصور.",
-    "تقليل زمن الانتقال إلى النموذج الاحتياطي وتحسين استقرار الخدمة.",
-    "تحسين تجربة الاستخدام على الهاتف."
+    "تحديث الإرشادات والتنبيهات بحسب الموسم الزراعي في عُمان",
+    "تحسين التشخيص البصري للآفات مع ضوابط لتحديد جنس الحشرة وطورها والجيل الموسمي",
+    "ملاحظات وتنبيهات مؤقتة دون حفظ سجل تشخيص أو نشاط للمزارع",
+    "تسهيل الوصول الآمن إلى لوحة مدير البرنامج"
   ]
 }
