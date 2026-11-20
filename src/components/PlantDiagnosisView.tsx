@@ -290,14 +290,14 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
     if (loading || processingPhoto) return;
     setError(null);
 
-    if (!selectedImage) {
-      setError('يرجى التقاط صورة أو اختيار صورة واحدة واضحة للنبات أو الحشرة أولاً.');
+    if (!selectedImage && observations.trim().length < 20) {
+      setError('اكتب وصفاً لا يقل عن 20 حرفاً، أو أرفق صورة واضحة لبدء التشخيص.');
       playSoftNoticeSound(soundEnabled);
       return;
     }
 
     const effectiveCrop = cropName === 'تحديد تلقائي من الصورة' ? '' : cropName;
-    const signature = `${selectedImage.fingerprint}|${additionalImages.map((image) => image.fingerprint).join(',')}|${effectiveCrop}|${effectiveGovernorate}|${effectiveWilayat}|${effectiveVillage}|${effectiveAgroZone}|${initialFocus}|${observations.trim()}`;
+    const signature = `${selectedImage?.fingerprint || 'text-only'}|${additionalImages.map((image) => image.fingerprint).join(',')}|${effectiveCrop}|${effectiveGovernorate}|${effectiveWilayat}|${effectiveVillage}|${effectiveAgroZone}|${initialFocus}|${observations.trim()}`;
 
     // Prevent redundant identical submissions if a result is already visible
     if (lastAnalyzedSignatureRef.current === signature && result) {
@@ -318,10 +318,12 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          images: [
-            { label: 'الصورة الأساسية', base64: selectedImage.dataUrl },
-            ...additionalImages.map((image, index) => ({ label: `زاوية إضافية ${index + 1}`, base64: image.dataUrl })),
-          ],
+          images: selectedImage
+            ? [
+                { label: 'الصورة الأساسية', base64: selectedImage.dataUrl },
+                ...additionalImages.map((image, index) => ({ label: `زاوية إضافية ${index + 1}`, base64: image.dataUrl })),
+              ]
+            : [],
           cropName: effectiveCrop,
           governorate: effectiveGovernorate,
           wilayat: effectiveWilayat,
@@ -500,7 +502,7 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/80">
             {initialFocus === 'insect'
               ? 'ارفع صورة واضحة للحشرة، وأضف صورتين من الأعلى والجانب. لدوباس النخيل أظهر البطن والأجنحة، ولسوسة النخيل أظهر مقدمة الخرطوم والشعيرات؛ لا يُحدد الجنس إلا إذا ظهرت العلامة التشريحية بوضوح.'
-              : 'ارفع صورة واضحة للنبات أو الجزء المصاب، ويمكنك إضافة صور للوجهين العلوي والسفلي أو قاعدة النبات لزيادة دقة المقارنة.'}
+              : 'ارفع صورة واضحة أو اكتب وصف الأعراض ووقت ظهورها والمحصول. يمكن للمحرك إجراء فرز أولي من الوصف وحده، مع توضيح ما يحتاج إلى صورة أو فحص.'}
           </p>
         </div>
 
@@ -633,6 +635,30 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
                 <ImageIcon className="w-5 h-5 text-emerald-500" />
                 <span>اختيار صورة من المعرض</span>
               </button>
+            <div className="w-full max-w-md space-y-2 rounded-2xl border border-slate-200 dark:border-sky-300/15 bg-slate-50/80 dark:bg-[#0b1329]/45 p-4">
+              <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-200">
+                أو صف الأعراض دون صورة
+              </label>
+              <textarea
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+                placeholder="مثال: شتلات ليمون عمرها شهر، اصفرار بين عروق الأوراق الحديثة منذ أسبوع، والري يومي..."
+                maxLength={1000}
+                rows={3}
+                className="w-full resize-y px-3 py-2.5 rounded-xl bg-white dark:bg-[#132247] border border-slate-200 dark:border-sky-300/20 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                type="button"
+                disabled={loading || processingPhoto || observations.trim().length < 20}
+                onClick={handleAnalyze}
+                className="w-full min-h-[48px] px-5 py-3 rounded-xl bg-slate-900 dark:bg-emerald-500 text-white dark:text-[#0b1329] font-extrabold text-sm disabled:opacity-40"
+              >
+                <span>تشخيص من الوصف</span>
+              </button>
+              <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
+                سيعرض مُرشد احتمالات وأسئلة استيضاحية؛ ولا يدّعي رؤية علامات غير موجودة في الوصف.
+              </p>
+            </div>
             </div>
           </div>
         ) : (
