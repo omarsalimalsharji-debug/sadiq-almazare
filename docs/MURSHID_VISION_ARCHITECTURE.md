@@ -1,7 +1,7 @@
 # Murshid vision architecture decision (ADR 001)
 
 Status: **Accepted for research implementation; not yet trained or production-approved**  
-Scope: independent, open-source computer vision for Omani crop health. No Gemini/Groq dependency in the final image-inference path.
+Scope: independent, open-source computer vision for crop health using legally reusable global and regional sources (including Oman, GCC, Iraq and Egypt). Country of occurrence and local validation remain separate evidence fields. No Gemini/Groq dependency in the final image-inference path.
 
 ## Decision
 
@@ -38,7 +38,7 @@ This is a more defensible architecture than a single general-purpose image class
 ## Training plan
 
 ### Phase A — image classification
-- Start with date-palm leaf disorders and citrus leaf/seedling disorders as separate datasets and separate label taxonomies.
+- Start with high-value crop tasks such as date-palm leaf disorders and citrus leaf/seedling disorders, using eligible regional and global datasets as separate source domains and preserving separate label taxonomies.
 - Benchmark ConvNeXt-Tiny, EfficientNetV2-S and MobileNetV3-Small on the same grouped splits and preprocessing.
 - Preserve original images and source metadata; group by farm/tree/case and near-duplicate cluster before splitting.
 - Keep each external geography as a separate domain report. Saudi/Iraq/Bangladesh datasets are transfer-learning sources, not Oman test evidence.
@@ -56,7 +56,7 @@ This is a more defensible architecture than a single general-purpose image class
 - Do not claim causal diagnosis from a mask: segmentation detects appearance, not pathogen identity.
 
 ### Phase D — Oman validation and release
-- Create a locked test set from farms/trees absent from training and validation.
+- Create locked tests by source geography and by farms/trees absent from training and validation. Keep cross-country domain tests separate from local deployment validation.
 - Include healthy plants, common lookalikes (salinity, heat, water stress, fertilizer injury, root problems), poor-quality images and unsupported classes.
 - Have a plant pathologist/agronomist adjudicate high-impact labels. Keep suspected quarantine pests on an escalation-only pathway.
 - Measure per-class precision, recall, macro-F1, confusion matrix, calibration/reliability, abstention coverage, latency and memory.
