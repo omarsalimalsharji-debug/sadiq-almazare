@@ -27,7 +27,7 @@ export type MurshidStressSeverity = 'mild' | 'moderate' | 'severe' | 'undetermin
 export type MurshidStressLikelihood = 'low' | 'possible' | 'more_likely';
 
 export interface MurshidStressObservation {
-  crop: 'citrus' | 'nursery_seedling' | 'other';
+  crop: 'citrus' | 'date_palm' | 'nursery_seedling' | 'other';
   patterns: MurshidStressPattern[];
   leafAge?: 'young' | 'old' | 'both' | 'unknown';
   irrigationWaterSalty?: boolean;
