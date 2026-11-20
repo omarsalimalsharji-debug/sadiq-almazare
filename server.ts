@@ -1740,22 +1740,42 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
     throw lastModelError || new Error('خدمة التشخيص غير متاحة مؤقتاً.');
   };
 
-  let responseText = '';
-  if (groqApiKey) {
+  // Free-tier-aware provider router: use only configured providers, in a stable order.
+  // No automatic retries are performed, to avoid wasting provider quotas.
+  const diagnosisProviders: Array<{ name: string; enabled: boolean; generate: () => Promise<string> }> = [
+    { name: 'Groq Qwen Vision', enabled: Boolean(groqApiKey), generate: generateWithGroq },
+    { name: 'Google Gemini', enabled: Boolean(geminiApiKey), generate: generateWithGemini },
+  ];
+
+  let parsed: Record<string, any> | null = null;
+  let lastProviderError: any = null;
+  let selectedProvider = '';
+
+  for (const provider of diagnosisProviders) {
+    if (!provider.enabled) continue;
+
     try {
-      responseText = await generateWithGroq();
-      console.info('[AgriVision] diagnosis provider: Groq Qwen vision.');
-    } catch (groqError: any) {
-      console.warn(`[AgriVision] Groq vision unavailable (status=${groqError?.status || 'unknown'}, code=${groqError?.providerCode || 'unknown'}, type=${groqError?.providerType || 'unknown'}); switching to Gemini fallback.`);
-      if (!geminiApiKey) throw groqError;
-      responseText = await generateWithGemini();
+      const providerResponse = await provider.generate();
+      const candidate = JSON.parse(providerResponse || '{}');
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+        throw new Error('Provider returned an invalid diagnosis object.');
+      }
+
+      parsed = candidate as Record<string, any>;
+      selectedProvider = provider.name;
+      console.info(`[AgriVision] diagnosis provider selected: ${provider.name}.`);
+      break;
+    } catch (providerError: any) {
+      lastProviderError = providerError;
+      const status = providerError?.status || providerError?.code || 'unknown';
+      const code = providerError?.providerCode || 'unknown';
+      console.warn(`[AgriVision] provider ${provider.name} failed (status=${status}, code=${code}); trying next configured provider.`);
     }
-  } else {
-    console.warn('[AgriVision] GROQ_API_KEY is not configured; using Gemini fallback.');
-    responseText = await generateWithGemini();
   }
 
-  const parsed = JSON.parse(responseText || '{}');
+  if (!parsed) {
+    throw lastProviderError || new Error('خدمة التشخيص غير متاحة حالياً. حاول مرة أخرى لاحقاً.');
+  }
 
   const isAgri = parsed.isAgricultureRelated === true;
   const rawConfidence = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0;
