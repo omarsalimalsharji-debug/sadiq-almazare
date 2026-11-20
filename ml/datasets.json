@@ -97,6 +97,104 @@
         "Requires images captured in Oman",
         "Requires farm/tree-level metadata and qualified label review"
       ]
+    },
+    {
+      "id": "8d9fv6kpt3",
+      "version": 3,
+      "doi": "10.17632/8d9fv6kpt3.3",
+      "name": "Large-Scale Lemon Leaf Disease and Pest Image Dataset from Bangladesh",
+      "url": "https://data.mendeley.com/datasets/8d9fv6kpt3/3",
+      "geography": "Four locations in Bangladesh",
+      "license": "CC-BY-4.0",
+      "task": "lemon-leaf-disease-pest-deficiency-classification",
+      "reportedOriginalImages": 17586,
+      "primaryUse": "separate-citrus-task",
+      "classes": [
+        "healthy",
+        "algal_leaf_spot",
+        "anthracnose",
+        "bacterial_blight",
+        "black_spot",
+        "citrus_canker",
+        "citrus_scab",
+        "curl_leaf",
+        "dry_leaf",
+        "greening",
+        "lemon_sooty_mold",
+        "melanose",
+        "yellow_spot",
+        "pest_class_1",
+        "pest_class_2",
+        "pest_class_3",
+        "pest_class_4",
+        "deficiency_related_damage"
+      ],
+      "limitations": [
+        "Not Oman data; Bangladesh only",
+        "Images collected against plain white backgrounds; field-domain shift expected",
+        "Review exact pest sub-class names and expert label metadata before mapping into the app taxonomy"
+      ],
+      "citation": "Arifen et al. (2026), Mendeley Data V3, DOI 10.17632/8d9fv6kpt3.3"
+    },
+    {
+      "id": "ccwh64fr2r",
+      "version": 2,
+      "doi": "10.17632/ccwh64fr2r.2",
+      "name": "LemonLENS real-world multi-class lemon leaf disease dataset",
+      "url": "https://data.mendeley.com/datasets/ccwh64fr2r/2",
+      "geography": "Baburhat, Chandpur, Bangladesh",
+      "license": "CC-BY-4.0",
+      "task": "lemon-leaf-disease-classification",
+      "reportedImages": 4500,
+      "primaryUse": "separate-citrus-task",
+      "classes": [
+        "algal_leaf_spot",
+        "black_spot",
+        "citrus_canker",
+        "citrus_pest",
+        "citrus_scab",
+        "greening",
+        "healthy_leaf",
+        "leaf_curl",
+        "yellow_spot"
+      ],
+      "limitations": [
+        "Not Oman data",
+        "Check archive folder structure and any processed/augmented derivatives before training"
+      ],
+      "citation": "Sagor and Ahmed (2025), Mendeley Data V2, DOI 10.17632/ccwh64fr2r.2"
+    },
+    {
+      "id": "643f5bbc2t",
+      "version": 6,
+      "doi": "10.17632/643f5bbc2t.6",
+      "name": "BDLemonLeaf healthy and diseased lemon leaves",
+      "url": "https://data.mendeley.com/datasets/643f5bbc2t/6",
+      "geography": "Dhaka, Bangladesh",
+      "license": "CC-BY-4.0",
+      "task": "lemon-leaf-disease-detection-and-classification",
+      "reportedImages": 3431,
+      "primaryUse": "separate-citrus-task",
+      "classes": [
+        "healthy",
+        "anthracnose",
+        "bacterial_blight",
+        "black_spot",
+        "citrus_canker",
+        "citrus_hindu_mite",
+        "citrus_leafminer",
+        "curl_leaf",
+        "deficiency",
+        "dry_leaf",
+        "greening",
+        "melanose",
+        "spider_mites"
+      ],
+      "limitations": [
+        "Not Oman data",
+        "Annotation boxes and folder hierarchy require review before classification training"
+      ],
+      "citation": "Das et al. (2025), Mendeley Data V6, DOI 10.17632/643f5bbc2t.6"
     }
   ]
 }
