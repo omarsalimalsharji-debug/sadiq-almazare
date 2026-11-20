@@ -57,7 +57,7 @@ Python 3.11+ recommended. Install `pip install -r ml/requirements.txt`.
 python ml/train_palm_leaf.py --data-root ml/datasets/g684ghfxvg/raw --output-dir ml/runs/palm-leaf-madinah --epochs 20
 ```
 
-The input directory must have one directory per class. The script creates grouped train/validation/test splits, deduplicates exact and near-identical images, trains MobileNetV3-Small, writes per-class metrics and exports ONNX. It uses original file groups where the source filenames encode a shared frond/plant; it also clusters perceptual near-duplicates before splitting. Review the generated split manifest before accepting results.
+The input directory must have one directory per class. The script creates grouped train/validation/test splits, deduplicates exact and near-identical images, trains MobileNetV3-Small as a lightweight baseline, writes per-class metrics and exports ONNX. It is not the final high-capacity architecture; see `docs/MURSHID_VISION_ARCHITECTURE.md` for the selected multi-model roadmap. It uses original file groups where the source filenames encode a shared frond/plant; it also clusters perceptual near-duplicates before splitting. Review the generated split manifest before accepting results.
 
 ## Evaluate and release gate
 
@@ -71,7 +71,7 @@ The input directory must have one directory per class. The script creates groupe
 
 ## Current status
 
-Pipeline code is a research scaffold. No image archives have been downloaded into this repository, no model has been trained, and no ONNX model is approved for production. The existing app diagnosis path is unchanged.
+Pipeline code is a research scaffold. No image archives have been downloaded into this repository, no model has been trained, and no ONNX model is approved for production. MobileNetV3-Small is a baseline only; the production direction is a crop-specific classifier plus a separate pest detector and (later) symptom segmentation model. The existing app diagnosis path is unchanged.
 
 
 ## Description-only diagnosis
