@@ -12,7 +12,7 @@ if not gradle.exists():
 
 package = json.loads(package_path.read_text(encoding="utf-8"))
 version = str(package.get("version", "")).strip()
-match = re.fullmatch(r"(\\d+)\\.(\\d+)\\.(\\d+)", version)
+match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", version)
 if not match:
     raise SystemExit("package.json version must use MAJOR.MINOR.PATCH format")
 
@@ -23,13 +23,13 @@ if version_code <= 0 or version_code > 2_100_000_000:
 
 text = gradle.read_text(encoding="utf-8")
 text, code_count = re.subn(
-    r"versionCode\\s*(?:=\\s*)?\\d+",
+    r"versionCode\s*(?:=\s*)?\d+",
     f"versionCode {version_code}",
     text,
     count=1,
 )
 text, name_count = re.subn(
-    r"""versionName\\s*(?:=\\s*)?['"][^'"]+['"]""",
+    r"""versionName\s*(?:=\s*)?['"][^'"]+['"]""",
     f'versionName "{version}"',
     text,
     count=1,
@@ -50,7 +50,7 @@ if keystore:
     }
 """
     if "signingConfigs {" not in text:
-        text = text.replace("    buildTypes {", signing + "\\n    buildTypes {", 1)
+        text = text.replace("    buildTypes {", signing + "\n    buildTypes {", 1)
     build_types_pos = text.find("buildTypes {")
     if build_types_pos < 0:
         raise SystemExit("Could not find buildTypes block in generated Gradle file")
@@ -59,7 +59,7 @@ if keystore:
         raise SystemExit("Could not find release buildType in generated Gradle file")
     if "signingConfig signingConfigs.release" not in text[build_types_pos:]:
         insert_at = release_pos + len("release {")
-        text = text[:insert_at] + "\\n            signingConfig signingConfigs.release" + text[insert_at:]
+        text = text[:insert_at] + "\n            signingConfig signingConfigs.release" + text[insert_at:]
 
 gradle.write_text(text, encoding="utf-8")
 print(f"Configured Android version {version} (versionCode {version_code}); signed release=" + str(bool(keystore)))
