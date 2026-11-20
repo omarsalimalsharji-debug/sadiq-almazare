@@ -1607,7 +1607,7 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
       return total + Buffer.byteLength(base64, 'base64');
     }, 0);
-    if (groqImageParts.length > 3 || groqImageBytes > 18 * 1024 * 1024) {
+    if (groqImageParts.length > 3 || groqImageBytes > 14 * 1024 * 1024) {
       const error: any = new Error('Groq image payload exceeds the safe request limit; using Gemini fallback.');
       error.status = 413;
       error.providerCode = 'image_payload_too_large';
