@@ -7,6 +7,7 @@ on:
       - codex/free-render-preview
       - codex/development-from-main-2026-11-18
       - codex/diagnosis-safety-hardening-2026-11-18
+      - codex/admin-bootstrap-rotation-pr-2026-11-20
   pull_request:
     branches:
       - main
