@@ -150,6 +150,9 @@ jobs:
       - name: Enable in-app update notice after signed release
         if: ${{ env.SIGNED_RELEASE == 'true' }}
         uses: actions/github-script@v7
+        env:
+          APP_VERSION: ${{ steps.app_version.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           script: |
             const path = 'public/app-update.json';
