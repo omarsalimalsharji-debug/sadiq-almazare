@@ -194,7 +194,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
       </div>
 
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
-        يمكنك المشاركة ومتابعة النتائج اليومية والأسبوعية دون تسجيل دخول. النقاط المعروضة هي النتائج التي اعتمدها التطبيق.
+        الأسماء الظاهرة هي أسماء الحسابات التي اختارها أصحابها، ولا تعني توثيق الهوية الرسمية. تُعرض النتائج المسجلة فعلياً فقط بعد استبعاد سجلات العرض والاختبار.
       </div>
 
       {/* Mode Tabs */}
