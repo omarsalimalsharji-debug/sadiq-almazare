@@ -1556,8 +1556,9 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
     });
   });
 
-  const hintText =
-    modeHint === 'insect'
+  const hintText = images.length === 0
+    ? 'هذا طلب تشخيص وصفي بلا صورة: لا تدّعِ رؤية علامة بصرية أو لون أو شكل لم يذكره المستخدم. اعتمد فقط على الأعراض الموصوفة، واذكر الاحتمالات التفريقية والأسئلة الناقصة، وصرّح بأن التحقق البصري أو المخبري غير متاح.'
+    : modeHint === 'insect'
       ? 'تلميح سياقي: المستخدم فتح الأداة من قسم الحشرات، لكن اعتمد على ما تراه فعلياً في الصورة (قد تكون نباتاً أو حشرة نافعة أو ضارة).'
       : 'ميّز تلقائياً من الصورة هل هي لنبات/ورقة أم حشرة (نافعة أم ضارة) أم غير واضحة.';
 
@@ -2133,9 +2134,10 @@ async function handleSmartDiagnosisRequest(
       }
     }
 
-    if (validImages.length === 0) {
+    const cleanObs = String(observations || symptoms || pestDescription || '').trim().slice(0, 1000);
+    if (validImages.length === 0 && cleanObs.length < 20) {
       return res.status(400).json({
-        error: 'يرجى التقاط أو اختيار صورة واحدة واضحة للنبات أو الحشرة لبدء التشخيص.',
+        error: 'أرفق صورة واضحة، أو اكتب وصفاً لا يقل عن 20 حرفاً يتضمن الأعراض ووقت ظهورها والمحصول.',
       });
     }
 
@@ -2144,7 +2146,6 @@ async function handleSmartDiagnosisRequest(
     const cleanWilayat = String(wilayat || '').trim().slice(0, 100);
     const cleanVillage = String(village || '').trim().slice(0, 100);
     const cleanAgroZone = String(agroZone || '').trim().slice(0, 60);
-    const cleanObs = String(observations || symptoms || pestDescription || '').trim().slice(0, 1000);
     const effectiveMode: 'auto' | 'plant' | 'insect' =
       modeHint === 'insect' || modeHint === 'plant' || modeHint === 'auto' ? modeHint : defaultModeHint;
 
