@@ -1740,7 +1740,8 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
     });
 
     let lastModelError: any = null;
-    // Use public Gemini Developer API models with a published free tier; avoid the Antigravity-only Hydrogen model.\n    for (const model of ['gemini-3.8-flash', 'gemini-3.5-flash-lite']) {
+    // Use public Gemini Developer API models with a published free tier; avoid the Antigravity-only Hydrogen model.
+    for (const model of ['gemini-3.8-flash', 'gemini-3.5-flash-lite']) {
       try {
         const geminiResponse = await generateDiagnosis(model);
         if (!geminiResponse.text?.trim()) throw new Error('Gemini returned an empty diagnosis response.');
