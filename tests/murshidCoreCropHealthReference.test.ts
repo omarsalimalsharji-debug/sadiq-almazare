@@ -29,7 +29,7 @@ test('date-palm and citrus reference retrieval is crop-specific', () => {
   const datePalm = getMurshidCoreReferencesByCrop('date-palm');
   const citrus = getMurshidCoreReferencesByCrop('citrus');
   assert.equal(datePalm.length, 6);
-  assert.equal(citrus.length, 6);
+  assert.equal(citrus.length, 8);
   assert.ok(datePalm.every((record) => record.cropId === 'date-palm'));
   assert.ok(citrus.every((record) => record.cropId === 'citrus'));
 });
