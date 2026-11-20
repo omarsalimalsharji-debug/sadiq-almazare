@@ -124,7 +124,12 @@ export async function getMurshidStudioAudio(text: string, mood: string = 'cheerf
       if (oldestKey) memoryCache.delete(oldestKey);
     }
     memoryCache.set(key, data.audioBase64);
-    await writePersistentClip(key, data.audioBase64);
+    // Local persistence is best-effort: a full browser quota must never block playback.
+    try {
+      await writePersistentClip(key, data.audioBase64);
+    } catch {
+      // Keep the in-memory clip for the current session.
+    }
     return data.audioBase64;
   } catch {
     return null;
