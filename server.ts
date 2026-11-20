@@ -181,11 +181,13 @@ function verifyPassword(password: string, record?: { salt: string; hash: string 
   }
 }
 
-// One-time initial bootstrap credential (salted scrypt digest; cleared upon first password change)
-const BOOTSTRAP_ADMIN_CREDENTIAL = {
-  salt: '40ff2fc6b9c21dd12be781cada8d5d8d',
-  hash: '04ab1befeb39bbea7d37ffe18aab3db12d5e2eb17e2113630ba4c4340585111f06e2686907d6c8ca98856105a68be781df13f760107101feeb204fd0710169db',
-};
+// One-time bootstrap secret is supplied only through the service environment.
+// Never store a bootstrap password or its fixed digest in source code.
+const bootstrapAdminSecret = process.env.ADMIN_BOOTSTRAP_PASSWORD?.trim();
+const BOOTSTRAP_ADMIN_CREDENTIAL =
+  bootstrapAdminSecret && bootstrapAdminSecret.length >= 24
+    ? hashPassword(bootstrapAdminSecret)
+    : null;
 
 export interface ModeratorRecord {
   id: string;
@@ -384,10 +386,9 @@ const defaultStorage: StorageSchema = {
     }
   ],
   adminAuth: {
-    salt: BOOTSTRAP_ADMIN_CREDENTIAL.salt,
-    hash: BOOTSTRAP_ADMIN_CREDENTIAL.hash,
+    ...(BOOTSTRAP_ADMIN_CREDENTIAL || hashPassword(crypto.randomBytes(32).toString('hex'))),
     mustChangePassword: true,
-    bootstrapConsumed: false,
+    bootstrapConsumed: !BOOTSTRAP_ADMIN_CREDENTIAL,
     updatedAt: Date.now()
   },
   staffSessions: {},
@@ -452,6 +453,32 @@ function saveStorage() {
     fs.writeFileSync(STORAGE_FILE, JSON.stringify(storage, null, 2), 'utf-8');
   } catch (e) {
     console.error('Failed to save storage.json:', e);
+  }
+}
+
+// Rotate an unconsumed bootstrap credential from the private service environment.
+// If no sufficiently strong secret is configured, fail closed with an unknown random credential.
+if (!storage.adminAuth.bootstrapConsumed) {
+  const configuredBootstrapSecret = process.env.ADMIN_BOOTSTRAP_PASSWORD?.trim();
+  const hasConfiguredBootstrapSecret = Boolean(
+    configuredBootstrapSecret && configuredBootstrapSecret.length >= 24
+  );
+  const rotatedCredential = hasConfiguredBootstrapSecret
+    ? hashPassword(configuredBootstrapSecret!)
+    : hashPassword(crypto.randomBytes(32).toString('hex'));
+
+  storage.adminAuth = {
+    ...rotatedCredential,
+    mustChangePassword: true,
+    bootstrapConsumed: !hasConfiguredBootstrapSecret,
+    updatedAt: Date.now(),
+  };
+  saveStorage();
+
+  if (hasConfiguredBootstrapSecret) {
+    console.info('Initial admin credential rotated from secure environment configuration.');
+  } else {
+    console.warn('Initial admin bootstrap disabled: ADMIN_BOOTSTRAP_PASSWORD is missing or too short.');
   }
 }
 
