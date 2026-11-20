@@ -43,5 +43,8 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Python training pipeline syntax
+        run: python -m py_compile ml/*.py
+
       - name: Production build
         run: npm run build
