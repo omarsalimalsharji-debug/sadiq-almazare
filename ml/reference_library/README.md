@@ -19,6 +19,18 @@ A text fact may be summarized with a page-level citation even when the source's 
 6. Keep `reference_only`, `permission_required`, `restricted` and `rejected` records out of training.
 7. Split by `group_id` (plant/tree/source specimen), never by randomly splitting near-duplicate photographs.
 
+## Offline archive audit
+
+The archive auditor inventories ZIP/TAR image archives without extracting files or modifying the source archive. It records the archive and image SHA-256 hashes, original member paths, file sizes, exact duplicates, and (when Pillow is installed) image decode status and dimensions. Unsafe paths, encrypted files, oversized members and unsupported formats are skipped or reported. Folder names are only label candidates.
+
+```bash
+python ml/audit_image_archive.py /path/to/dataset.zip
+python ml/audit_image_archive.py /path/to/dataset.tar.gz --output /path/to/audit-report.json
+python -m pip install Pillow  # optional: image decoding and dimensions
+```
+
+The JSON report is an inventory, not an approved image manifest. Every candidate remains `pending` and `training_eligible: false`; no images are extracted, relabelled, added to `images.jsonl`, or sent to training. Review archive terms, image-level rights, attribution, specimen grouping and diagnostic labels separately.
+
 ## Commands
 
 ```bash
