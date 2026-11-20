@@ -17,8 +17,8 @@ export default defineConfig(() => {
           name: 'صديق المزارع - المنصة الزراعية العمانية الذكية',
           short_name: 'صديق المزارع',
           description: 'منصة صديق المزارع الذكية في سلطنة عُمان: التشخيص الزراعي، الإرشاد للمزارعين، التقويم والتنبيهات الموسمية، المكتبة الزراعية، ومغامرات مرشد التوعوية.',
-          theme_color: '#0b1329',
-          background_color: '#0b1329',
+          theme_color: '#06452f',
+          background_color: '#06452f',
           display: 'standalone',
           orientation: 'portrait',
           dir: 'rtl',
@@ -27,7 +27,7 @@ export default defineConfig(() => {
           scope: '/',
           icons: [
             {
-              src: '/icon.svg?v=5',
+              src: '/icon.svg?v=6',
               sizes: 'any',
               type: 'image/svg+xml',
               purpose: 'any maskable',
