@@ -48,3 +48,7 @@ The input directory must have one directory per class. The script creates groupe
 ## Current status
 
 Pipeline code is a research scaffold. No image archives have been downloaded into this repository, no model has been trained, and no ONNX model is approved for production. The existing app diagnosis path is unchanged.
+
+
+## Description-only diagnosis
+The existing diagnosis view also accepts a written symptom description without an image (minimum 20 characters). The server prompt explicitly forbids visual claims in this mode. This is still an AI-assisted differential assessment, not a trained local vision model or a lab diagnosis.
