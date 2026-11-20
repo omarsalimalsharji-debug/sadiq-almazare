@@ -1757,12 +1757,21 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
     try {
       const providerResponse = await provider.generate();
       const candidate = JSON.parse(providerResponse || '{}');
-      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
-        throw new Error('Provider returned an invalid diagnosis object.');
+      if (
+        !candidate ||
+        typeof candidate !== 'object' ||
+        Array.isArray(candidate) ||
+        typeof candidate.isAgricultureRelated !== 'boolean' ||
+        typeof candidate.confidenceScore !== 'number' ||
+        !Number.isFinite(candidate.confidenceScore) ||
+        !['plant', 'insect', 'unclear'].includes(candidate.detectedSubject) ||
+        typeof candidate.diagnosisCategory !== 'string' ||
+        !candidate.diagnosisCategory.trim()
+      ) {
+        throw new Error('Provider returned an incomplete diagnosis object.');
       }
 
       parsed = candidate as Record<string, any>;
-      selectedProvider = provider.name;
       console.info(`[AgriVision] diagnosis provider selected: ${provider.name}.`);
       break;
     } catch (providerError: any) {
