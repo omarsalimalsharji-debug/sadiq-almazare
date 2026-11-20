@@ -122,11 +122,29 @@ def merge_duplicate_groups(records, max_distance=4):
 def grouped_split(records):
     y = np.array([r["label"] for r in records])
     groups = np.array([r["group"] for r in records])
-    # 20% untouched test fold, then 20% of remaining as validation (~16% total).
-    outer = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
+    group_counts = {
+        label: len(set(groups[y == label]))
+        for label in np.unique(y)
+    }
+    min_groups = min(group_counts.values())
+    if min_groups < 3:
+        raise SystemExit(
+            "At least 3 independent source/duplicate groups per class are required; "
+            f"observed group counts: {group_counts}"
+        )
+    folds = min(5, min_groups)
+    # Grouped folds keep all views and near-duplicates from one source together.
+    outer = StratifiedGroupKFold(n_splits=folds, shuffle=True, random_state=SEED)
     trainval_idx, test_idx = next(outer.split(np.zeros(len(y)), y, groups))
     y_tv, g_tv = y[trainval_idx], groups[trainval_idx]
-    inner = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED + 1)
+    inner_group_counts = {
+        label: len(set(g_tv[y_tv == label]))
+        for label in np.unique(y_tv)
+    }
+    inner_folds = min(5, min(inner_group_counts.values()))
+    if inner_folds < 2:
+        raise SystemExit("Not enough independent groups left for a validation split.")
+    inner = StratifiedGroupKFold(n_splits=inner_folds, shuffle=True, random_state=SEED + 1)
     train_rel, val_rel = next(inner.split(np.zeros(len(y_tv)), y_tv, g_tv))
     train_idx = trainval_idx[train_rel]
     val_idx = trainval_idx[val_rel]
@@ -155,6 +173,11 @@ def main():
     parser.add_argument("--learning-rate", type=float, default=0.0003)
     args = parser.parse_args()
     random.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED)
+    if args.data_root.name.lower() != "raw":
+        raise SystemExit("--data-root must point to a raw/ folder; augmented/processed images are not accepted.")
+    forbidden = {"augmented", "processed", "analyzed", "validation", "test"}
+    if any(part.lower() in forbidden for part in args.data_root.parts):
+        raise SystemExit("Do not train from augmented/processed or evaluation folders.")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     classes, records = load_records(args.data_root)
