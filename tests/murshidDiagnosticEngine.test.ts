@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { assessMurshidFieldCase } from '../src/data/murshidDiagnosticEngine.ts';
+
+test('unified engine returns Oman context, stress ranking and nutrient candidates', () => {
+  const result = assessMurshidFieldCase({
+    stress: {
+      crop: 'citrus',
+      patterns: ['interveinal_chlorosis'],
+      leafAge: 'young',
+      soilCalcareousOrHighPh: true
+    },
+    nutrition: {
+      crop: 'citrus',
+      leafAge: 'young',
+      patterns: ['interveinal_yellowing', 'green_veins_yellow_blade'],
+      soilKnownCalcareousOrHighPH: true
+    }
+  });
+  assert.equal(result.region, 'Oman');
+  assert.equal(result.engineVersion, '0.2.0');
+  assert.ok(result.stressAssessment.candidates.some((candidate) => candidate.causeId === 'high_ph_lockout'));
+  assert.ok(result.nutrientCandidates.length > 0);
+  assert.ok(result.knowledgeReferences.some((record) => record.id === 'lime-witches-broom'));
+});
+
+test('unified engine does not invent pest references for an unknown crop', () => {
+  const result = assessMurshidFieldCase({
+    stress: { crop: 'other', patterns: [] }
+  });
+  assert.deepEqual(result.knowledgeReferences, []);
+  assert.deepEqual(result.nutrientCandidates, []);
+});
