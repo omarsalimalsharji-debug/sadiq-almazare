@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "policy": "Do not redistribute images. Download from original repositories, retain attribution and licence, and collect Oman field photos with explicit owner consent.",
+  "datasets": [
+    {
+      "id": "g684ghfxvg",
+      "version": 2,
+      "doi": "10.17632/g684ghfxvg.2",
+      "name": "Diseases of date palm leaves dataset",
+      "url": "https://data.mendeley.com/datasets/g684ghfxvg/2",
+      "geography": "Madinah, Saudi Arabia",
+      "license": "CC-BY-4.0",
+      "task": "date-palm-leaf-disorder-classification",
+      "reportedOriginalImages": 608,
+      "reportedProcessedImages": 3089,
+      "primaryUse": "raw-originals-only",
+      "classes": [
+        "healthy",
+        "potassium_deficiency",
+        "manganese_deficiency",
+        "magnesium_deficiency",
+        "black_scorch",
+        "leaf_spots",
+        "fusarium_wilt",
+        "rachis_blight",
+        "parlatoria_scale"
+      ],
+      "limitations": [
+        "Not Oman data",
+        "Only leaf/leaflet symptoms",
+        "Augmented images must not enter test split",
+        "Small number of farms; farm-level holdout needed"
+      ],
+      "citation": "Namoun et al., Data in Brief 57 (2024), 110933, DOI 10.1016/j.dib.2024.110933"
+    },
+    {
+      "id": "2nh364p2bc",
+      "version": 2,
+      "doi": "10.17632/2nh364p2bc.2",
+      "name": "Image dataset of infected date palm leaves by dubas insects",
+      "url": "https://data.mendeley.com/datasets/2nh364p2bc/2",
+      "geography": "Karbala, Iraq",
+      "license": "CC-BY-4.0",
+      "task": "dubas-leaf-drone-classification",
+      "reportedImages": 3000,
+      "primaryUse": "separate-task",
+      "classes": [
+        "healthy",
+        "bugs_only",
+        "honeydew_only",
+        "bugs_and_honeydew"
+      ],
+      "limitations": [
+        "Not Oman data",
+        "Drone imagery and field-scale domain differ from phone macro images"
+      ],
+      "citation": "Al-Mahmood et al., Data in Brief 49 (2023), 109371, DOI 10.1016/j.dib.2023.109371"
+    },
+    {
+      "id": "figshare-rpw-2025",
+      "name": "Date palm RGB and thermal images for red palm weevil pest management",
+      "url": "https://figshare.com/articles/dataset/A_Dataset_of_Date_Palm_Trees_Thermal_and_RGB_Images_for_Pest_Management_/25974295",
+      "geography": "Khairpur, Pakistan",
+      "license": "CC-BY-4.0 article; verify dataset terms before reuse",
+      "task": "date-palm-tree-rpw-status-multimodal",
+      "reportedImages": 832,
+      "primaryUse": "separate-tree-level-task",
+      "classes": [
+        "non_infected",
+        "infected",
+        "badly_damaged",
+        "dead"
+      ],
+      "limitations": [
+        "Labels partly based on farmer feedback",
+        "RGB and thermal modalities must be separated and documented",
+        "Not an Omani validation set",
+        "RGB alone cannot confirm or exclude internal trunk infestation"
+      ],
+      "citation": "Nadeem et al., Frontiers in Agronomy 7 (2025), DOI 10.3389/fagro.2025.1604188"
+    },
+    {
+      "id": "oman-field-collection",
+      "name": "Omani field image collection",
+      "geography": "Oman",
+      "license": "owner-consented internal research; confirm terms before any public release",
+      "task": "oman-domain-adaptation-and-held-out-validation",
+      "reportedImages": 0,
+      "primaryUse": "required-before-production",
+      "classes": [
+        "healthy",
+        "disease_or_pest_confirmed",
+        "nutrient_or_abiotic_stress",
+        "uncertain"
+      ],
+      "limitations": [
+        "Requires images captured in Oman",
+        "Requires farm/tree-level metadata and qualified label review"
+      ]
+    }
+  ]
+}
