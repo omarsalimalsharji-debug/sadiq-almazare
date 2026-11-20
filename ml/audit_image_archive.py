@@ -167,6 +167,14 @@ def make_record(name: str, size: int, sha: str,
     }
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(CHUNK_SIZE), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def build_report(archive_path: Path, records: list[dict[str, Any]],
                  warnings: list[str]) -> dict[str, Any]:
     by_hash: dict[str, list[str]] = defaultdict(list)
@@ -181,7 +189,7 @@ def build_report(archive_path: Path, records: list[dict[str, Any]],
     return {
         "report_schema": "murshid-archive-audit-1.0",
         "archive": archive_path.name,
-        "archive_sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
+        "archive_sha256": file_sha256(archive_path),
         "image_count": len(records),
         "extension_counts": dict(sorted(ext_counts.items())),
         "decode_status_counts": dict(sorted(status_counts.items())),
