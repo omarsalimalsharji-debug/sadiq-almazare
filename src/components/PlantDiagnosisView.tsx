@@ -882,6 +882,11 @@ export const PlantDiagnosisView: React.FC<PlantDiagnosisViewProps> = ({
             transition={{ duration: 0.25 }}
             className="space-y-4"
           >
+            {diagnosisDurationMs !== null && (
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 text-left" dir="rtl">
+                زمن معالجة الخادم: {(diagnosisDurationMs / 1000).toFixed(1)} ثانية
+              </p>
+            )}
             {result.needsClearerPhoto ? (
               /* Honest Unclear / Non-Agri Photo Card (Zero Fabricated Diagnosis) */
               <div className="rounded-3xl border border-amber-400/50 bg-amber-50/90 dark:bg-amber-950/30 p-5 sm:p-6 space-y-4 shadow-lg">
