@@ -9,6 +9,7 @@ on:
       - codex/free-render-preview
       - codex/fix-educational-videos-and-release-signing-2026-11-19
       - main
+      - codex/fix-apk-manifest-release-version-2026-11-20
   workflow_dispatch:
 
 permissions:
@@ -48,12 +49,31 @@ jobs:
           packages: platform-tools platforms;android-35 build-tools;35.0.0
 
       - name: Read app version
+        id: app_version
+        shell: bash
         run: |
-          node --input-type=module -e "import fs from 'node:fs'; const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); if (!/^\\d+\\.\\d+\\.\\d+$/.test(pkg.version)) throw new Error('package.json must use MAJOR.MINOR.PATCH'); fs.appendFileSync(process.env.GITHUB_ENV, 'APP_VERSION=' + pkg.version + '\\n');"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (!/^\\d+\\.\\d+\\.\\d+$/.test(pkg.version)) {
+            throw new Error('package.json must use MAJOR.MINOR.PATCH');
+          }
+          fs.appendFileSync(process.env.GITHUB_ENV, `APP_VERSION=${pkg.version}\\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${pkg.version}\\n`);
+          NODE
 
       - name: Verify release manifest version and URL
         run: |
-          node --input-type=module -e "import fs from 'node:fs'; const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); const manifest=JSON.parse(fs.readFileSync('public/app-update.json','utf8')); if (pkg.version !== manifest.version) throw new Error('package.json and app-update.json versions do not match'); if (manifest.available && !String(manifest.apkUrl || '').includes('/releases/download/android-v' + pkg.version + '/')) throw new Error('Active update URL must point to this app version release');"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const manifest = JSON.parse(fs.readFileSync('public/app-update.json', 'utf8'));
+          if (pkg.version !== manifest.version) throw new Error('package.json and app-update.json versions do not match');
+          if (manifest.available && !String(manifest.apkUrl || '').includes('/releases/download/android-v' + pkg.version + '/')) {
+            throw new Error('Active update URL must point to this app version release');
+          }
+          NODE
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
@@ -71,6 +91,7 @@ jobs:
 
       - name: Sync Capacitor
         run: npx cap sync android
+
       - name: Generate Android launcher icons from the approved app mark
         shell: bash
         run: |
@@ -139,7 +160,7 @@ jobs:
           tag_name: android-v${{ env.APP_VERSION }}
           name: صديق المزارع - الإصدار ${{ env.APP_VERSION }}
           body: |
-            تحديث صديق المزارع ${{ env.APP_VERSION }}: تحسينات واستقرار وتجربة استخدام أفضل للمزارعين.
+            تحديث صديق المزارع ${{ env.APP_VERSION}: تحسينات واستقرار وتجربة استخدام أفضل للمزارعين.
             يتطلب تثبيت التحديث موافقة المستخدم من Android.
           files: sadiq-almazare.apk
           overwrite_files: true
@@ -166,15 +187,14 @@ jobs:
               apkUrl: 'https://github.com/' + owner + '/' + repo + '/releases/download/android-v' + process.env.APP_VERSION + '/sadiq-almazare.apk',
               mandatory: false,
               releaseNotes: [
-                'تحديث الإرشادات والتنبيهات بحسب الموسم الزراعي في عُمان',
-                'تحسين التشخيص البصري للآفات مع ضوابط لتحديد جنس الحشرة وطورها والجيل الموسمي',
-                'ملاحظات وتنبيهات مؤقتة دون حفظ سجل تشخيص أو نشاط للمزارع',
-                'تسهيل الوصول الآمن إلى لوحة مدير البرنامج'
+                'تحسين سرعة التشخيص واستقرار الخدمة',
+                'تحسين تجربة الاستخدام على الهاتف',
+                'إصلاح اكتشاف تحديثات التطبيق'
               ]
             };
             await github.rest.repos.createOrUpdateFileContents({
               owner, repo, path, branch,
               sha: current.data.sha,
               message: 'Enable in-app APK update notification [skip ci]',
-              content: Buffer.from(JSON.stringify(content, null, 2) + '\n').toString('base64')
+              content: Buffer.from(JSON.stringify(content, null, 2) + '\\n').toString('base64')
             });
