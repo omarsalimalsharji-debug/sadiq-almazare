@@ -1580,151 +1580,175 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
 راعِ البيئة المناخية للمنطقة المذكورة عند كتابة omaniFarmingNote والنصائح الوقائية، وحلل الصورة بدقة علمية الآن وأخرج JSON فقط.`,
   });
 
-  // Keep Gemini 4 Hydrogen as primary; use stable Gemini 3.8 Flash only when the primary is temporarily unavailable.
-  const generateDiagnosis = (model: string) => ai.models.generateContent({
-    model,
-    contents: { parts },
-    config: {
-      systemInstruction,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          isAgricultureRelated: { type: Type.BOOLEAN },
-          detectedSubject: { type: Type.STRING, enum: ['plant', 'insect', 'unclear'] },
-          diagnosisCategory: {
-            type: Type.STRING,
-            enum: [
-              'مرض فطري',
-              'مرض بكتيري',
-              'مرض فيروسي',
-              'نقص عناصر',
-              'إجهاد بيئي',
-              'حشرة ضارة',
-              'حشرة نافعة',
-              'نبات سليم',
-              'غير محدد',
-            ],
+  // Groq vision is the primary diagnosis provider; Gemini remains the server-side fallback.
+  const groqApiKey = process.env.GROQ_API_KEY?.trim();
+  const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!groqApiKey && !geminiApiKey) {
+    throw new Error('خدمة التحليل الذكي غير مهيأة حالياً على الخادم.');
+  }
+
+  const generateWithGroq = async (): Promise<string> => {
+    const groqContent = parts.map((part: any) => {
+      if (typeof part?.text === 'string') {
+        return { type: 'text', text: part.text };
+      }
+      if (part?.inlineData?.data && part?.inlineData?.mimeType) {
+        return {
+          type: 'image_url',
+          image_url: {
+            url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
           },
-          problemType: { type: Type.STRING, enum: ['مرض', 'حشرة', 'نقص عناصر', 'سليم'] },
-          cropName: { type: Type.STRING },
-          problemName: { type: Type.STRING },
-          problemNameEn: { type: Type.STRING },
-          scientificName: { type: Type.STRING },
-          confidenceScore: { type: Type.INTEGER },
-          needsClearerPhoto: { type: Type.BOOLEAN },
-          clarificationMessage: { type: Type.STRING },
-          conditionSummary: { type: Type.STRING },
-          visibleSymptoms: { type: Type.ARRAY, items: { type: Type.STRING } },
-          causes: { type: Type.ARRAY, items: { type: Type.STRING } },
-          severity: { type: Type.STRING, enum: ['منخفضة', 'متوسطة', 'عالية'] },
-          severityLabel: { type: Type.STRING },
-          treatmentSteps: { type: Type.ARRAY, items: { type: Type.STRING } },
-          organicRemedy: { type: Type.STRING },
-          preventionTips: { type: Type.ARRAY, items: { type: Type.STRING } },
-          pesticideNeeded: { type: Type.BOOLEAN },
-          pesticideProductAr: { type: Type.STRING },
-          pesticideProductEn: { type: Type.STRING },
-          pesticideDosage: { type: Type.STRING },
-          pesticideSafetyNote: { type: Type.STRING },
-          whenToContactEngineer: { type: Type.STRING },
-          omaniFarmingNote: { type: Type.STRING },
-          possibleConditions: { type: Type.ARRAY, items: { type: Type.STRING } },
-          insectNature: { type: Type.STRING, enum: ['beneficial', 'harmful', 'neutral', 'none'] },
-          insectSex: { type: Type.STRING, enum: ['male', 'female', 'undetermined'] },
-          insectSexEvidence: { type: Type.STRING },
-          insectLifeStage: { type: Type.STRING, enum: ['egg', 'nymph', 'larva', 'pupa', 'adult', 'undetermined'] },
-          insectLifeStageLabel: { type: Type.STRING },
-          insectLifeStageEvidence: { type: Type.STRING },
-          insectInstar: { type: Type.STRING },
-          insectStageConfidence: { type: Type.INTEGER },
-          insectGeneration: { type: Type.STRING, enum: ['الجيل الربيعي', 'الجيل الخريفي', 'غير محدد'] },
-          insectGenerationEvidence: { type: Type.STRING },
-          insectTargetCrops: { type: Type.ARRAY, items: { type: Type.STRING } },
-          insectDamage: { type: Type.STRING },
-          insectLifeCycle: { type: Type.STRING },
-          insectControlMethod: { type: Type.STRING },
-          insectPrevention: { type: Type.STRING },
-        },
-        required: [
-          'isAgricultureRelated',
-          'detectedSubject',
-          'diagnosisCategory',
-          'problemType',
-          'cropName',
-          'problemName',
-          'problemNameEn',
-          'scientificName',
-          'confidenceScore',
-          'needsClearerPhoto',
-          'clarificationMessage',
-          'conditionSummary',
-          'visibleSymptoms',
-          'causes',
-          'severity',
-          'severityLabel',
-          'treatmentSteps',
-          'organicRemedy',
-          'preventionTips',
-          'pesticideNeeded',
-          'pesticideProductAr',
-          'pesticideProductEn',
-          'pesticideDosage',
-          'pesticideSafetyNote',
-          'whenToContactEngineer',
-          'omaniFarmingNote',
-          'possibleConditions',
-          'insectNature',
-          'insectSex',
-          'insectSexEvidence',
-          'insectLifeStage',
-          'insectLifeStageLabel',
-          'insectLifeStageEvidence',
-          'insectInstar',
-          'insectStageConfidence',
-          'insectGeneration',
-          'insectGenerationEvidence',
-          'insectTargetCrops',
-          'insectDamage',
-          'insectLifeCycle',
-          'insectControlMethod',
-          'insectPrevention',
-        ],
+        };
+      }
+      return null;
+    }).filter(Boolean);
+
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json',
       },
-    },
-  });
+      body: JSON.stringify({
+        model: 'qwen/qwen3.8-27b',
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: groqContent },
+        ],
+        response_format: { type: 'json_object' },
+        reasoning_effort: 'none',
+        temperature: 0.2,
+        max_completion_tokens: 8192,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(65000),
+    });
 
-  let response: any = null;
-  let lastModelError: any = null;
-  const diagnosisModels = ['gemini-4-hydrogen', 'gemini-3.8-flash'];
-
-  // Fail over immediately on transient primary-model errors instead of repeating
-  // a potentially slow request. This preserves the detailed primary model while
-  // avoiding an unnecessary second wait before the fallback can start.
-  for (let modelIndex = 0; modelIndex < diagnosisModels.length; modelIndex++) {
-    const model = diagnosisModels[modelIndex];
-    try {
-      response = await generateDiagnosis(model);
-      break;
-    } catch (error: any) {
-      lastModelError = error;
-      const status = Number(error?.status || error?.code || error?.error?.code);
-      const errorText = String(error?.message || error?.error?.message || '');
-      const transientFailure =
-        status === 429 ||
-        [500, 502, 503, 504].includes(status) ||
-        /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|overloaded/i.test(errorText);
-
-      if (!transientFailure) throw error;
-      console.warn(`[AgriVision] ${model} temporarily unavailable; ${modelIndex === 0 ? 'switching immediately to fallback' : 'fallback exhausted'}.`);
+    if (!groqResponse.ok) {
+      const errorBody = await groqResponse.text().catch(() => '');
+      const error: any = new Error(`Groq vision request failed with status ${groqResponse.status}: ${errorBody.slice(0, 500)}`);
+      error.status = groqResponse.status;
+      throw error;
     }
-  }
 
-  if (!response) {
+    const payload: any = await groqResponse.json();
+    const output = payload?.choices?.[0]?.message?.content;
+    if (typeof output !== 'string' || !output.trim()) {
+      throw new Error('Groq vision returned an empty diagnosis response.');
+    }
+    return output;
+  };
+
+  const generateWithGemini = async (): Promise<string> => {
+    if (!geminiApiKey) {
+      throw new Error('محرك Groq غير متاح حالياً ولم يتم إعداد محرك Gemini الاحتياطي.');
+    }
+
+    const generateDiagnosis = (model: string) => ai.models.generateContent({
+      model,
+      contents: { parts },
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isAgricultureRelated: { type: Type.BOOLEAN },
+            detectedSubject: { type: Type.STRING, enum: ['plant', 'insect', 'unclear'] },
+            diagnosisCategory: { type: Type.STRING, enum: ['مرض فطري', 'مرض بكتيري', 'مرض فيروسي', 'نقص عناصر', 'إجهاد بيئي', 'حشرة ضارة', 'حشرة نافعة', 'نبات سليم', 'غير محدد'] },
+            problemType: { type: Type.STRING, enum: ['مرض', 'حشرة', 'نقص عناصر', 'سليم'] },
+            cropName: { type: Type.STRING },
+            problemName: { type: Type.STRING },
+            problemNameEn: { type: Type.STRING },
+            scientificName: { type: Type.STRING },
+            confidenceScore: { type: Type.INTEGER },
+            needsClearerPhoto: { type: Type.BOOLEAN },
+            clarificationMessage: { type: Type.STRING },
+            conditionSummary: { type: Type.STRING },
+            visibleSymptoms: { type: Type.ARRAY, items: { type: Type.STRING } },
+            causes: { type: Type.ARRAY, items: { type: Type.STRING } },
+            severity: { type: Type.STRING, enum: ['منخفضة', 'متوسطة', 'عالية'] },
+            severityLabel: { type: Type.STRING },
+            treatmentSteps: { type: Type.ARRAY, items: { type: Type.STRING } },
+            organicRemedy: { type: Type.STRING },
+            preventionTips: { type: Type.ARRAY, items: { type: Type.STRING } },
+            pesticideNeeded: { type: Type.BOOLEAN },
+            pesticideProductAr: { type: Type.STRING },
+            pesticideProductEn: { type: Type.STRING },
+            pesticideDosage: { type: Type.STRING },
+            pesticideSafetyNote: { type: Type.STRING },
+            whenToContactEngineer: { type: Type.STRING },
+            omaniFarmingNote: { type: Type.STRING },
+            possibleConditions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            insectNature: { type: Type.STRING, enum: ['beneficial', 'harmful', 'neutral', 'none'] },
+            insectSex: { type: Type.STRING, enum: ['male', 'female', 'undetermined'] },
+            insectSexEvidence: { type: Type.STRING },
+            insectLifeStage: { type: Type.STRING, enum: ['egg', 'nymph', 'larva', 'pupa', 'adult', 'undetermined'] },
+            insectLifeStageLabel: { type: Type.STRING },
+            insectLifeStageEvidence: { type: Type.STRING },
+            insectInstar: { type: Type.STRING },
+            insectStageConfidence: { type: Type.INTEGER },
+            insectGeneration: { type: Type.STRING, enum: ['الجيل الربيعي', 'الجيل الخريفي', 'غير محدد'] },
+            insectGenerationEvidence: { type: Type.STRING },
+            insectTargetCrops: { type: Type.ARRAY, items: { type: Type.STRING } },
+            insectDamage: { type: Type.STRING },
+            insectLifeCycle: { type: Type.STRING },
+            insectControlMethod: { type: Type.STRING },
+            insectPrevention: { type: Type.STRING },
+          },
+          required: [
+            'isAgricultureRelated', 'detectedSubject', 'diagnosisCategory', 'problemType', 'cropName',
+            'problemName', 'problemNameEn', 'scientificName', 'confidenceScore', 'needsClearerPhoto',
+            'clarificationMessage', 'conditionSummary', 'visibleSymptoms', 'causes', 'severity',
+            'severityLabel', 'treatmentSteps', 'organicRemedy', 'preventionTips', 'pesticideNeeded',
+            'pesticideProductAr', 'pesticideProductEn', 'pesticideDosage', 'pesticideSafetyNote',
+            'whenToContactEngineer', 'omaniFarmingNote', 'possibleConditions', 'insectNature',
+            'insectSex', 'insectSexEvidence', 'insectLifeStage', 'insectLifeStageLabel',
+            'insectLifeStageEvidence', 'insectInstar', 'insectStageConfidence', 'insectGeneration',
+            'insectGenerationEvidence', 'insectTargetCrops', 'insectDamage', 'insectLifeCycle',
+            'insectControlMethod', 'insectPrevention',
+          ],
+        },
+      },
+    });
+
+    let lastModelError: any = null;
+    for (const model of ['gemini-4-hydrogen', 'gemini-3.8-flash']) {
+      try {
+        const geminiResponse = await generateDiagnosis(model);
+        if (!geminiResponse.text?.trim()) throw new Error('Gemini returned an empty diagnosis response.');
+        return geminiResponse.text;
+      } catch (error: any) {
+        lastModelError = error;
+        const status = Number(error?.status || error?.code || error?.error?.code);
+        const errorText = String(error?.message || error?.error?.message || '');
+        const transientFailure =
+          status === 429 ||
+          [500, 502, 503, 504].includes(status) ||
+          /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|overloaded/i.test(errorText);
+        if (!transientFailure) throw error;
+        console.warn(`[AgriVision] ${model} temporarily unavailable; trying Gemini fallback if available.`);
+      }
+    }
     throw lastModelError || new Error('خدمة التشخيص غير متاحة مؤقتاً.');
+  };
+
+  let responseText = '';
+  if (groqApiKey) {
+    try {
+      responseText = await generateWithGroq();
+      console.info('[AgriVision] diagnosis provider: Groq Qwen vision.');
+    } catch (groqError: any) {
+      console.warn(`[AgriVision] Groq vision unavailable (status=${groqError?.status || 'unknown'}); switching to Gemini fallback.`);
+      if (!geminiApiKey) throw groqError;
+      responseText = await generateWithGemini();
+    }
+  } else {
+    console.warn('[AgriVision] GROQ_API_KEY is not configured; using Gemini fallback.');
+    responseText = await generateWithGemini();
   }
 
-  const parsed = JSON.parse(response.text || '{}');
+  const parsed = JSON.parse(responseText || '{}');
 
   const isAgri = parsed.isAgricultureRelated === true;
   const rawConfidence = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0;
