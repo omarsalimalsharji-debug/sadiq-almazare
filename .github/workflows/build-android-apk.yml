@@ -169,5 +169,5 @@ jobs:
               owner, repo, path, branch,
               sha: current.data.sha,
               message: 'Enable in-app APK update notification [skip ci]',
-              content: Buffer.from(JSON.stringify(content, null, 2) + '\\n').toString('base64')
+              content: Buffer.from(JSON.stringify(content, null, 2) + '\n').toString('base64')
             });
