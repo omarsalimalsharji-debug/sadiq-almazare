@@ -305,8 +305,8 @@ export const CategoryHubView: React.FC<CategoryHubViewProps> = ({
           id: 'leaderboard',
           titleAr: 'لوحة المتصدرين وإنجازاتي',
           titleEn: 'Leaderboards & Rank',
-          subtitleAr: `ترتيبك #${user.rank || 1} · ${user.totalScore} نقطة`,
-          subtitleEn: `Rank #${user.rank || 1} · ${user.totalScore} points`,
+          subtitleAr: user.rank > 0 ? `ترتيبك #${user.rank} · ${user.totalScore} نقطة` : `${user.totalScore} نقطة · ابدأ جمع إنجازاتك`,
+          subtitleEn: user.rank > 0 ? `Rank #${user.rank} · ${user.totalScore} points` : `${user.totalScore} points · Start earning achievements`,
           icon: Trophy,
           tintClass:
             'bg-indigo-50/90 dark:bg-[#132247] border-indigo-200/90 dark:border-indigo-400/25 hover:border-indigo-400',
