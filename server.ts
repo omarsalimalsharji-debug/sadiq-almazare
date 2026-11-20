@@ -1599,16 +1599,28 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
       return null;
     }).filter(Boolean);
 
-    // Qwen Vision accepts up to 3 images and a 20 MB image payload.
-    // Skip Groq for oversized batches and let Gemini handle the original images.
+    // Qwen Vision accepts at most 3 images and a 20 MB image request.
+    // Measure the complete serialized HTTP body (including base64 expansion and prompt),
+    // not decoded image bytes, so the request stays safely below the provider limit.
     const groqImageParts = groqContent.filter((part: any) => part?.type === 'image_url');
-    const groqImageBytes = groqImageParts.reduce((total: number, part: any) => {
-      const dataUrl = String(part?.image_url?.url || '');
-      const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
-      return total + Buffer.byteLength(base64, 'base64');
-    }, 0);
-    if (groqImageParts.length > 3 || groqImageBytes > 14 * 1024 * 1024) {
-      const error: any = new Error('Groq image payload exceeds the safe request limit; using Gemini fallback.');
+    const groqRequestPayload = {
+      model: 'qwen/qwen3.8-27b',
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: groqContent },
+      ],
+      response_format: { type: 'json_object' },
+      reasoning_effort: 'none',
+      temperature: 0.2,
+      // Keep the response budget bounded while retaining the full diagnosis schema.
+      max_completion_tokens: 6144,
+      stream: false,
+    };
+    const groqRequestBody = JSON.stringify(groqRequestPayload);
+    const groqRequestBytes = Buffer.byteLength(groqRequestBody, 'utf8');
+    const groqSafeRequestLimit = 18 * 1024 * 1024;
+    if (groqImageParts.length > 3 || groqRequestBytes > groqSafeRequestLimit) {
+      const error: any = new Error('Groq image request exceeds the safe serialized payload limit; using Gemini fallback.');
       error.status = 413;
       error.providerCode = 'image_payload_too_large';
       throw error;
@@ -1620,19 +1632,7 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
         Authorization: `Bearer ${groqApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'qwen/qwen3.8-27b',
-        messages: [
-          { role: 'system', content: systemInstruction },
-          { role: 'user', content: groqContent },
-        ],
-        response_format: { type: 'json_object' },
-        reasoning_effort: 'none',
-        temperature: 0.2,
-        // Keep the response budget bounded while retaining the full diagnosis schema.
-        max_completion_tokens: 6144,
-        stream: false,
-      }),
+      body: groqRequestBody,
       signal: AbortSignal.timeout(45000),
     });
 
@@ -1740,7 +1740,7 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
     });
 
     let lastModelError: any = null;
-    for (const model of ['gemini-4-hydrogen', 'gemini-3.8-flash']) {
+    // Use public Gemini Developer API models with a published free tier; avoid the Antigravity-only Hydrogen model.\n    for (const model of ['gemini-3.8-flash', 'gemini-3.5-flash-lite']) {
       try {
         const geminiResponse = await generateDiagnosis(model);
         if (!geminiResponse.text?.trim()) throw new Error('Gemini returned an empty diagnosis response.');
