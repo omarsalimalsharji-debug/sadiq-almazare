@@ -11,7 +11,7 @@ test('regional crop-health library has unique stable IDs and resolvable sources'
   const ids = MURSHID_CORE_CROP_HEALTH.map((record) => record.id);
   assert.equal(new Set(ids).size, ids.length, 'record IDs must be unique');
 
-  const sourceIds = new Set(MURSHID_CORE_REFERENCE_SOURCES.map((source) => source.id));
+  const sourceIds = new Set<string>(MURSHID_CORE_REFERENCE_SOURCES.map((source) => source.id));
   for (const record of MURSHID_CORE_CROP_HEALTH) {
     assert.ok(record.sourceIds.length > 0, record.id);
     for (const sourceId of record.sourceIds) {
