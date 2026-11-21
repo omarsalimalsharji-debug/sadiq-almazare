@@ -26,6 +26,13 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
 from tqdm import tqdm
 
+try:
+    from quarantine import is_quarantined, load_quarantine_manifest
+except ModuleNotFoundError:  # Support `python -m ml.train_palm_leaf` as well.
+    from ml.quarantine import is_quarantined, load_quarantine_manifest
+
+DEFAULT_QUARANTINE_MANIFEST = Path(__file__).resolve().parent / "quarantine" / "saudi_date_palm_leaf_v2.json"
+
 ImageFile.LOAD_TRUNCATED_IMAGES = False
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 SEED = 42
@@ -48,14 +55,21 @@ def source_group(path: Path, root: Path) -> str:
     return f"{rel.parent.as_posix()}::{group_stem}"
 
 
-def load_records(root: Path):
+def load_records(root: Path, quarantine_manifest: Path = DEFAULT_QUARANTINE_MANIFEST):
     records = []
+    quarantine_index = load_quarantine_manifest(quarantine_manifest)
+    quarantined_count = 0
     classes = sorted(p.name for p in root.iterdir() if p.is_dir())
     if len(classes) < 2:
         raise SystemExit("Expected at least two class folders under --data-root")
     for label, class_name in enumerate(classes):
         for path in sorted((root / class_name).rglob("*")):
             if path.suffix.lower() not in EXTENSIONS:
+                continue
+            relative_path = path.relative_to(root).as_posix()
+            if is_quarantined(relative_path, class_name, quarantine_index):
+                print(f"QUARANTINE {relative_path}: HOLD_PENDING_REVIEW")
+                quarantined_count += 1
                 continue
             try:
                 with Image.open(path) as im:
@@ -69,7 +83,8 @@ def load_records(root: Path):
                 print(f"SKIP unreadable image {path}: {exc}")
     if not records:
         raise SystemExit("No readable images found")
-    return classes, records
+    print(f"Quarantine excluded images: {quarantined_count}")
+    return classes, records, quarantined_count
 
 
 def hamming(a: str, b: str) -> int:
@@ -171,6 +186,8 @@ def main():
     parser.add_argument("--batch-size", type=int, default=24)
     parser.add_argument("--image-size", type=int, default=224)
     parser.add_argument("--learning-rate", type=float, default=0.0003)
+    parser.add_argument("--quarantine-manifest", type=Path, default=DEFAULT_QUARANTINE_MANIFEST,
+                        help="Fail-closed image quarantine JSON manifest")
     args = parser.parse_args()
     random.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED)
     if args.data_root.name.lower() != "raw":
@@ -180,7 +197,12 @@ def main():
         raise SystemExit("Do not train from augmented/processed or evaluation folders.")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    classes, records = load_records(args.data_root)
+    classes, records, quarantined_count = load_records(args.data_root, args.quarantine_manifest)
+    (args.output_dir / "quarantine_summary.json").write_text(json.dumps({
+        "manifest": str(args.quarantine_manifest),
+        "excluded_images": quarantined_count,
+        "policy": "Only CLEARED_AFTER_REVIEW entries may enter any split."
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
     merge_duplicate_groups(records)
     counts = Counter(r["label"] for r in records)
     if any(counts[i] < 5 for i in range(len(classes))):
@@ -270,6 +292,7 @@ def main():
         "device": device,
         "classes": classes,
         "counts": {classes[i]: counts[i] for i in range(len(classes))},
+        "quarantined_excluded": quarantined_count,
         "split_sizes": {"train":len(train_idx),"validation":len(val_idx),"test":len(test_idx)},
         "validation_macro_f1": best_f1,
         "test_macro_f1": f1_score(y_true, y_pred, average="macro", zero_division=0),
