@@ -17,6 +17,10 @@ class QuarantineTests(unittest.TestCase):
     def setUp(self):
         self.index = load_quarantine_manifest(MANIFEST)
 
+    def test_iraq_manifest_is_separate_and_has_no_cross_class_holds_yet(self):
+        iraq = load_quarantine_manifest(ROOT / "quarantine" / "iraq_dubas_v2.json")
+        self.assertEqual(iraq, {})
+
     def test_manifest_contains_exactly_24_held_images(self):
         self.assertEqual(len(self.index), 24)
         self.assertTrue(all(
@@ -57,7 +61,7 @@ class QuarantineTests(unittest.TestCase):
         unique, removed = remove_exact_duplicate_records(records)
         self.assertEqual(len(unique), 2)
         self.assertEqual(removed, 1)
-        self.assertTrue(Path("a.jpg").exists() is False)  # Source files are untouched.
+        self.assertEqual([row["path"] for row in records], ["a.jpg", "b.jpg", "c.jpg"])
 
     def test_exact_duplicates_with_conflicting_labels_fail_closed(self):
         records = [
