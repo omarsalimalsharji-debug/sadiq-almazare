@@ -46,6 +46,9 @@ jobs:
       - name: Python training and reference pipeline syntax
         run: python -m py_compile ml/*.py ml/validate_reference_manifest.py
 
+      - name: Murshid quarantine unit tests
+        run: python -m unittest ml.test_quarantine -v
+
       - name: Murshid reference manifest validation
         run: |
           python ml/validate_reference_manifest.py --self-test
