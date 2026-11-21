@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Unit tests for Murshid's fail-closed dataset quarantine."""
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+from ml.quarantine import is_quarantined, load_quarantine_manifest
+
+ROOT = Path(__file__).resolve().parent
+MANIFEST = ROOT / "quarantine" / "saudi_date_palm_leaf_v2.json"
+
+
+class QuarantineTests(unittest.TestCase):
+    def setUp(self):
+        self.index = load_quarantine_manifest(MANIFEST)
+
+    def test_manifest_contains_exactly_24_held_images(self):
+        self.assertEqual(len(self.index), 24)
+        self.assertTrue(all(
+            row["status"] == "HOLD_PENDING_REVIEW"
+            for row in self.index.values()
+        ))
+
+    def test_all_manifest_images_are_excluded(self):
+        for relative, row in self.index.items():
+            with self.subTest(path=relative):
+                self.assertTrue(is_quarantined(relative, row["class_name"], self.index))
+
+    def test_ordinary_image_is_accepted(self):
+        self.assertFalse(is_quarantined(
+            "1. Potassium Deficiency/not-listed-image.jpg",
+            "1. Potassium Deficiency",
+            self.index,
+        ))
+
+    def test_class_mismatch_fails_closed(self):
+        relative, row = next(iter(self.index.items()))
+        with self.assertRaises(ValueError):
+            is_quarantined(relative, "incorrect class", self.index)
+
+    def test_only_explicit_manual_clearance_releases_image(self):
+        relative, row = next(iter(self.index.items()))
+        self.index[relative]["status"] = "CLEARED_AFTER_REVIEW"
+        self.assertFalse(is_quarantined(relative, row["class_name"], self.index))
+        self.index[relative]["status"] = "EXCLUDE_FROM_TRAINING"
+        self.assertTrue(is_quarantined(relative, row["class_name"], self.index))
+
+    def test_manifest_rejects_duplicate_or_unsafe_paths(self):
+        from ml.quarantine import normalize_relative_path
+        with self.assertRaises(ValueError):
+            normalize_relative_path("../outside.jpg")
+        with self.assertRaises(ValueError):
+            normalize_relative_path("/absolute/image.jpg")
+
+
+if __name__ == "__main__":
+    unittest.main()
