@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ml.quarantine import is_quarantined, load_quarantine_manifest
+from ml.quarantine import (is_quarantined, load_quarantine_manifest, remove_exact_duplicate_records)
 
 ROOT = Path(__file__).resolve().parent
 MANIFEST = ROOT / "quarantine" / "saudi_date_palm_leaf_v2.json"
@@ -47,6 +47,25 @@ class QuarantineTests(unittest.TestCase):
         self.assertFalse(is_quarantined(relative, row["class_name"], self.index))
         self.index[relative]["status"] = "EXCLUDE_FROM_TRAINING"
         self.assertTrue(is_quarantined(relative, row["class_name"], self.index))
+
+    def test_exact_same_class_duplicates_are_deduplicated_in_memory(self):
+        records = [
+            {"sha": "abc", "class": "Bug", "path": "a.jpg"},
+            {"sha": "abc", "class": "Bug", "path": "b.jpg"},
+            {"sha": "def", "class": "Healthy", "path": "c.jpg"},
+        ]
+        unique, removed = remove_exact_duplicate_records(records)
+        self.assertEqual(len(unique), 2)
+        self.assertEqual(removed, 1)
+        self.assertTrue(Path("a.jpg").exists() is False)  # Source files are untouched.
+
+    def test_exact_duplicates_with_conflicting_labels_fail_closed(self):
+        records = [
+            {"sha": "same", "class": "Bug"},
+            {"sha": "same", "class": "Honey"},
+        ]
+        with self.assertRaisesRegex(ValueError, "conflicting labels"):
+            remove_exact_duplicate_records(records)
 
     def test_manifest_rejects_duplicate_or_unsafe_paths(self):
         from ml.quarantine import normalize_relative_path, load_quarantine_manifest
