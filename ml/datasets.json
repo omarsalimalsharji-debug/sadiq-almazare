@@ -52,9 +52,41 @@
       ],
       "limitations": [
         "Not Oman data",
-        "Drone imagery and field-scale domain differ from phone macro images"
+        "Drone imagery and field-scale domain differ from phone macro images",
+        "Folder mapping is based on the source paper; confirm extracted folder names and counts before training.",
+        "Preliminary local audit found 57 same-class exact duplicate groups (63 redundant copies); no cross-class exact duplicates.",
+        "Perceptual near-duplicate audit remains pending; use grouped perceptual hashing and inspect cross-class candidates before production use.",
+        "This task is separate from the Saudi leaf-disorder model and must not be merged into one label head."
       ],
-      "citation": "Al-Mahmood et al., Data in Brief 49 (2023), 109371, DOI 10.1016/j.dib.2023.109371"
+      "citation": "Al-Mahmood et al., Data in Brief 49 (2023), 109371, DOI 10.1016/j.dib.2023.109371",
+      "folderMapping": {
+        "Bug": "bugs_only",
+        "Dubas": "bugs_and_honeydew",
+        "Healthy": "healthy",
+        "Honey": "honeydew_only"
+      },
+      "labelProvenance": "Source folder labels mapped to the four classes described in the original Data in Brief paper; no independent agronomist relabeling has been performed.",
+      "localAudit": {
+        "status": "preliminary-local-audit",
+        "totalImages": 3000,
+        "classCounts": {
+          "Bug": 600,
+          "Dubas": 800,
+          "Healthy": 800,
+          "Honey": 800
+        },
+        "readableImages": 3000,
+        "unreadableImages": 0,
+        "exactDuplicateGroups": 57,
+        "redundantExactCopies": 63,
+        "crossClassExactDuplicateGroups": 0,
+        "notes": [
+          "Exact duplicate findings are byte-level SHA-256 matches from the user's extracted local copy.",
+          "No images were deleted or modified.",
+          "Perceptual near-duplicate audit has not yet been run on this Iraq dataset.",
+          "Exact duplicate copies must be excluded in-memory; original files remain unchanged."
+        ]
+      }
     },
     {
       "id": "figshare-rpw-2025",
