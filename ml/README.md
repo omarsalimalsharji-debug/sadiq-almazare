@@ -54,10 +54,11 @@ If the public API requires authorization, download the same archive using **Down
 Python 3.11+ recommended. Install `pip install -r ml/requirements.txt`.
 
 ```bash
-python ml/train_palm_leaf.py --data-root ml/datasets/g684ghfxvg/raw --output-dir ml/runs/palm-leaf-madinah --epochs 20
+python -m unittest ml.test_quarantine -v
+python ml/train_palm_leaf.py --data-root ml/datasets/g684ghfxvg/raw --output-dir ml/runs/palm-leaf-madinah --epochs 20 --quarantine-manifest ml/quarantine/saudi_date_palm_leaf_v2.json
 ```
 
-The input directory must have one directory per class. The script creates grouped train/validation/test splits, deduplicates exact and near-identical images, trains MobileNetV3-Small as a lightweight baseline, writes per-class metrics and exports ONNX. It is not the final high-capacity architecture; see `docs/MURSHID_VISION_ARCHITECTURE.md` for the selected multi-model roadmap. It uses original file groups where the source filenames encode a shared frond/plant; it also clusters perceptual near-duplicates before splitting. Review the generated split manifest before accepting results.
+The input directory must have one directory per class. Before any split is created, the script applies the fail-closed quarantine manifest and excludes every image not explicitly marked CLEARED_AFTER_REVIEW. The Saudi dataset manifest currently holds 24 cross-class visual-similarity candidates. The script then creates grouped train/validation/test splits, deduplicates exact and near-identical images, trains MobileNetV3-Small as a lightweight baseline, writes per-class metrics and exports ONNX. It is not the final high-capacity architecture; see `docs/MURSHID_VISION_ARCHITECTURE.md` for the selected multi-model roadmap. It uses original file groups where the source filenames encode a shared frond/plant; it also clusters perceptual near-duplicates before splitting. Review the generated split manifest before accepting results.
 
 ## Evaluate and release gate
 
@@ -76,3 +77,8 @@ Pipeline code is a research scaffold. No image archives have been downloaded int
 
 ## Description-only diagnosis
 The existing diagnosis view also accepts a written symptom description without an image (minimum 20 characters). The server prompt explicitly forbids visual claims in this mode. This is still an AI-assisted differential assessment, not a trained local vision model or a lab diagnosis.
+
+
+## Image quarantine
+
+See [`quarantine/README_AR.md`](quarantine/README_AR.md) for the Arabic review and release procedure. The trainer reads `ml/quarantine/saudi_date_palm_leaf_v2.json` before loading/splitting images. If the manifest is missing or invalid, training stops; only the explicit status `CLEARED_AFTER_REVIEW` releases an image. The output directory includes `quarantine_summary.json` and `metrics.json` records the number excluded. Run `python -m unittest ml.test_quarantine -v` to test the quarantine rules.
