@@ -2,6 +2,8 @@
 """Unit tests for Murshid's fail-closed dataset quarantine."""
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -47,11 +49,28 @@ class QuarantineTests(unittest.TestCase):
         self.assertTrue(is_quarantined(relative, row["class_name"], self.index))
 
     def test_manifest_rejects_duplicate_or_unsafe_paths(self):
-        from ml.quarantine import normalize_relative_path
+        from ml.quarantine import normalize_relative_path, load_quarantine_manifest
+
         with self.assertRaises(ValueError):
             normalize_relative_path("../outside.jpg")
         with self.assertRaises(ValueError):
             normalize_relative_path("/absolute/image.jpg")
+
+        duplicate = {
+            "schema_version": "1.0.0",
+            "dataset_id": "test-dataset",
+            "records": [
+                {"pair_id": "P1", "raw_relative_path": "class/image.jpg",
+                 "class_name": "class", "status": "HOLD_PENDING_REVIEW"},
+                {"pair_id": "P2", "raw_relative_path": "class/image.jpg",
+                 "class_name": "class", "status": "HOLD_PENDING_REVIEW"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "duplicate.json"
+            path.write_text(json.dumps(duplicate), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Duplicate quarantine path"):
+                load_quarantine_manifest(path)
 
 
 if __name__ == "__main__":
