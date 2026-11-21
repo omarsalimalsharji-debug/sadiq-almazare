@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "2nh364p2bc",
+  "dataset_version": 2,
+  "task": "dubas-leaf-drone-classification",
+  "source_archive": "Image dataset of infected date palm leaves by dubas insects.zip",
+  "source_location": "Aoun district, Karbala, Iraq",
+  "class_mapping": {
+    "Bug": "bugs_only",
+    "Dubas": "bugs_and_honeydew",
+    "Healthy": "healthy",
+    "Honey": "honeydew_only"
+  },
+  "records": [],
+  "policy": "Separate four-class Dubas task. Source labels remain as supplied. Any future cross-class visual-similarity candidates must be added as HOLD_PENDING_REVIEW before training."
+}
