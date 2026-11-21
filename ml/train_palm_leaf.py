@@ -27,9 +27,9 @@ from torchvision import models, transforms
 from tqdm import tqdm
 
 try:
-    from quarantine import is_quarantined, load_quarantine_manifest
+    from quarantine import is_quarantined, load_quarantine_manifest, remove_exact_duplicate_records
 except ModuleNotFoundError:  # Support `python -m ml.train_palm_leaf` as well.
-    from ml.quarantine import is_quarantined, load_quarantine_manifest
+    from ml.quarantine import is_quarantined, load_quarantine_manifest, remove_exact_duplicate_records
 
 DEFAULT_QUARANTINE_MANIFEST = Path(__file__).resolve().parent / "quarantine" / "saudi_date_palm_leaf_v2.json"
 
@@ -83,8 +83,13 @@ def load_records(root: Path, quarantine_manifest: Path = DEFAULT_QUARANTINE_MANI
                 print(f"SKIP unreadable image {path}: {exc}")
     if not records:
         raise SystemExit("No readable images found")
+    try:
+        records, exact_duplicates_removed = remove_exact_duplicate_records(records)
+    except ValueError as exc:
+        raise SystemExit(f"Unsafe exact-duplicate labels: {exc}") from exc
     print(f"Quarantine excluded images: {quarantined_count}")
-    return classes, records, quarantined_count
+    print(f"Exact duplicate copies excluded in-memory: {exact_duplicates_removed}")
+    return classes, records, quarantined_count, exact_duplicates_removed
 
 
 def hamming(a: str, b: str) -> int:
@@ -197,11 +202,12 @@ def main():
         raise SystemExit("Do not train from augmented/processed or evaluation folders.")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    classes, records, quarantined_count = load_records(args.data_root, args.quarantine_manifest)
+    classes, records, quarantined_count, exact_duplicates_removed = load_records(args.data_root, args.quarantine_manifest)
     (args.output_dir / "quarantine_summary.json").write_text(json.dumps({
         "manifest": str(args.quarantine_manifest),
         "excluded_images": quarantined_count,
-        "policy": "Only CLEARED_AFTER_REVIEW entries may enter any split."
+        "exact_duplicate_copies_excluded_in_memory": exact_duplicates_removed,
+        "policy": "Only CLEARED_AFTER_REVIEW entries may enter any split; exact duplicate copies are deduplicated in-memory."
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     merge_duplicate_groups(records)
     counts = Counter(r["label"] for r in records)
@@ -293,6 +299,7 @@ def main():
         "classes": classes,
         "counts": {classes[i]: counts[i] for i in range(len(classes))},
         "quarantined_excluded": quarantined_count,
+        "exact_duplicate_copies_excluded": exact_duplicates_removed,
         "split_sizes": {"train":len(train_idx),"validation":len(val_idx),"test":len(test_idx)},
         "validation_macro_f1": best_f1,
         "test_macro_f1": f1_score(y_true, y_pred, average="macro", zero_division=0),
