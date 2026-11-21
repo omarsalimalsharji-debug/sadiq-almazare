@@ -82,3 +82,8 @@ The existing diagnosis view also accepts a written symptom description without a
 ## Image quarantine
 
 See [`quarantine/README_AR.md`](quarantine/README_AR.md) for the Arabic review and release procedure. The trainer reads `ml/quarantine/saudi_date_palm_leaf_v2.json` before loading/splitting images. If the manifest is missing or invalid, training stops; only the explicit status `CLEARED_AFTER_REVIEW` releases an image. The output directory includes `quarantine_summary.json` and `metrics.json` records the number excluded. Run `python -m unittest ml.test_quarantine -v` to test the quarantine rules.
+
+
+## Iraq Dubas dataset (separate task)
+
+See [Arabic dataset review guide](datasets/IRAQ_DUBAS_V2_AR.md). Use the dedicated quarantine manifest `ml/quarantine/iraq_dubas_v2.json` and a separate output directory/model head. The trainer excludes exact byte-identical copies in memory (without deleting originals) and fails closed if identical bytes carry conflicting class labels. Near-duplicate clusters are kept within one split; inspect cross-class candidates before considering this dataset ready for production.
