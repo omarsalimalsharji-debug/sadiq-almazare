@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "policy": "Do not redistribute images. Download from original repositories, retain attribution and licence, and collect Oman field photos with explicit owner consent.",
+  "datasets": [
+    {
+      "id": "g684ghfxvg",
+      "version": 2,
+      "doi": "10.17632/g684ghfxvg.2",
+      "name": "Diseases of date palm leaves dataset",
+      "url": "https://data.mendeley.com/datasets/g684ghfxvg/2",
+      "geography": "Madinah, Saudi Arabia",
+      "license": "CC-BY-4.0",
+      "task": "date-palm-leaf-disorder-classification",
+      "reportedOriginalImages": 608,
+      "reportedProcessedImages": 3089,
+      "primaryUse": "raw-originals-only",
+      "classes": [
+        "healthy",
+        "potassium_deficiency",
+        "manganese_deficiency",
+        "magnesium_deficiency",
+        "black_scorch",
+        "leaf_spots",
+        "fusarium_wilt",
+        "rachis_blight",
+        "parlatoria_scale"
+      ],
+      "limitations": [
+        "Not Oman data",
+        "Only leaf/leaflet symptoms",
+        "Augmented images must not enter test split",
+        "Small number of farms; farm-level holdout needed"
+      ],
+      "citation": "Namoun et al., Data in Brief 57 (2024), 110933, DOI 10.1016/j.dib.2024.110933"
+    },
+    {
+      "id": "2nh364p2bc",
+      "version": 2,
+      "doi": "10.17632/2nh364p2bc.2",
+      "name": "Image dataset of infected date palm leaves by dubas insects",
+      "url": "https://data.mendeley.com/datasets/2nh364p2bc/2",
+      "geography": "Karbala, Iraq",
+      "license": "CC-BY-4.0",
+      "task": "dubas-leaf-drone-classification",
+      "reportedImages": 3000,
+      "primaryUse": "separate-task",
+      "classes": [
+        "healthy",
+        "bugs_only",
+        "honeydew_only",
+        "bugs_and_honeydew"
+      ],
+      "limitations": [
+        "Not Oman data",
+        "Drone imagery and field-scale domain differ from phone macro images",
+        "Folder mapping is based on the source paper; confirm extracted folder names and counts before training.",
+        "Preliminary local audit found 57 same-class exact duplicate groups (63 redundant copies); no cross-class exact duplicates.",
+        "Perceptual near-duplicate audit remains pending; use grouped perceptual hashing and inspect cross-class candidates before production use.",
+        "This task is separate from the Saudi leaf-disorder model and must not be merged into one label head."
+      ],
+      "citation": "Al-Mahmood et al., Data in Brief 49 (2023), 109371, DOI 10.1016/j.dib.2023.109371",
+      "folderMapping": {
+        "Bug": "bugs_only",
+        "Dubas": "bugs_and_honeydew",
+        "Healthy": "healthy",
+        "Honey": "honeydew_only"
+      },
+      "labelProvenance": "Source folder labels mapped to the four classes described in the original Data in Brief paper; no independent agronomist relabeling has been performed.",
+      "localAudit": {
+        "status": "preliminary-local-audit",
+        "totalImages": 3000,
+        "classCounts": {
+          "Bug": 600,
+          "Dubas": 800,
+          "Healthy": 800,
+          "Honey": 800
+        },
+        "readableImages": 3000,
+        "unreadableImages": 0,
+        "exactDuplicateGroups": 57,
+        "redundantExactCopies": 63,
+        "crossClassExactDuplicateGroups": 0,
+        "notes": [
+          "Exact duplicate findings are byte-level SHA-256 matches from the user's extracted local copy.",
+          "No images were deleted or modified.",
+          "Perceptual near-duplicate audit has not yet been run on this Iraq dataset.",
+          "Exact duplicate copies must be excluded in-memory; original files remain unchanged."
+        ]
+      }
+    },
+    {
+      "id": "figshare-rpw-2025",
+      "name": "Date palm RGB and thermal images for red palm weevil pest management",
+      "url": "https://figshare.com/articles/dataset/A_Dataset_of_Date_Palm_Trees_Thermal_and_RGB_Images_for_Pest_Management_/25974295",
+      "geography": "Khairpur, Pakistan",
+      "license": "CC-BY-4.0 article; verify dataset terms before reuse",
+      "task": "date-palm-tree-rpw-status-multimodal",
+      "reportedImages": 832,
+      "primaryUse": "separate-tree-level-task",
+      "classes": [
+        "non_infected",
+        "infected",
+        "badly_damaged",
+        "dead"
+      ],
+      "limitations": [
+        "Labels partly based on farmer feedback",
+        "RGB and thermal modalities must be separated and documented",
+        "Not an Omani validation set",
+        "RGB alone cannot confirm or exclude internal trunk infestation"
+      ],
+      "citation": "Nadeem et al., Frontiers in Agronomy 7 (2025), DOI 10.3389/fagro.2025.1604188"
+    },
+    {
+      "id": "oman-field-collection",
+      "name": "Omani field image collection",
+      "geography": "Oman",
+      "license": "owner-consented internal research; confirm terms before any public release",
+      "task": "oman-domain-adaptation-and-held-out-validation",
+      "reportedImages": 0,
+      "primaryUse": "required-before-production",
+      "classes": [
+        "healthy",
+        "disease_or_pest_confirmed",
+        "nutrient_or_abiotic_stress",
+        "uncertain"
+      ],
+      "limitations": [
+        "Requires images captured in Oman",
+        "Requires farm/tree-level metadata and qualified label review"
+      ]
+    },
+    {
+      "id": "8d9fv6kpt3",
+      "version": 3,
+      "doi": "10.17632/8d9fv6kpt3.3",
+      "name": "Large-Scale Lemon Leaf Disease and Pest Image Dataset from Bangladesh",
+      "url": "https://data.mendeley.com/datasets/8d9fv6kpt3/3",
+      "geography": "Four locations in Bangladesh",
+      "license": "CC-BY-4.0",
+      "task": "lemon-leaf-disease-pest-deficiency-classification",
+      "reportedOriginalImages": 17586,
+      "primaryUse": "separate-citrus-task",
+      "classes": [
+        "healthy",
+        "algal_leaf_spot",
+        "anthracnose",
+        "bacterial_blight",
+        "black_spot",
+        "citrus_canker",
+        "citrus_scab",
+        "curl_leaf",
+        "dry_leaf",
+        "greening",
+        "lemon_sooty_mold",
+        "melanose",
+        "yellow_spot",
+        "pest_class_1",
+        "pest_class_2",
+        "pest_class_3",
+        "pest_class_4",
+        "deficiency_related_damage"
+      ],
+      "limitations": [
+        "Not Oman data; Bangladesh only",
+        "Images collected against plain white backgrounds; field-domain shift expected",
+        "Review exact pest sub-class names and expert label metadata before mapping into the app taxonomy"
+      ],
+      "citation": "Arifen et al. (2026), Mendeley Data V3, DOI 10.17632/8d9fv6kpt3.3"
+    },
+    {
+      "id": "ccwh64fr2r",
+      "version": 2,
+      "doi": "10.17632/ccwh64fr2r.2",
+      "name": "LemonLENS real-world multi-class lemon leaf disease dataset",
+      "url": "https://data.mendeley.com/datasets/ccwh64fr2r/2",
+      "geography": "Baburhat, Chandpur, Bangladesh",
+      "license": "CC-BY-4.0",
+      "task": "lemon-leaf-disease-classification",
+      "reportedImages": 4500,
+      "primaryUse": "separate-citrus-task",
+      "classes": [
+        "algal_leaf_spot",
+        "black_spot",
+        "citrus_canker",
+        "citrus_pest",
+        "citrus_scab",
+        "greening",
+        "healthy_leaf",
+        "leaf_curl",
+        "yellow_spot"
+      ],
+      "limitations": [
+        "Not Oman data",
+        "Check archive folder structure and any processed/augmented derivatives before training"
+      ],
+      "citation": "Sagor and Ahmed (2025), Mendeley Data V2, DOI 10.17632/ccwh64fr2r.2"
+    },
+    {
+      "id": "643f5bbc2t",
+      "version": 6,
+      "doi": "10.17632/643f5bbc2t.6",
+      "name": "BDLemonLeaf healthy and diseased lemon leaves",
+      "url": "https://data.mendeley.com/datasets/643f5bbc2t/6",
+      "geography": "Dhaka, Bangladesh",
+      "license": "CC-BY-4.0",
+      "task": "lemon-leaf-disease-detection-and-classification",
+      "reportedImages": 3431,
+      "primaryUse": "separate-citrus-task",
+      "classes": [
+        "healthy",
+        "anthracnose",
+        "bacterial_blight",
+        "black_spot",
+        "citrus_canker",
+        "citrus_hindu_mite",
+        "citrus_leafminer",
+        "curl_leaf",
+        "deficiency",
+        "dry_leaf",
+        "greening",
+        "melanose",
+        "spider_mites"
+      ],
+      "limitations": [
+        "Not Oman data",
+        "Annotation boxes and folder hierarchy require review before classification training"
+      ],
+      "citation": "Das et al. (2025), Mendeley Data V6, DOI 10.17632/643f5bbc2t.6"
+    },
+    {
+      "id": "plantdoc-2019",
+      "name": "PlantDoc field plant-disease image dataset",
+      "url": "https://github.com/pratikkayal/PlantDoc-Dataset",
+      "geography": "Multi-country web-sourced images; original capture geography varies/unknown",
+      "license": "CC-BY-4.0 stated by repository; underlying scraped-image rights require item-level review",
+      "licenseStatus": "review-required-before-training-or-redistribution",
+      "task": "multi-crop-field-disease-classification-and-detection",
+      "reportedImages": 2598,
+      "primaryUse": "research-domain-transfer-only-until-image-rights-reviewed",
+      "limitations": [
+        "Images were annotated from internet-scraped sources; repository licence may not clear every underlying photograph",
+        "Mixed crops and heterogeneous capture conditions",
+        "Do not treat source geography or crop labels as locally validated",
+        "Review provenance and duplicate relationships before training"
+      ],
+      "citation": "Singh et al. (2020), PlantDoc: A Dataset for Visual Plant Disease Detection, DOI 10.1145/3371158.3371196"
+    },
+    {
+      "id": "plantvillage-2016",
+      "name": "PlantVillage plant disease image dataset",
+      "url": "https://github.com/spMohanty/PlantVillage-Dataset",
+      "alternateUrl": "https://huggingface.co/datasets/mohanty/PlantVillage",
+      "geography": "United States / controlled or laboratory-like image conditions",
+      "license": "CC-BY-SA-3.0 stated on dataset card; source repository licensing is not fully consistent",
+      "licenseStatus": "review-required-before-commercial-training-or-distribution",
+      "task": "multi-crop-leaf-disease-classification",
+      "reportedImages": 54306,
+      "primaryUse": "benchmark-and-domain-gap-study-only-until-license-cleared",
+      "limitations": [
+        "Detached leaves and controlled backgrounds differ from real farm photography",
+        "High risk of learning background and capture artifacts",
+        "Verify exact archive snapshot and licence before use",
+        "Not suitable as sole training or validation evidence"
+      ],
+      "citation": "Mohanty, Hughes and Salathé (2016), Using Deep Learning for Image-Based Plant Disease Detection, DOI 10.3389/fpls.2016.01419"
+    },
+    {
+      "id": "ip102-2019",
+      "name": "IP102 insect pest recognition dataset",
+      "url": "https://github.com/xpwu95/IP102",
+      "geography": "Multi-region internet-sourced insect images",
+      "license": "Academic-use-only / non-commercial terms reported; exact terms must be checked at source",
+      "licenseStatus": "blocked-for-commercial-app-training-until-permission",
+      "task": "insect-pest-classification-and-detection",
+      "reportedImages": 75000,
+      "reportedClasses": 102,
+      "primaryUse": "academic-benchmark-only-unless-commercial-rights-obtained",
+      "limitations": [
+        "Do not use in a commercial product training pipeline without written rights clearance",
+        "Class imbalance and image-source variation",
+        "Not crop-specific diagnosis by itself",
+        "Check taxonomic names and class mapping"
+      ],
+      "citation": "Wu et al. (2019), IP102: A Large-Scale Benchmark Dataset for Insect Pest Recognition"
+    }
+  ]
+}

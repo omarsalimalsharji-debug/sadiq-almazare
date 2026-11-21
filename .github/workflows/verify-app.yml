@@ -40,5 +40,19 @@ jobs:
       - name: TypeScript check
         run: npm run lint
 
+      - name: Unit tests
+        run: npm test
+
+      - name: Python training and reference pipeline syntax
+        run: python -m py_compile ml/*.py ml/validate_reference_manifest.py
+
+      - name: Murshid quarantine unit tests
+        run: python -m unittest ml.test_quarantine -v
+
+      - name: Murshid reference manifest validation
+        run: |
+          python ml/validate_reference_manifest.py --self-test
+          python ml/validate_reference_manifest.py
+
       - name: Production build
         run: npm run build

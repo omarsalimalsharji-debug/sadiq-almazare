@@ -1556,8 +1556,9 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
     });
   });
 
-  const hintText =
-    modeHint === 'insect'
+  const hintText = images.length === 0
+    ? 'هذا طلب تشخيص وصفي بلا صورة: لا تدّعِ رؤية علامة بصرية أو لون أو شكل لم يذكره المستخدم. اعتمد فقط على الأعراض الموصوفة، واذكر الاحتمالات التفريقية والأسئلة الناقصة، وصرّح بأن التحقق البصري أو المخبري غير متاح.'
+    : modeHint === 'insect'
       ? 'تلميح سياقي: المستخدم فتح الأداة من قسم الحشرات، لكن اعتمد على ما تراه فعلياً في الصورة (قد تكون نباتاً أو حشرة نافعة أو ضارة).'
       : 'ميّز تلقائياً من الصورة هل هي لنبات/ورقة أم حشرة (نافعة أم ضارة) أم غير واضحة.';
 
@@ -1567,13 +1568,13 @@ ${OMANI_FIELD_CROP_DIAGNOSTIC_GUIDE}
 
   parts.push({
     text: `معلومات إضافية اختيارية من المزارع:
-- المحصول المذكور (إن وجد): ${cropName || 'غير محدد — استنتجه من الصورة إن أمكن'}
+- المحصول المذكور (إن وجد): ${cropName || (images.length === 0 ? 'غير محدد؛ اسأل المستخدم عند الحاجة' : 'غير محدد — استنتجه من الصورة إن أمكن')}
 - الموقع الزراعي في سلطنة عُمان: ${locationLabel}
 - النطاق المناخي الزراعي: ${agroZone || 'عُمان العام'}
 - ملاحظات المزارع: ${observations || 'لا توجد ملاحظات نصية — اعتمد على تحليل الصورة'}
 - ${hintText}
 
-راعِ البيئة المناخية للمنطقة المذكورة عند كتابة omaniFarmingNote والنصائح الوقائية، وحلل الصورة بدقة علمية الآن وأخرج JSON فقط.`,
+راعِ البيئة المناخية للمنطقة المذكورة عند كتابة omaniFarmingNote والنصائح الوقائية. ${images.length === 0 ? 'حلّل الوصف النصي فقط دون افتراض رؤية صورة، واذكر ما لا يمكن تأكيده دون صورة أو فحص.' : 'حلّل الصورة بدقة علمية مع التمييز بين العلامات المرئية والاستنتاجات.'} أخرج JSON فقط.`,
   });
 
   // Groq vision is the primary diagnosis provider; Gemini remains the server-side fallback.
@@ -2133,9 +2134,10 @@ async function handleSmartDiagnosisRequest(
       }
     }
 
-    if (validImages.length === 0) {
+    const cleanObs = String(observations || symptoms || pestDescription || '').trim().slice(0, 1000);
+    if (validImages.length === 0 && cleanObs.length < 20) {
       return res.status(400).json({
-        error: 'يرجى التقاط أو اختيار صورة واحدة واضحة للنبات أو الحشرة لبدء التشخيص.',
+        error: 'أرفق صورة واضحة، أو اكتب وصفاً لا يقل عن 20 حرفاً يتضمن الأعراض ووقت ظهورها والمحصول.',
       });
     }
 
@@ -2144,7 +2146,6 @@ async function handleSmartDiagnosisRequest(
     const cleanWilayat = String(wilayat || '').trim().slice(0, 100);
     const cleanVillage = String(village || '').trim().slice(0, 100);
     const cleanAgroZone = String(agroZone || '').trim().slice(0, 60);
-    const cleanObs = String(observations || symptoms || pestDescription || '').trim().slice(0, 1000);
     const effectiveMode: 'auto' | 'plant' | 'insect' =
       modeHint === 'insect' || modeHint === 'plant' || modeHint === 'auto' ? modeHint : defaultModeHint;
 
