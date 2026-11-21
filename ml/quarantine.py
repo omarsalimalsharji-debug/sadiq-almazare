@@ -71,3 +71,31 @@ def is_quarantined(relative_path: str, class_name: str,
             f"manifest={entry['class_name']!r}, dataset={class_name!r}"
         )
     return entry["status"] != "CLEARED_AFTER_REVIEW"
+
+
+def remove_exact_duplicate_records(records):
+    """Drop repeated byte-identical files in-memory; never delete source files.
+
+    Identical bytes with conflicting class labels are a hard error, not a
+    reason to silently choose one label.
+    """
+    unique = []
+    seen: dict[str, dict[str, Any]] = {}
+    removed = 0
+    for record in records:
+        digest = record.get("sha")
+        class_name = record.get("class")
+        if not digest or not class_name:
+            raise ValueError("Training records require sha and class fields")
+        previous = seen.get(digest)
+        if previous is None:
+            seen[digest] = record
+            unique.append(record)
+            continue
+        if previous["class"] != class_name:
+            raise ValueError(
+                "Exact duplicate bytes have conflicting labels: "
+                f"{previous['class']!r} vs {class_name!r}"
+            )
+        removed += 1
+    return unique, removed
